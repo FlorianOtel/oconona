@@ -1,0 +1,23 @@
+# Orchestra runtime state — never commit these
+*.env
+*.log
+PLAN.md
+TASKS.json
+review-comments.md
+brain-state.md
+auto-progress.md
+auto-halt-*.md
+auto-summary-*.md
+halts/
+logs/
+
+# OpenCode project-level directory — entirely runtime; never commit
+# (agents and commands live in top-level agents/ and commands/ instead)
+.opencode/
+.claude/
+
+# Editor / OS
+.DS_Store
+*~
+*.swp
+utils/codebase_snapshot.md

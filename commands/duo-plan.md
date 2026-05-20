@@ -1,0 +1,212 @@
+---
+description: Open a /duo planning session — sets up artifacts, drafts initial PLAN.md, and yields back for multi-turn refinement. This is the start of a planning discussion. Run /duo-act to commit and execute, or /duo-abandon to cancel.
+---
+
+# /duo-plan — open a planning session
+
+You are running the **duo** pipeline. `/duo-plan` opens a multi-turn planning session: it does setup, drafts an initial `PLAN.md`, and **yields control back** to the operator for refinement. ExitPlanMode is **not** called here; refinement happens across subsequent normal plan-mode turns until the operator runs `/duo-act` (commit + execute) or `/duo-abandon` (cancel).
+
+There is no Phase 0 RESEARCH (use `/brain` if you need formal interrogation). There is no Reviewer.
+
+> **PLAN-MODE OVERRIDE — run setup bash immediately**: The refusal check and session setup bash calls below are /duo lifecycle management, not project-code edits. They MUST be executed at the start of this response, before any exploration. The plan-mode "MUST NOT run non-readonly tools" constraint does NOT apply to them. Skipping them means `.duo-inflight` is never written, /duo mode never activates, and no badge appears.
+
+Use `/duo` when the task is simple enough that a plan + execute is sufficient, and you don't need a review loop.
+
+## When to use /duo vs /brain
+
+| Situation | Use |
+|---|---|
+| Simple, well-scoped, ≤ 10 steps, low blast-radius | `/duo` |
+| Multi-file refactor, architecture change, anything where review matters | `/brain` |
+
+
+## Prerequisites
+
+1. **Plan mode is active.** If not, stop and say:
+   > "Please enter plan mode first (Shift+Tab), then run `/duo-plan` again."
+2. **Bypass-flattens-down caveat.** Same as `/brain`: if the operator launched the parent with `--dangerously-skip-permissions`, Actor inherits bypass and the Plan-Then-Execute gate is decorative.
+
+## Refusal — one active /duo session per project
+
+Before setup, refuse if any `.duo-inflight` already exists under
+`${OPENCODE_PROJECT_DIR}/.opencode/orchestra/sessions/*/`. The session-bracketed
+design assumes a single active /duo session at a time; concurrent sessions are
+out of scope.
+
+Run via `Bash`:
+
+```bash
+OPENCODE_PROJECT_DIR="$(realpath "${OPENCODE_PROJECT_DIR:-$(pwd)}" 2>/dev/null || echo "${OPENCODE_PROJECT_DIR:-$(pwd)}")"
+SESSIONS_ROOT="${OPENCODE_PROJECT_DIR}/.opencode/orchestra/sessions"
+EXISTING=""
+if [ -d "$SESSIONS_ROOT" ]; then
+  EXISTING="$(find "$SESSIONS_ROOT" -mindepth 2 -maxdepth 2 -name '.duo-inflight' 2>/dev/null | head -1)"
+fi
+if [ -n "$EXISTING" ]; then
+  ACTIVE_DIR="$(dirname "$EXISTING")"
+  echo "REFUSE: an active /duo session already exists at:"
+  echo "  ${ACTIVE_DIR}"
+  echo "Run /duo-act to commit it, or /duo-abandon to cancel, before /duo-plan."
+  exit 0
+fi
+```
+
+If the bash call output starts with `REFUSE:`, **stop now** — do not run setup, do not draft a plan. Tell the operator the active session path and stop.
+
+## Setup — per-invocation artifact directory + housekeeping
+
+Create a fresh subdir and write the `.duo-inflight` marker in **one Bash call** so the
+status-line badge appears immediately. (Env exports do not persist across Bash tool
+calls, so session dir creation and inflight write must share the same shell.)
+
+Replace `<task title, ≤30 chars, no single-quotes>` with the first 30 printable
+characters of the operator's task description, stripping any single-quote characters.
+
+Run via `Bash`:
+
+```bash
+# OPENCODE_PROJECT_DIR may be unset in Bash subprocesses — resolve it first.
+OPENCODE_PROJECT_DIR="$(realpath "${OPENCODE_PROJECT_DIR:-$(pwd)}" 2>/dev/null || echo "${OPENCODE_PROJECT_DIR:-$(pwd)}")"
+SESSIONS_ROOT="${OPENCODE_PROJECT_DIR}/.opencode/orchestra/sessions"
+_parse_retention() {
+  awk '
+    /^housekeeping:/ { in_hk = 1; next }
+    in_hk && /^[^ ]/ { in_hk = 0 }
+    in_hk && /session_retention_days:/ {
+      gsub(/[^0-9]/, "", $2); print $2; exit
+    }
+  ' "$1" 2>/dev/null
+}
+# Precedence: per-project override > global default > hardcoded 30.
+RETENTION_DAYS=$(_parse_retention "${OPENCODE_PROJECT_DIR}/.opencode/orchestra/config.yaml")
+[ -z "${RETENTION_DAYS}" ] && \
+  RETENTION_DAYS=$(_parse_retention "${HOME}/.config/opencode/orchestra/config.yaml")
+RETENTION_DAYS="${RETENTION_DAYS:-30}"
+
+if [ -d "${SESSIONS_ROOT}" ]; then
+  find "${SESSIONS_ROOT}" -mindepth 1 -maxdepth 1 -type d \
+       -mtime +"${RETENTION_DAYS}" -exec rm -rf {} + 2>/dev/null
+fi
+
+SESSION_ID="$(date -u +%Y%m%dT%H%M%SZ)-$$"
+SESSION_DIR="${SESSIONS_ROOT}/${SESSION_ID}"
+mkdir -p "${SESSION_DIR}"
+# Write inflight marker in the same shell so SESSION_DIR is available.
+# Stays live through refinement and actor execution; removed by /duo-act or /duo-abandon.
+printf '%s' "<task title, ≤30 chars, no single-quotes>" \
+  > "${SESSION_DIR}/.duo-inflight.tmp"
+mv -f "${SESSION_DIR}/.duo-inflight.tmp" "${SESSION_DIR}/.duo-inflight"
+# Capture current session transcript UUID before subagents create new JSONLs
+_MANGLED="$(printf '%s' "${OPENCODE_PROJECT_DIR:-$PWD}" | tr '/' '-')"
+_TRANSCRIPTS="${HOME}/.config/opencode/projects/${_MANGLED}"
+_TRANSCRIPT_UUID=""
+if [ -d "$_TRANSCRIPTS" ]; then
+  _LATEST="$(ls -t "$_TRANSCRIPTS"/*.jsonl 2>/dev/null | head -1)"
+  if [ -n "$_LATEST" ]; then
+    _TRANSCRIPT_UUID="$(basename "$_LATEST" .jsonl)"
+    printf '%s\n' "$_LATEST" > "${SESSION_DIR}/.transcript-path" 2>/dev/null || true
+  fi
+fi
+printf '%s\n' "${_TRANSCRIPT_UUID}" > "${SESSION_DIR}/.transcript-uuid" 2>/dev/null || true
+echo "session_dir=${SESSION_DIR}"
+echo "retention_days=${RETENTION_DAYS}"
+# Write per-session lock file so otelHeadersHelper injects the correct session ID.
+# Filename = session ID (human-readable); content = OC process PID (lookup key).
+SESSION_ID_HEADER="$(basename "${SESSION_DIR}")"
+mkdir -p "${HOME}/.config/opencode/active-sessions"
+printf 'cc_pid=%s\n' "${PPID}" \
+  > "${HOME}/.config/opencode/active-sessions/${SESSION_ID_HEADER}.lck.tmp"
+mv -f "${HOME}/.config/opencode/active-sessions/${SESSION_ID_HEADER}.lck.tmp" \
+  "${HOME}/.config/opencode/active-sessions/${SESSION_ID_HEADER}.lck"
+# Housekeeping: remove lck files whose OC process is no longer running.
+for _f in "${HOME}/.config/opencode/active-sessions/"*.lck; do
+  [ -f "$_f" ] || continue
+  _pid="$(grep '^cc_pid=' "$_f" 2>/dev/null | cut -d= -f2 | tr -d '[:space:]')"
+  kill -0 "$_pid" 2>/dev/null || rm -f "$_f"
+done
+```
+
+Capture the `session_dir=...` value from the output — you will use this literal path
+in `${SESSION_DIR}/PLAN.md` writes during this turn and any refinement turns. Do not
+rely on `${OPENCODE_ORCHESTRA_SESSION_DIR}`; it is not set in later bash subprocesses.
+
+---
+
+## Phase 1 — Initial plan draft (this turn only)
+
+Work with the operator interactively to produce a *first* draft of the plan in
+**this same response**. Read files, propose an approach, optionally ask one or
+two clarifying questions before drafting.
+
+When the initial plan is drafted, write it with this structure:
+
+1. **Intent** — one line: what will be true when done.
+2. **Steps** — numbered, imperative, each executable by Actor as a single edit or shell command.
+3. **Expected outcome per step** — one line each.
+4. **Doc impact** — which project docs need updating; include as numbered steps if any.
+5. **Risks / unknowns** — anything you couldn't verify by reading.
+6. **Out of scope** — the hard fence Actor must not cross.
+
+**Keep it tight:** if more than ~10 steps, recommend `/brain` instead and offer to abandon this session.
+
+Persist via atomic-rename:
+
+```bash
+cat > "<SESSION_DIR>/PLAN.md.tmp" <<'EOF'
+[full plan text]
+EOF
+mv -f "<SESSION_DIR>/PLAN.md.tmp" "<SESSION_DIR>/PLAN.md"
+```
+
+---
+
+## Yield back to the operator
+
+After persisting the initial `PLAN.md`, **do not** call `ExitPlanMode`. End the response with a clear handoff message, for example:
+
+> Plan drafted at `<SESSION_DIR>/PLAN.md`.
+>
+> Refine the plan across subsequent turns — give me feedback and I'll iterate on `PLAN.md` in place. When you're ready:
+>
+> - Run `/duo-act` to commit the plan, exit plan mode, and dispatch Actor.
+> - Run `/duo-abandon` to cancel this session and clear the badge.
+
+Stop here. The next operator turn will be either a refinement message, `/duo-act`, or `/duo-abandon`.
+
+---
+
+## Refinement turns (no slash command)
+
+These happen between `/duo-plan` and `/duo-act`/`/duo-abandon`. The operator types feedback; you re-read `${SESSION_DIR}/PLAN.md`, integrate the feedback, and rewrite it via the same atomic-rename pattern. This is exactly OpenCode's native plan-mode iteration — the slash command does not need to drive it.
+
+At the start of each refinement turn, locate the active session by running:
+
+```bash
+OPENCODE_PROJECT_DIR="$(realpath "${OPENCODE_PROJECT_DIR:-$(pwd)}" 2>/dev/null || echo "${OPENCODE_PROJECT_DIR:-$(pwd)}")"
+SESSIONS_ROOT="${OPENCODE_PROJECT_DIR}/.opencode/orchestra/sessions"
+ACTIVE_INFLIGHT="$(find "$SESSIONS_ROOT" -mindepth 2 -maxdepth 2 -name '.duo-inflight' 2>/dev/null | head -1)"
+if [ -z "$ACTIVE_INFLIGHT" ]; then
+  echo "NO_SESSION: no active /duo session — run /duo-plan first."
+  exit 0
+fi
+SESSION_DIR="$(dirname "$ACTIVE_INFLIGHT")"
+echo "session_dir=${SESSION_DIR}"
+```
+
+If the output starts with `NO_SESSION:`, tell the operator there is no active session and stop. Otherwise, use the captured `session_dir=...` value as the literal path for reading and rewriting `PLAN.md`.
+
+Do **not** call `ExitPlanMode` during refinement. That's `/duo-act`'s job.
+
+---
+
+## What this command does NOT do
+
+- ❌ Call `ExitPlanMode` (that's `/duo-act`).
+- ❌ Dispatch Actor (that's `/duo-act`).
+- ❌ Write `.outcome` or run telemetry (that's `/duo-act` or `/duo-abandon`).
+- ❌ Spawn `claude -p` subprocesses or use `run-tier.sh`.
+- ❌ Have a Phase 0 RESEARCH stage (use `/brain`).
+- ❌ Have a Reviewer (use `/brain`).
+- ❌ Auto-commit or auto-push.
+
+$ARGUMENTS
