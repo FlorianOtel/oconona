@@ -18,8 +18,8 @@ context: >
 | Gemini discussion | `/var/tmp/gemini-chat.md` (local copy — original share URL blocked by consent redirect) | Confirmed that `.opencode/agents/*.md` with `model:` frontmatter is the real primitive; validated cascade method (multiple `claude --model …` processes); validated handover-via-file pattern. Parts claiming "Agent Teams" / `teammateMode` / auto-spawning panes are explicitly disregarded (not real OpenCode features). |
 | OpenCode usage report | `/mnt/nfs/Florian/Gin-AI/.opencode/usage-data/report.html` (680 messages, 72 sessions, 2026-03-25 → 2026-04-24) | Provided usage context; specifically recommended trying "parallel multi-agent benchmark sweeps with a coordinator aggregating a decision matrix" — direct motivation for this work. |
 | SoHoAI project instructions | `/mnt/nfs/Florian/Gin-AI/projects/SoHoAI/CLAUDE.md` | NFS-safety conventions (passive files OK on NFS, RocksDB/SQLite NOT OK), Python venv location, documentation metadata convention. |
-| Global OpenCode rules | `~/.config/opencode/CLAUDE.md` | "Never commit unless asked" — bounded the autonomy design. |
-| OpenCode native primitives (documented) | — | Subagents (`.opencode/agents/*.md`), hooks (`PreToolUse`, `SubagentStop`, `PreCompact`), permission modes (`default` / `acceptEdits` / `plan` / `bypassPermissions`), slash commands, `ExitPlanMode` tool. |
+| Global OpenCode rules | `~/.config/opencode/AGENTS.md` | "Never commit unless asked" — bounded the autonomy design. |
+| OpenCode native primitives (documented) | — | Subagents (`.opencode/agent/*.md`), hooks (`PreToolUse`, `SubagentStop`, `PreCompact`), permission modes (`default` / `acceptEdits` / `plan` / `bypassPermissions`), slash commands, `ExitPlanMode` tool. |
 
 ## Gemini-sourced material explicitly disregarded
 

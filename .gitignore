@@ -16,6 +16,11 @@ logs/
 .opencode/
 .claude/
 
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
 # Editor / OS
 .DS_Store
 *~

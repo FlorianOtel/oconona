@@ -2,8 +2,8 @@
 title: "OpenCode Orchestra — three-tier Brain/Planner/Actor pattern over OpenCode"
 created_at: 20260424-000000
 created_by: OpenCode (Claude Opus 4.7, 1M context)
-updated_by: OpenCode (claude-code-kimi-k2.6)
-updated_at: 2026-05-20--00-00
+updated_by: Claude Code (Claude Sonnet 4.6, 1M context)
+updated_at: 2026-05-20--23-30
 context: >
   Reference architecture for OpenCode Orchestra — a three-tier orchestration
   pattern layered on OpenCode using native subagents. The design supports
@@ -42,7 +42,7 @@ Enter plan mode, type `/brain <task>`. Opus runs Phase 0 (RESEARCH, inline — i
 
 `/brain-abandon` cancels the active /brain session cleanly at any point — writes `.outcome=abandoned`, removes the inflight marker, runs T2 telemetry, and clears the badge. The cleanup block also runs automatically on Phase 0 abandonment ("never mind", "drop it"), Phase 1 outright rejection at the plan-approval gate, and Phase 3 BLOCK verdict — so every exit path bounds the T2 telemetry window.
 
-**Pipeline-rules guard (2026-05-05):** plan-mode and `/brain` give Brain conflicting instructions about who produces the plan — plan-mode's per-turn "build your plan in `~/.config/opencode/plans/<name>.md` using Write" reminder out-competed `/brain.md`'s loaded-once "dispatch Planner via Task tool" instruction in long Phase 0 sessions, causing Brain to write the plan and execute the implementation directly under Opus 4.7. Hybrid fix: (a) `commands/brain.md` reinforced with an explicit override clause, concrete `Task`-tool dispatch templates at the top of each Phase, a self-check guard, phase-boundary reinforcement, and a negative-examples block; (b) a per-turn guard block at `agents-md-block/orchestra-guard.md` injected by `deploy.sh` into `~/.config/opencode/CLAUDE.md` between sentinels `<!-- ORCHESTRA_GUARD_START -->` / `<!-- ORCHESTRA_GUARD_END -->`. The CLAUDE.md guard is the load-bearing component because it loads on every turn (parallel to plan-mode's reminder cadence), while `/brain.md` reinforcement makes the command body self-coherent. Cost overhead is < 5% of typical /brain session due to prompt caching of stable system-prompt content.
+**Pipeline-rules guard (2026-05-05):** plan-mode and `/brain` give Brain conflicting instructions about who produces the plan — plan-mode's per-turn "build your plan in `~/.config/opencode/plans/<name>.md` using Write" reminder out-competed `/brain.md`'s loaded-once "dispatch Planner via Task tool" instruction in long Phase 0 sessions, causing Brain to write the plan and execute the implementation directly under Opus 4.7. Hybrid fix: (a) `commands/brain.md` reinforced with an explicit override clause, concrete `Task`-tool dispatch templates at the top of each Phase, a self-check guard, phase-boundary reinforcement, and a negative-examples block; (b) a per-turn guard block at `agents-md-block/orchestra-guard.md` injected by `deploy.sh` into `~/.config/opencode/AGENTS.md` between sentinels `<!-- ORCHESTRA_GUARD_START -->` / `<!-- ORCHESTRA_GUARD_END -->`. The AGENTS.md guard is the load-bearing component because it loads on every turn (parallel to plan-mode's reminder cadence), while `/brain.md` reinforcement makes the command body self-coherent. Cost overhead is < 5% of typical /brain session due to prompt caching of stable system-prompt content.
 
 **`/duo-plan` setup-bash override (2026-05-06):** the same plan-mode override conflict affects `/duo-plan`'s setup phase: plan-mode's "MUST NOT run non-readonly tools" clause suppressed the refusal-check and session-dir-creation bash calls, meaning `.duo-inflight` was never written, /duo mode never activated, and the session ran as plain plan mode + direct edits. Fix: `commands/duo-plan.md` now opens with a prominent `PLAN-MODE OVERRIDE` callout at line 11, before `## When to use /duo vs /brain`, explicitly exempting the setup bash calls (lifecycle management, not code edits) from the plan-mode restriction.
 
@@ -55,10 +55,10 @@ When NOT to use /brain: simple tasks with ≤5 steps, low blast radius. Use /duo
 | Agent | Model | File | Tools | Role |
 |---|---|---|---|---|
 | **Brain** | any (user's active model) | — (main session) | all | Orchestrates; calls `ExitPlanMode` at plan approval (G2) |
-| **Planner** | `claude-code-glm-5.1` | `~/.config/opencode/agents/planner.md` | Read, Grep, Glob, WebFetch, TodoWrite (read-only) | Decomposes task into numbered plan; Brain persists to PLAN.md |
-| **Actor** | `claude-code-qwen3-coder-next` | `~/.config/opencode/agents/actor.md` | Read, Edit, Write, Bash, Grep, Glob (+ denies on rm -rf, git push) | Executes one step per invocation; self-persists TASKS.json via atomic-rename |
-| **Actor** (heavy) | `claude-code-kimi-k2.6` | `~/.config/opencode/agents/actor-heavy.md` | Read, Edit, Write, Bash, Grep, Glob (+ denies on rm -rf, git push) | Complex multi-file refactors; triggered by `[tier: heavy]` step annotations |
-| **Reviewer** | `claude-code-kimi-k2.6` | `~/.config/opencode/agents/reviewer.md` | Read, Grep, Glob, TodoWrite (read-only) | Reviews diff against PLAN.md; returns PASS / FIX / BLOCK |
+| **Planner** | `claude-code-glm-5.1` | `~/.config/opencode/agent/planner.md` | Read, Grep, Glob, WebFetch, TodoWrite (read-only) | Decomposes task into numbered plan; Brain persists to PLAN.md |
+| **Actor** | `claude-code-qwen3-coder-next` | `~/.config/opencode/agent/actor.md` | Read, Edit, Write, Bash, Grep, Glob (+ denies on rm -rf, git push) | Executes one step per invocation; self-persists TASKS.json via atomic-rename |
+| **Actor** (heavy) | `claude-code-kimi-k2.6` | `~/.config/opencode/agent/actor-heavy.md` | Read, Edit, Write, Bash, Grep, Glob (+ denies on rm -rf, git push) | Complex multi-file refactors; triggered by `[tier: heavy]` step annotations |
+| **Reviewer** | `claude-code-kimi-k2.6` | `~/.config/opencode/agent/reviewer.md` | Read, Grep, Glob, TodoWrite (read-only) | Reviews diff against PLAN.md; returns PASS / FIX / BLOCK |
 
 ### Model requirements
 
@@ -109,7 +109,7 @@ The OpenCode status line is extended by `status-line/orchestra-block.sh`, inject
 
 #### What it displays
 
-The orchestra block produces a **full status line layout** (not just a badge). It replaces the CC-native progress bar and token-count fields and inserts its own fields immediately after the model name:
+The orchestra block produces a **full status line layout** (not just a badge). It replaces the OC-native progress bar and token-count fields and inserts its own fields immediately after the model name:
 
 ```
 model | ctx ▓▓▓▓░░░░░░░░░░░░░░░░ 21% 210K/1M | ~$X.YZ | ◆ project | ⎇ branch | [♪ badge]
@@ -128,12 +128,12 @@ The utilization denominator is looked up from `context-windows.yaml` per model I
 - **Latest request only**: the fallback reads `latest_total_tokens` (size of the most recent API request), NOT cumulative tokens across all turns — cumulative would produce absurd percentages (14M/256K ≈ 5500%).
 - **Model-scoped**: query uses `model = ? OR model LIKE ?` (e.g. `kimi-k2.6` matches `kimi-k2.6:cloud` in the DB). Source filter is intentionally omitted because SoHoAI's LiteLLM callback tags non-Anthropic models with `source='unknown'`.
 - **Time-scoped**: `created_at >=` from the `.lck` `started_at` field isolates this session's requests from other concurrent or prior sessions with the same model.
-- **Denominator consistency**: percentage and display both use `context-windows.yaml` as the denominator. Without this fix CC's `context_window_size` for non-Anthropic models would report ~200K for a 256K-window model, inflating the percentage to 101%.
+- **Denominator consistency**: percentage and display both use `context-windows.yaml` as the denominator. Without this fix OC's `context_window_size` for non-Anthropic models would report ~200K for a 256K-window model, inflating the percentage to 101%.
 - **TTL**: 8 s, so the token bar updates every ~8 s rather than continuously (sufficient for a progress indicator).
 
 **`~$X.YZ`** — live running cost (always shown, including `~$0.00` from the very first render so the display is visibly live from session start). Source differs by session type:
 - **Orchestra sessions**: SoHoAI `usage_events` table query via SQLite direct read (primary, NFS-accessible) or HTTP API fallback (TTL=8 s cache). Stale cache marked `*`. No `(est)` fallback — JSONL is not used (SoHoAI-proxied sessions do not write `costUSD` to JSONL entries).
-- **Native sessions (no recent orchestra)**: `cost.total_cost_usd` from CC's own `statusLine` JSON input — precise, always current, no external query needed. Last non-zero total (parent + subagents) is written to `active-sessions/<session>.cost-cache` (atomic rename); when CC reports 0 at tool-call turn boundaries the cached value is shown instead, keeping the field continuously visible.
+- **Native sessions (no recent orchestra)**: `cost.total_cost_usd` from OC's own `statusLine` JSON input — precise, always current, no external query needed. Last non-zero total (parent + subagents) is written to `active-sessions/<session>.cost-cache` (atomic rename); when OC reports 0 at tool-call turn boundaries the cached value is shown instead, keeping the field continuously visible.
 - **Native sessions (after orchestra session ends in same project)**: `cost_usd_estimate` from the most recent `telemetry.json`, shown instead of the CC JSON estimate — authoritative (SoHoAI subagents + T2 parent). Guard: `telemetry.json` mtime must be strictly greater than the native session's `.lck` mtime (proves the pipeline ended *during* this session, not before). If the `.lck` does not exist yet (`mtime=0`), falls back to CC JSON. This prevents false positives when a new session is opened after an orchestra session ends.
 
 **`♪ badge`** — orchestra session badge (shown only during active /duo or /brain sessions, or when a subagent is running). Badge formats in descending priority:
@@ -240,7 +240,7 @@ scripts/
 orchestra/
   config.yaml, context-windows.yaml
   invocations.log (append-only)
-CLAUDE.md  (sentinel-bracketed orchestra-guard block injected by deploy.sh
+AGENTS.md  (sentinel-bracketed orchestra-guard block injected by deploy.sh
             from agents-md-block/orchestra-guard.md in the repo)
 ```
 
@@ -275,9 +275,9 @@ Rule of thumb: use `/brain` for tasks where the review loop actually earns the B
 
 ### Disabling and troubleshooting
 
-**Global disable**: `mv ~/.config/opencode/scripts/orchestra-hook.sh{,.bak}` (intentionally loud; next `claude` invocation will fail visibly).
+**Global disable**: `mv ~/.config/opencode/scripts/orchestra-hook.sh{,.bak}` (intentionally loud; next `opencode` invocation will fail visibly).
 
-**Full uninstall**: `rm -rf ~/.config/opencode/agents/{planner,actor,reviewer}.md ~/.config/opencode/commands/{brain,duo}.md ~/.config/opencode/scripts/orchestra-hook.sh ~/.config/opencode/orchestra/`, then edit `~/.config/opencode/settings.json` to remove hook entries.
+**Full uninstall**: `rm -rf ~/.config/opencode/agent/{planner,actor,actor-heavy,reviewer}.md ~/.config/opencode/command/{brain,duo}.md ~/.config/opencode/scripts/orchestra-hook.sh ~/.config/opencode/orchestra/`, then edit `~/.config/opencode/settings.json` to remove hook entries.
 
 Quick-ref troubleshooting:
 
@@ -293,10 +293,10 @@ Quick-ref troubleshooting:
 ### Deviations from canonical OpenCode
 
 Aligned with canonical:
-- Subagent definitions (`.opencode/agents/*.md` with frontmatter)
+- Subagent definitions (`.opencode/agent/*.md` with frontmatter)
 - Hooks (`PreToolUse`, `SubagentStop`, `PreCompact`)
 - Permission modes (`default` / `acceptEdits` / `plan` / `bypassPermissions`)
-- Slash commands (`.opencode/commands/*.md`)
+- Slash commands (`.opencode/command/*.md`)
 - Plan approval via `ExitPlanMode`
 
 Deliberate deviations:
@@ -353,7 +353,7 @@ T2 writes:
 Native (non-orchestra) CC sessions are tracked via a two-step mechanism that avoids the need for any per-request header or proxy instrumentation.
 
 **Registration — `scripts/bash-session-init.sh` (sourced via `BASH_ENV`).**
-OpenCode sets `OC_SESSION_ID` in the environment of every Bash tool call, but not in hook subprocesses. `bash-session-init.sh` exploits this: it is sourced automatically at the start of each Bash tool call (via `BASH_ENV=/home/florian/.opencode/scripts/bash-session-init.sh` in `settings.json`). On the first call it writes a `.lck` file to `~/.config/opencode/active-sessions/native-<UUID>.lck` containing:
+OpenCode sets `OC_SESSION_ID` in the environment of every Bash tool call, but not in hook subprocesses. `bash-session-init.sh` exploits this: it is sourced automatically at the start of each Bash tool call (via `BASH_ENV=/home/florian/.config/opencode/scripts/bash-session-init.sh` in `settings.json`). On the first call it writes a `.lck` file to `~/.config/opencode/active-sessions/native-<UUID>.lck` containing:
 
 ```
 cc_pid=<stable-claude-PID>
@@ -362,9 +362,9 @@ started_at=<ISO8601>
 session_uuid=<UUID>
 ```
 
-`cc_pid` is the stable top-level `claude` process — found by checking if `$PPID.comm == "claude"` (normal case) or walking one level up (if PPID is a transient node subprocess). The script is a no-op for subsequent calls (file already exists) and skips orchestra sessions (`.brain-inflight` / `.duo-inflight` present — handled by orchestra telemetry instead). The UUID serves as the primary key; the PID is stored solely for liveness detection.
+`cc_pid` is the stable top-level `opencode` process — found by checking if `$PPID.comm == "opencode"` (normal case) or walking one level up (if PPID is a transient node subprocess). The script is a no-op for subsequent calls (file already exists) and skips orchestra sessions (`.brain-inflight` / `.duo-inflight` present — handled by orchestra telemetry instead). The UUID serves as the primary key; the PID is stored solely for liveness detection.
 
-**Status-line identification.** The `statusLine` command subprocess does not receive `OC_SESSION_ID` as an env var (unlike Bash tool call subprocesses). Session identification for the live cost display uses `session_id` from the CC `statusLine` JSON input instead — no PID walking, no env vars. See §CC statusLine JSON schema.
+**Status-line identification.** The `statusLine` command subprocess does not receive `OC_SESSION_ID` as an env var (unlike Bash tool call subprocesses). Session identification for the live cost display uses `session_id` from the OC `statusLine` JSON input instead — no PID walking, no env vars. See §CC statusLine JSON schema.
 
 **Finalization — `scripts/orchestra-hook.sh` stop mode.**
 The Stop hook fires per response turn. It iterates all `native-*.lck` files and for each runs `kill -0 <cc_pid>`. If the process is dead the session has ended: it invokes `native-session-finalize.py` (T2 cost attribution via the cost-source cascade) and removes the `.lck`. Since `OC_SESSION_ID` is not available in hook context, finalization of session N is triggered by the Stop hook of session N+1 — typically within seconds of the user opening a new session. Edge case: if no new session is opened after session N ends, the `.lck` persists until the next CC session starts. `session-report.py` guards against this by calling `os.kill(cc_pid, 0)` in `load_active_native_sessions()` and silently skipping any stale entry whose process is already dead.
@@ -519,7 +519,7 @@ T2 applies sources in priority order; first non-zero value wins:
 
 **Caveats:**
 - Per-session `telemetry.json` is the authoritative source (T2). The global `telemetry.jsonl` stores totals only.
-- `CLAUDE_SESSION_ID` is not set in subprocess environments (all hook invocations show `session: "unknown"`). `OPENCODE_PROJECT_DIR` is set in hook subprocesses but not in Bash tool call subprocesses. All three places that compute a project path (`orchestra-hook.sh`, `duo.md`, `brain.md`) normalize with `realpath` to resolve symlinks to the physical NFS path.
+- `OC_SESSION_ID` is not set in subprocess environments (all hook invocations show `session: "unknown"`). `OPENCODE_PROJECT_DIR` is set in hook subprocesses but not in Bash tool call subprocesses. All three places that compute a project path (`orchestra-hook.sh`, `duo.md`, `brain.md`) normalize with `realpath` to resolve symlinks to the physical NFS path.
 - T2 transcript discovery uses `.transcript-path` (stored at session-dir creation) as primary, and a global `~/.config/opencode/projects/*/` scan as secondary. No hardcoded path remains.
 
 ---

@@ -2,6 +2,8 @@
 title: "Consolidated Porting Plan: claude-orchestra--non-Anthropic → opencode-orchestra--non-Anthropic"
 created_at: 2026-05-20--23-30
 created_by: Claude Code (Claude Opus 4.7, 1M context)
+updated_by: Claude Code (Claude Sonnet 4.6, 1M context)
+updated_at: 2026-05-20--23-30
 context: >
   Composite, operator-ready porting plan, consolidated from four independent plans
   authored 2026-05-20: Plan A (Sonnet 4.6 1M), Plan B (Kimi via OpenCode), Plan C
@@ -9,6 +11,53 @@ context: >
   inline where its best ideas are adopted. Goal: bootstrap the empty OAN repo from
   CAN's tree, apply the Phase 0 CC→OC rename delta that CAN missed, preserve every
   non-Anthropic differentiator, and ship in a single verifiable commit.
+---
+
+## Implementation Summary
+
+**Implemented**: 2026-05-20 | **Executor**: Claude Code (/duo pipeline: Sonnet 4.6 brain + Haiku 4.5 Actor) | **Status**: COMPLETE — all functional edits applied; single commit `64f163b` on `main`.
+
+### §11 Open-question resolutions (decided before dispatch)
+
+1. **AGENTS.md branch-policy section**: Deleted for initial commit — OAN has no `litellm-gateway` branch yet. Re-add when OAN forks the branch.
+2. **docs/CC-to-OC-migration-plan.md**: Deleted — five porting plans already in `docs/` is enough; a sixth invites drift.
+3. **docs/design-history.md**: Left as historical record (Plan A recommendation confirmed).
+4. **Repo URL**: Used `https://github.com/FlorianOtel/opencode-orchestra--non-Anthropic`.
+
+### What was done
+
+- **Step 1 (rsync bootstrap)**: CAN tree rsync'd to OAN with all 6 exclusions. Existing OAN docs planning files (Sonnet/Kimi/Glm/Opus/Consolidated) preserved unchanged.
+- **Steps 2–3 (deploy.sh, collect.sh)**: `CLAUDE` → `OC_HOME` (53 occurrences total); `$CLAUDE/agents/` → `$OC_HOME/agent/`, `$CLAUDE/commands/` → `$OC_HOME/command/` (singular deploy targets). `GLOBAL_CLAUDE_MD` → `GLOBAL_AGENTS_MD`; `~/.opencode/CLAUDE.md` → `~/.config/opencode/AGENTS.md`. Actor-heavy drift-check block (reading `$REPO/agents/`) preserved verbatim.
+- **Steps 4–8 (shell scripts)**: `bash-session-init.sh` updated for `opencode` process detection (variable names `cc_pid` preserved). `orchestra-hook.sh` `CLAUDE_SESSION_ID` fallback removed. `telemetry-summarize.sh` same. `ctx-segment.sh` `~/.opencode/` → `~/.config/opencode/`. `native-subagent-cost.sh` comment fix.
+- **Step 9 (status-line/orchestra-block.sh)**: Six `$HOME/.opencode/` path fixes + all CC-native/CC-model/CC-context comment substitutions.
+- **Steps 10–13 (Python scripts)**: All `Path.home() / ".claude" / ...` → `Path.home() / ".config" / "opencode" / ...` in session-report.py, native-session-report.py, native-session-finalize.py. Critical `.claude`→`.opencode` index-detection block in session-report.py. telemetry-summarize.py: only 2 path changes; `query_litellm_cost()` and alias detection preserved verbatim.
+- **Step 14 (config/context-windows.yaml)**: Two `CC's own` → `OC's own` comment fixes.
+- **Steps 15–19 (commands)**: `CLAUDE_SESSION_ID` fallback removed from brain.md, duo-act.md, duo-abandon.md, brain-abandon.md. CC→OC process comments in brain.md, duo-plan.md. `OPENCODE_ORCHESTRA_SESSION_DIR` preserved in all command files.
+- **Step 20 (agents/planner.md)**: Two `CLAUDE.md` → `AGENTS.md` in doc-impact rule body. Model + tier annotations + `OPENCODE_ORCHESTRA_SESSION_DIR` preserved verbatim.
+- **Step 21 (agents-md-block/orchestra-guard.md)**: `/home/florian/.opencode/plans/` → `/home/florian/.config/opencode/plans/`.
+- **Step 22 (AGENTS.md)**: 9 CC→OC substitutions. `litellm-gateway` branch-policy section deleted.
+- **Step 23 (README.md)**: OpenCode links fixed. Model-tier table with non-Anthropic model assignments inserted. Repo URL and `cd` references updated. ASCII tree root updated.
+- **Step 24 (utils/snapshot_codebase.py)**: `PROJECT_ROOT` fixed to point at OAN (was pointing at OP — latent bug). `CLAUDE.md` → `AGENTS.md`. `actor-heavy.md` added to file list.
+- **Steps 25–26 (docs/design.md, docs/resources.md)**: Applied by Brain post-Actor (Actor skipped these as "non-blocking"). All plan-specified edits applied: agent table singular paths, CC-native→OC-native, CC→OC context_window references, CLAUDE.md→AGENTS.md guard references, `.opencode/agents/`→`.opencode/agent/` singular forms, OC_SESSION_ID fix at line 522, and several additional functional references (bash-session-init.sh BASH_ENV path, process name in design narrative, OC statusLine reference).
+- **Step 27 (docs/architecture-decisions.md)**: Created from OP verbatim with non-Anthropic-specific metadata. Decision 3 note emphasizes SoHoAI routing is more load-bearing here.
+- **Step 28 (delete files)**: `docs/TODO.md` and `docs/CC-to-OC-migration-plan.md` deleted.
+- **Step 29 (.gitignore)**: `.claude/` added.
+
+### Verification results (§9)
+
+- **§9.1 Syntax**: PASS — `bash -n` and `python3 -m py_compile` on all scripts clean.
+- **§9.2 Negative-grep**: PASS — zero matches for `$CLAUDE`, `CLAUDE_SESSION_ID`, `CLAUDE_ORCHESTRA_SESSION_DIR`, `~/.claude/`, `~/.opencode/`, `GLOBAL_CLAUDE_MD` in `*.sh`, `*.py`, `*.yaml`, `*.json`.
+- **§9.3 Positive-grep**: PASS — `OC_HOME` confirmed in deploy.sh + collect.sh; `GLOBAL_AGENTS_MD` confirmed; `OPENCODE_ORCHESTRA_SESSION_DIR` confirmed; `"opencode"` process detection confirmed; non-Anthropic models confirmed in agents/*.md and pricing.yaml; `agents/actor-heavy` confirmed in brain.md + collect.sh.
+- **§9.4 deploy --dry-run**: Not run (requires live OpenCode install).
+- **§9.5 Live smoke test**: Not run (requires live OpenCode install).
+- **§9.6 Model assignments**: PASS — `claude-code-qwen3-coder-next` (actor), `claude-code-kimi-k2.6` (actor-heavy, reviewer), `claude-code-glm-5.1` (planner).
+
+### Discrepancies and notes
+
+- Line numbers in §5 are approximate (plan referenced CAN as-of 2026-05-20). All edits applied by content match, not by line number — no misses detected.
+- `scripts/__pycache__/telemetry-summarize.cpython-312.pyc` was committed to OAN (not excluded by rsync since it wasn't under `scripts/__pycache__/` — it was at that path). This is a .pyc bytecode file; consider adding `**/__pycache__/` to .gitignore.
+- docs/design.md §See CC statusLine JSON schema section cross-reference at line ~367 was also updated to "OC statusLine" during Brain's post-Actor pass.
+
 ---
 
 # Consolidated Porting Plan
