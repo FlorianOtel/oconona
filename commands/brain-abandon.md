@@ -18,7 +18,7 @@ Run via `Bash`:
 
 ```bash
 OPENCODE_PROJECT_DIR="$(realpath "${OPENCODE_PROJECT_DIR:-$(pwd)}" 2>/dev/null || echo "${OPENCODE_PROJECT_DIR:-$(pwd)}")"
-SESSIONS_ROOT="${OPENCODE_PROJECT_DIR}/.opencode/orchestra/sessions"
+SESSIONS_ROOT="${HOME}/.config/opencode/orchestra/sessions"
 ACTIVE_INFLIGHT=""
 ACTIVE_COUNT=0
 if [ -d "$SESSIONS_ROOT" ]; then
@@ -63,9 +63,8 @@ rm -f "<SESSION_DIR>/.brain-inflight"
 Then clear the pipeline badge from state.env:
 
 ```bash
-OPENCODE_PROJECT_DIR="${OPENCODE_PROJECT_DIR:-$(pwd)}"
 printf 'ORCHESTRA_MODE=default\nORCHESTRA_TITLE=\n' \
-  >> "${OPENCODE_PROJECT_DIR}/.opencode/orchestra/state.env"
+  >> "${HOME}/.config/opencode/orchestra/state.env"
 ```
 
 ## Confirmation

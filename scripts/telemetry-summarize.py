@@ -621,12 +621,22 @@ def main():
     parser.add_argument("command", choices=["brain", "duo"], help="Command type")
     parser.add_argument("outcome", choices=["pass", "fix-loop", "block", "abandoned", "partial"], help="Session outcome")
     parser.add_argument("transcript_session_id", nargs="?", default="", help="OpenCode session UUID")
+    parser.add_argument(
+        "--status",
+        choices=["final", "in_flight"],
+        default="final",
+        help="'final': full write + global jsonl append. 'in_flight': write telemetry.json with status field, skip global jsonl append and T1/T2 cross-check.",
+    )
     args = parser.parse_args()
 
     session_dir = Path(args.session_dir)
     if not session_dir.exists():
         print(f"telemetry-summarize.py: session_dir not found at {session_dir}", file=sys.stderr)
         sys.exit(1)
+
+    # Read project attribution from sidecar (written by duo-plan.md/brain.md setup bash)
+    project_dir_file = session_dir / ".project-dir"
+    project_dir = project_dir_file.read_text().strip() if project_dir_file.exists() else ""
 
     # Timestamps. Session dir name encodes UTC start: "<YYYYMMDDTHHMMSSZ>-<PID>".
     # Linux st_ctime is metadata-change time, not creation, so it drifts as files
@@ -724,7 +734,8 @@ def main():
     blast_radius = compute_blast_radius(session_dir)
 
     # Cross-check T1 vs T2
-    cross_check_t1_t2(session_dir, subagents, warnings)
+    if args.status == "final":
+        cross_check_t1_t2(session_dir, subagents, warnings)
 
     # Build telemetry.json
     telemetry = {
@@ -740,6 +751,8 @@ def main():
         "iterations": iterations,
         "cost_usd_estimate": cost_usd,
         "cost_source": cost_source,
+        "status": args.status,
+        "project_dir": project_dir,
         # Present only when SoHoAI is the primary source so readers can see the split.
         **({
             "subagent_cost_usd": _subagent_cost_usd,
@@ -763,6 +776,10 @@ def main():
         print(f"telemetry-summarize.py: failed to write telemetry.json: {e}", file=sys.stderr)
         sys.exit(1)
 
+    if args.status == "in_flight":
+        print(f"partial_write: cost=${cost_usd:.4f} session={session_dir.name}", flush=True)
+        return
+
     # Append to global telemetry.jsonl
     orchestra_dir = Path.home() / ".config" / "opencode" / "orchestra"
     orchestra_dir.mkdir(parents=True, exist_ok=True)
@@ -783,6 +800,7 @@ def main():
         "outcome": telemetry["outcome"],
         "cost_usd_estimate": cost_usd,
         "cost_source": cost_source,
+        "project_dir": project_dir,
         **({
             "subagent_cost_usd": _subagent_cost_usd,
             "parent_cost_usd": _parent_cost_usd,

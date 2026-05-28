@@ -67,11 +67,12 @@ for dir in agents commands scripts orchestra; do
     $DRY_RUN || mkdir -p "$OC_HOME/$dir"
 done
 $DRY_RUN || mkdir -p "$OC_HOME/orchestra/logs"
+$DRY_RUN || mkdir -p "$OC_HOME/orchestra/native-sessions"
 
 # ── 3. Subagent definitions ───────────────────────────────────────────────────
 echo "Agents:"
 for f in "$REPO"/agents/*.md; do
-    copy_file "$f" "$OC_HOME/agent/$(basename "$f")"
+    copy_file "$f" "$OC_HOME/agents/$(basename "$f")"
 done
 # Structural invariant: variant bodies must not drift from their base.
 # Frontmatter and Role preamble differ by design; everything from
@@ -89,7 +90,7 @@ fi
 # ── 4. Slash commands ─────────────────────────────────────────────────────────
 echo "Commands:"
 for f in "$REPO"/commands/*.md; do
-    copy_file "$f" "$OC_HOME/command/$(basename "$f")"
+    copy_file "$f" "$OC_HOME/commands/$(basename "$f")"
 done
 
 # ── 5. Hook scripts + telemetry tools ────────────────────────────────────────

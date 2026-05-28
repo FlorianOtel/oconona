@@ -36,4 +36,4 @@ if [ -z "$TRANSCRIPT_ID" ] && [ -n "${1:-}" ] && [ -f "$1/.transcript-uuid" ]; t
     TRANSCRIPT_ID="$(cat "$1/.transcript-uuid" 2>/dev/null || true)"
 fi
 
-"${VENV}/bin/python3" "$PY_SCRIPT" "$1" "$2" "$3" "$TRANSCRIPT_ID"
+"${VENV}/bin/python3" "$PY_SCRIPT" "$1" "$2" "$3" "$TRANSCRIPT_ID" "${@:5}"

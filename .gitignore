@@ -11,9 +11,7 @@ auto-summary-*.md
 halts/
 logs/
 
-# OpenCode project-level directory — entirely runtime; never commit
-# (agents and commands live in top-level agents/ and commands/ instead)
-.opencode/
+# Claude Code session state
 .claude/
 
 # Python

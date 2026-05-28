@@ -4,7 +4,7 @@
 # OpenCode Orchestra hook dispatcher (subagents architecture).
 #
 # Wired in settings.json hooks.PreToolUse(Agent), SubagentStop, PreCompact.
-# All output to .opencode/orchestra/{invocations.log, logs/, brain-state.md}.
+# All output to ~/.config/opencode/orchestra/{invocations.log, logs/, brain-state.md}.
 #
 # Modes:
 #   start    — PreToolUse(Agent): record a subagent dispatch (subagent_type,
@@ -33,7 +33,7 @@ STAMP_SESSION="${OC_SESSION_ID:-unknown}"
 STAMP_TS="$(date -u +%Y%m%dT%H%M%SZ)"
 
 PROJECT_DIR="$(realpath "${OPENCODE_PROJECT_DIR:-$PWD}" 2>/dev/null || echo "${OPENCODE_PROJECT_DIR:-$PWD}")"
-ORCHESTRA_DIR="${PROJECT_DIR}/.opencode/orchestra"
+ORCHESTRA_DIR="${HOME}/.config/opencode/orchestra"
 INVOCATIONS_LOG="${ORCHESTRA_DIR}/invocations.log"
 LOGS_DIR="${ORCHESTRA_DIR}/logs"
 
@@ -209,6 +209,18 @@ case "$MODE" in
         "$SUBAGENT" "$STAGE" "$USAGE_JSON" "$(stamp_fields)" \
         >> "${ACTIVE_SESSION_DIR}/telemetry-events.jsonl" 2>/dev/null || true
     fi
+
+    # Writer B: partial telemetry.json cost update after each subagent (best-effort).
+    # Triggers telemetry-summarize.py with --status in_flight; skips global jsonl.
+    if [ -n "$ACTIVE_SESSION_DIR" ]; then
+      _SUMMARISER="${HOME}/.config/opencode/scripts/telemetry-summarize.sh"
+      if [ -x "$_SUMMARISER" ]; then
+        "$_SUMMARISER" "$ACTIVE_SESSION_DIR" "duo" "partial" "" \
+          --status in_flight 2>/dev/null || true
+      fi
+      printf '{"event":"partial_write","stage":"%s",%s}\n' \
+        "$STAGE" "$(stamp_fields)" >> "$INVOCATIONS_LOG" 2>/dev/null || true
+    fi
     ;;
 
   compact)
@@ -353,6 +365,48 @@ case "$MODE" in
         fi
         rm -f "$_lck"
     done
+
+    # Writer A: native residual tick. Writes native-sessions/native-<uuid>.json on
+    # every Stop turn. Skipped while any orchestra inflight marker is present.
+    # Residual = OC session total (from hook JSON) minus sum of orchestra session costs.
+    _OC_UUID="${OC_SESSION_ID:-}"
+    if [ -n "$_OC_UUID" ]; then
+      _INFLIGHT=$(find "${ORCHESTRA_DIR}/sessions" -mindepth 2 -maxdepth 2 \
+        \( -name '.brain-inflight' -o -name '.duo-inflight' \) 2>/dev/null | head -1)
+      if [ -z "$_INFLIGHT" ]; then
+        _OC_TOTAL=$(printf '%s' "$INPUT_JSON" \
+          | jq -r '.cost.total_cost_usd // 0' 2>/dev/null || echo "0")
+        # Skip if OC reports zero (transient at turn boundaries)
+        if [ "$_OC_TOTAL" != "0" ] && [ "$_OC_TOTAL" != "0.0" ]; then
+          _ORCH_SUM=$(find "${ORCHESTRA_DIR}/sessions" -name 'telemetry.json' 2>/dev/null \
+            | xargs -r jq -r '.cost_usd_estimate // 0' 2>/dev/null \
+            | awk '{s+=$1} END{printf "%.4f", s+0}')
+          _ORCH_SUM="${_ORCH_SUM:-0}"
+          _RESIDUAL=$("${HOME}/Gin-AI/.Gin-AI-python-3.12/bin/python3" \
+            -c "r=float('${_OC_TOTAL}')-float('${_ORCH_SUM}'); print(f'{max(0.0,r):.4f}')" \
+            2>/dev/null || echo "")
+          if [ -n "$_RESIDUAL" ]; then
+            _NATIVE_DIR="${ORCHESTRA_DIR}/native-sessions"
+            mkdir -p "$_NATIVE_DIR" 2>/dev/null || true
+            _NATIVE_FILE="${_NATIVE_DIR}/native-${_OC_UUID}.json"
+            _PRIOR=$(jq -r '.cost_usd_estimate // 0' "$_NATIVE_FILE" 2>/dev/null || echo "0")
+            # Log monotonic decrease (don't suppress — transient zeros can occur in prior)
+            "${HOME}/Gin-AI/.Gin-AI-python-3.12/bin/python3" \
+              -c "import sys; sys.exit(0 if float('${_RESIDUAL}')>=float('${_PRIOR}') else 1)" \
+              2>/dev/null \
+              || printf '{"event":"native_cost_decrease","prior":%.4f,"now":%.4f,%s}\n' \
+                "$_PRIOR" "$_RESIDUAL" "$(stamp_fields)" >> "$INVOCATIONS_LOG" 2>/dev/null || true
+            # Atomic write
+            printf '{"session_id":"native-%s","cost_usd_estimate":%s,"cost_source":"oc_json","last_updated":"%s","last_updated_unix":%s}\n' \
+              "$_OC_UUID" "$_RESIDUAL" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$(date +%s)" \
+              > "${_NATIVE_FILE}.tmp" 2>/dev/null \
+              && mv -f "${_NATIVE_FILE}.tmp" "$_NATIVE_FILE" 2>/dev/null || true
+            printf '{"event":"native_tick","cost":%s,%s}\n' \
+              "$_RESIDUAL" "$(stamp_fields)" >> "$INVOCATIONS_LOG" 2>/dev/null || true
+          fi
+        fi
+      fi
+    fi
 
     printf '{"event":"stop",%s}\n' "$(stamp_fields)" \
       >> "$INVOCATIONS_LOG" 2>/dev/null || true

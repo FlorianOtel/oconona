@@ -1,5 +1,5 @@
 # OpenCode Orchestra — global default config
-# Per-project override: ${OPENCODE_PROJECT_DIR}/.opencode/orchestra/config.yaml
+# Global config: ${HOME}/.config/opencode/orchestra/config.yaml
 # Design reference: docs/design.md (in this repo)
 
 # -----------------------------------------------------------------------------

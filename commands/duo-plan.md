@@ -29,7 +29,7 @@ Use `/duo` when the task is simple enough that a plan + execute is sufficient, a
 ## Refusal — one active /duo session per project
 
 Before setup, refuse if any `.duo-inflight` already exists under
-`${OPENCODE_PROJECT_DIR}/.opencode/orchestra/sessions/*/`. The session-bracketed
+`${HOME}/.config/opencode/orchestra/sessions/*/`. The session-bracketed
 design assumes a single active /duo session at a time; concurrent sessions are
 out of scope.
 
@@ -37,7 +37,7 @@ Run via `Bash`:
 
 ```bash
 OPENCODE_PROJECT_DIR="$(realpath "${OPENCODE_PROJECT_DIR:-$(pwd)}" 2>/dev/null || echo "${OPENCODE_PROJECT_DIR:-$(pwd)}")"
-SESSIONS_ROOT="${OPENCODE_PROJECT_DIR}/.opencode/orchestra/sessions"
+SESSIONS_ROOT="${HOME}/.config/opencode/orchestra/sessions"
 EXISTING=""
 if [ -d "$SESSIONS_ROOT" ]; then
   EXISTING="$(find "$SESSIONS_ROOT" -mindepth 2 -maxdepth 2 -name '.duo-inflight' 2>/dev/null | head -1)"
@@ -77,10 +77,8 @@ _parse_retention() {
     }
   ' "$1" 2>/dev/null
 }
-# Precedence: per-project override > global default > hardcoded 30.
-RETENTION_DAYS=$(_parse_retention "${OPENCODE_PROJECT_DIR}/.opencode/orchestra/config.yaml")
-[ -z "${RETENTION_DAYS}" ] && \
-  RETENTION_DAYS=$(_parse_retention "${HOME}/.config/opencode/orchestra/config.yaml")
+# Precedence: global default > hardcoded 30.
+RETENTION_DAYS=$(_parse_retention "${HOME}/.config/opencode/orchestra/config.yaml")
 RETENTION_DAYS="${RETENTION_DAYS:-30}"
 
 if [ -d "${SESSIONS_ROOT}" ]; then
@@ -96,6 +94,7 @@ mkdir -p "${SESSION_DIR}"
 printf '%s' "<task title, ≤30 chars, no single-quotes>" \
   > "${SESSION_DIR}/.duo-inflight.tmp"
 mv -f "${SESSION_DIR}/.duo-inflight.tmp" "${SESSION_DIR}/.duo-inflight"
+printf '%s\n' "${OPENCODE_PROJECT_DIR:-$(pwd)}" > "${SESSION_DIR}/.project-dir"
 # Capture current session transcript UUID before subagents create new JSONLs
 _MANGLED="$(printf '%s' "${OPENCODE_PROJECT_DIR:-$PWD}" | tr '/' '-')"
 _TRANSCRIPTS="${HOME}/.config/opencode/projects/${_MANGLED}"
@@ -183,7 +182,7 @@ At the start of each refinement turn, locate the active session by running:
 
 ```bash
 OPENCODE_PROJECT_DIR="$(realpath "${OPENCODE_PROJECT_DIR:-$(pwd)}" 2>/dev/null || echo "${OPENCODE_PROJECT_DIR:-$(pwd)}")"
-SESSIONS_ROOT="${OPENCODE_PROJECT_DIR}/.opencode/orchestra/sessions"
+SESSIONS_ROOT="${HOME}/.config/opencode/orchestra/sessions"
 ACTIVE_INFLIGHT="$(find "$SESSIONS_ROOT" -mindepth 2 -maxdepth 2 -name '.duo-inflight' 2>/dev/null | head -1)"
 if [ -z "$ACTIVE_INFLIGHT" ]; then
   echo "NO_SESSION: no active /duo session — run /duo-plan first."

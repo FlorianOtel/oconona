@@ -51,7 +51,7 @@ Each of these means a `Task`-tool dispatch was skipped. If you catch yourself ab
 
 ## Setup — per-invocation artifact directory + housekeeping
 
-Before Phase 0 begins, create a fresh per-invocation subdirectory under `.opencode/orchestra/sessions/`, export its path as an environment variable that subagents read for artifact paths, and lazily clean up any subdirs older than the configured retention window.
+Before Phase 0 begins, create a fresh per-invocation subdirectory under `~/.config/opencode/orchestra/sessions/`, export its path as an environment variable that subagents read for artifact paths, and lazily clean up any subdirs older than the configured retention window.
 
 Run via `Bash`:
 
@@ -59,7 +59,7 @@ Run via `Bash`:
 # OPENCODE_PROJECT_DIR may be unset in Bash subprocesses — resolve it first.
 OPENCODE_PROJECT_DIR="$(realpath "${OPENCODE_PROJECT_DIR:-$(pwd)}" 2>/dev/null || echo "${OPENCODE_PROJECT_DIR:-$(pwd)}")"
 # 1. Read retention window from config (default 30 if not set / not parseable).
-SESSIONS_ROOT="${OPENCODE_PROJECT_DIR}/.opencode/orchestra/sessions"
+SESSIONS_ROOT="${HOME}/.config/opencode/orchestra/sessions"
 _parse_retention() {
   awk '
     /^housekeeping:/ { in_hk = 1; next }
@@ -69,10 +69,8 @@ _parse_retention() {
     }
   ' "$1" 2>/dev/null
 }
-# Precedence: per-project override > global default > hardcoded 30.
-RETENTION_DAYS=$(_parse_retention "${OPENCODE_PROJECT_DIR}/.opencode/orchestra/config.yaml")
-[ -z "${RETENTION_DAYS}" ] && \
-  RETENTION_DAYS=$(_parse_retention "${HOME}/.config/opencode/orchestra/config.yaml")
+# Precedence: global default > hardcoded 30.
+RETENTION_DAYS=$(_parse_retention "${HOME}/.config/opencode/orchestra/config.yaml")
 RETENTION_DAYS="${RETENTION_DAYS:-30}"
 
 # 2. Lazy cleanup: drop session subdirs older than RETENTION_DAYS days.
@@ -92,6 +90,7 @@ export OPENCODE_ORCHESTRA_SESSION_DIR="${SESSION_DIR}"
 printf '%s' "<task title, ≤30 chars, no single-quotes>" \
   > "${SESSION_DIR}/.brain-inflight.tmp"
 mv -f "${SESSION_DIR}/.brain-inflight.tmp" "${SESSION_DIR}/.brain-inflight"
+printf '%s\n' "${OPENCODE_PROJECT_DIR:-$(pwd)}" > "${SESSION_DIR}/.project-dir"
 # Capture current session transcript UUID before subagents create new JSONLs
 _MANGLED="$(printf '%s' "${OPENCODE_PROJECT_DIR:-$PWD}" | tr '/' '-')"
 _TRANSCRIPTS="${HOME}/.config/opencode/projects/${_MANGLED}"
@@ -125,8 +124,7 @@ done
 After creating the session directory, write the pipeline mode and task title to the orchestra badge. The title is the operator's invocation text (the args after `/brain`), truncated to 30 printable characters, with single-quotes replaced by spaces. Run via `Bash`:
 
 ```bash
-OPENCODE_PROJECT_DIR="${OPENCODE_PROJECT_DIR:-$(pwd)}"
-ORCH_DIR="${OPENCODE_PROJECT_DIR}/.opencode/orchestra"
+ORCH_DIR="${HOME}/.config/opencode/orchestra"
 mkdir -p "$ORCH_DIR"
 printf 'ORCHESTRA_MODE=brain\nORCHESTRA_TITLE=%s\n' \
   "<task title, ≤30 chars, no single-quotes>" >> "${ORCH_DIR}/state.env"
@@ -407,9 +405,8 @@ The summariser writes `<SESSION_DIR>/telemetry.json` (full record) and appends o
 Clear the pipeline badge from state.env:
 
 ```bash
-OPENCODE_PROJECT_DIR="${OPENCODE_PROJECT_DIR:-$(pwd)}"
 printf 'ORCHESTRA_MODE=default\nORCHESTRA_TITLE=\n' \
-  >> "${OPENCODE_PROJECT_DIR}/.opencode/orchestra/state.env"
+  >> "${HOME}/.config/opencode/orchestra/state.env"
 ```
 
 When the pipeline ends (pass, abandon, or hard-stop), print a short summary:

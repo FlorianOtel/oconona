@@ -1,8 +1,8 @@
 ## Orchestra in-pipeline guard
 
 If a /brain or /duo session is active in the current project (any
-`.opencode/orchestra/sessions/*/.brain-inflight` or `.duo-inflight` file
-exists under the project root), the pipeline owns code changes:
+`${HOME}/.config/opencode/orchestra/sessions/*/.brain-inflight` or `.duo-inflight` file
+exists), the pipeline owns code changes:
 
 - Code edits to project files MUST go through the Actor subagent (Task tool,
   `subagent_type: actor` for default tier, or `subagent_type: actor-heavy` for

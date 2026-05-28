@@ -20,7 +20,7 @@ Run via `Bash`:
 
 ```bash
 OPENCODE_PROJECT_DIR="$(realpath "${OPENCODE_PROJECT_DIR:-$(pwd)}" 2>/dev/null || echo "${OPENCODE_PROJECT_DIR:-$(pwd)}")"
-SESSIONS_ROOT="${OPENCODE_PROJECT_DIR}/.opencode/orchestra/sessions"
+SESSIONS_ROOT="${HOME}/.config/opencode/orchestra/sessions"
 ACTIVE_INFLIGHT=""
 ACTIVE_COUNT=0
 if [ -d "$SESSIONS_ROOT" ]; then

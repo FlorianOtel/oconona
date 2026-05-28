@@ -4,12 +4,12 @@
 #
 # Usage: ./scripts/smoke-test.sh [session_dir]
 #   If session_dir is omitted, uses the most recent session under
-#   ${OPENCODE_PROJECT_DIR}/.opencode/orchestra/sessions/ (or ./. claude/orchestra/sessions/ if unset).
+#   ~/.config/opencode/orchestra/sessions/ (or $HOME/.config/opencode/orchestra/sessions if unset).
 
 set -euo pipefail
 
 OPENCODE_PROJECT_DIR="${OPENCODE_PROJECT_DIR:-$(pwd)}"
-SESSIONS_ROOT="${OPENCODE_PROJECT_DIR}/.opencode/orchestra/sessions"
+SESSIONS_ROOT="${HOME}/.config/opencode/orchestra/sessions"
 PYTHON3="${HOME}/Gin-AI/.Gin-AI-python-3.12/bin/python3"
 GLOBAL_LOG="${HOME}/.config/opencode/orchestra/telemetry.jsonl"
 
