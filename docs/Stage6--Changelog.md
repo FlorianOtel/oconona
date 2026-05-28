@@ -18,7 +18,7 @@ Entries are reverse-chronological. Newest at the top.
 
 ## 2026-05-28 — Brain model recommendation (Anthropic Opus 4.7, advisory only) + commands/agents docs clarification
 
-**Commits:** *(pending)*
+**Commit:** `a90b4dc`
 
 ### Delivered
 
