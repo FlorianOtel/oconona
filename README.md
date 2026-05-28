@@ -111,7 +111,7 @@ Shift+Tab   (or /plan-mode in OpenCode)
 /duo-abandon                                — cancel the active session
 ```
 
-Orchestra is globally on once installed — no per-project setup needed. Each project's runtime state (PLAN.md, TASKS.json, logs) is written to `${OPENCODE_PROJECT_DIR}/.opencode/orchestra/` and is globally gitignored.
+Orchestra is globally on once installed — no per-project setup needed. Each project's runtime state (PLAN.md, TASKS.json, logs) is written to `~/.config/opencode/orchestra/` and is globally gitignored.
 
 ## Status line
 

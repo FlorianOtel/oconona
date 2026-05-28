@@ -2,8 +2,8 @@
 title: "OpenCode Orchestra — three-tier Brain/Planner/Actor pattern over OpenCode"
 created_at: 20260424-000000
 created_by: OpenCode (Claude Opus 4.7, 1M context)
-updated_by: Claude Code (Claude Sonnet 4.6, 1M context)
-updated_at: 2026-05-20--23-30
+updated_by: Claude Code (Claude Haiku 4.5)
+updated_at: 2026-05-28--14-00
 context: >
   Reference architecture for OpenCode Orchestra — a three-tier orchestration
   pattern layered on OpenCode using native subagents. The design supports
@@ -155,9 +155,9 @@ The status line script is called by OpenCode on each render tick — after every
 | Signal | Source | Written by |
 |---|---|---|
 | `/duo` title and inflight state | `${SESSION_DIR}/.duo-inflight` | `/duo-plan` command setup |
-| `/brain` title and mode | `.opencode/orchestra/state.env` (`ORCHESTRA_MODE=brain`, `ORCHESTRA_TITLE=…`) | `/brain` command setup |
+| `/brain` title and mode | `~/.config/opencode/orchestra/state.env` (`ORCHESTRA_MODE=brain`, `ORCHESTRA_TITLE=…`) | `/brain` command setup |
 | `/brain` inflight marker (session-discovery for `/brain-abandon` and explicit CMD-classification by Stop-hook) | `${SESSION_DIR}/.brain-inflight` | `/brain` command setup |
-| Active subagent stage | `.opencode/orchestra/invocations.log` (last `start` event with no matching `end`) | `orchestra-hook.sh start` (PreToolUse) |
+| Active subagent stage | `~/.config/opencode/orchestra/invocations.log` (last `start` event with no matching `end`) | `orchestra-hook.sh start` (PreToolUse) |
 | Live cost (orchestra) | SoHoAI `usage_events` SQLite (direct) → HTTP API fallback via `sohoai-live-cost.sh` (TTL=8 s) | T2 via SoHoAI API |
 | Live cost (native) | `cost.total_cost_usd` from CC `statusLine` JSON input | CC accumulates cost internally |
 | Live cost (ctx segment) | `context_windows.yaml` + CC context width | ctx-segment.sh |
@@ -244,21 +244,25 @@ AGENTS.md  (sentinel-bracketed orchestra-guard block injected by deploy.sh
             from agents-md-block/orchestra-guard.md in the repo)
 ```
 
-**Per-project (.opencode/orchestra/):**
+**Global (~/.config/opencode/orchestra/) — shared across all projects:**
 ```
 sessions/
   <UTC-ts>-<PID>/
     PLAN.md, TASKS.json, review-comments.md
     .duo-inflight          (present during /duo planning phase + execution; removed by /duo-act or /duo-abandon)
     .brain-inflight        (present throughout /brain Phase 0/1/2/3; removed by cleanup block or /brain-abandon)
+    .project-dir           (sidecar: project_dir for attribution; written by commands at session start)
     .last-logfile          (sidecar: hook start writes logfile path; end reads+deletes)
     .outcome               (pass | block | partial | abandoned)
     telemetry-events.jsonl (T1 live hook stream)
     telemetry.json         (T2 final record, written at cleanup)
     logs/
       <stage>-<UTC-ts>-<HOST>-<PID>.log  (auto-deleted after 30 days)
+native-sessions/
+  native-<OC_SESSION_ID>.json      (Writer A residual tick files)
 state.env          (ORCHESTRA_MODE + ORCHESTRA_TITLE, append-only)
 invocations.log    (subagent start/end events, append-only)
+telemetry.jsonl    (global append-only trend log; one line per orchestra session)
 brain-state.md     (pre-compact snapshot)
 ```
 
