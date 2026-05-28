@@ -16,7 +16,7 @@ Entries are reverse-chronological. Newest at the top.
 
 ## 2026-05-28 — v7.0: Stage 7 redesign scaffold + design.md stale-ref purge
 
-**Commit:** TBD (populated after commit)
+**Commit:** `de631cc`
 
 ### Delivered
 
