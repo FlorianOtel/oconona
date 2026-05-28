@@ -38,15 +38,6 @@ After Stage 7 ships, the T1/T2 hybrid and SoHoAI cost-attribution path (Surface 
 | **v7.4** | Carry-forward of original Stage 6.2 model-relaxation for `/duo` (per-role `config.yaml models:`, deploy.sh materialisation, Anthropic rate refresh) | not started |
 | **v7.5** | octmux integration — replace glob+sum cost aggregator with OC SQLite reader via `telemetry.json` shape; carry-forward of original Stage 6.4 | not started |
 
-## Stage 6 sub-stage status mapping
-
-| Stage 6 sub-stage | Commits | Status | Notes |
-|---|---|---|---|
-| Stage 6.1 — Dual-stream writers + path audit | `f39e96c` (code), `cbfc067` (docs) | PARTIALLY SUPERSEDED | Path audit (`~/.config/opencode/orchestra/` migration), `.project-dir` sidecar, `deploy.sh` `agent/`→`agents/` fix: PRESERVED. Writer A (native residual tick), Writer B (orchestra partial telemetry), glob+sum cost path: SUPERSEDED by v7.1–v7.3. |
-| Stage 6.1.1 — `claude-code-*` alias purge | `67a1434` | PRESERVED (load-bearing) | Agent frontmatter `sohoai/*` IDs required for OC dispatch. `Σ$` status-line prefix preserved. `oc-db.py` (v7.1) will read these same `sohoai/*` model IDs from the session table. |
-| Brain Opus 4.7 advisory + commands/agents clarification | `a90b4dc` | PRESERVED | Advisory-only model check carries forward unchanged into Stage 7. Commands/agents distinction doc unchanged. |
-| Doc-hash backfills | `e15d904`, `1a9a010`, `774d71d`, `1f4271f`, `cbfc067` | PRESERVED | No conflict with Stage 7 work. Historical record. |
-
 ## Dependencies and sequencing
 
 ```
@@ -153,24 +144,6 @@ These invariants MUST be preserved by all writers.
 - **Tmp file cleanup**: orphan `.json.tmp` files are benign — overwritten on next successful write. Periodic `find ~/.config/opencode/orchestra -name '*.tmp' -mtime +1 -delete` (operator action).
 - **Session-dir reaper**: `find ~/.config/opencode/orchestra/sessions -mindepth 1 -maxdepth 1 -type d -mtime +30 -exec rm -rf {} +` runs at every orchestra setup (existing housekeeping, preserved). Retention configurable in `config/config.yaml:housekeeping.session_retention_days`.
 
-### Patterns dropped vs preserved from Stage 6
-
-| Pattern | Stage 6 source | Status under Stage 7 |
-|---|---|---|
-| Orphan-marker finalisation (`.outcome=abandoned` before summariser) | `orchestra-hook.sh stop` mode | **Preserved.** Critical safety net. |
-| Atomic-rename write (mktemp + mv -f) | `telemetry-summarize.py`, `bash-session-init.sh` | **Preserved.** Universal pattern. |
-| Write-order: `.outcome` before summariser | `orchestra-hook.sh` lines 303–308 (Stage 6 ref) | **Preserved.** Bounds the cleanup window. |
-| `Σ$` status-line cost prefix | Stage 6.1.1 (`67a1434`) | **Preserved.** Cosmetic continues into v7.3's status-line rewrite. |
-| 30-day session-dir reaper | `commands/{brain,duo-plan}.md` housekeeping loop | **Preserved.** |
-| Writer A — native residual tick | `orchestra-hook.sh stop` mode | **Dropped.** OC's SQLite `session.cost` is the source of truth. |
-| Writer B — orchestra partial telemetry (`--status in_flight`) | `telemetry-summarize.py`, `orchestra-hook.sh end` mode | **Dropped.** Status-line reads OC directly per render; no partial-write needed. |
-| `cost.total_cost_usd` from OC's statusLine JSON | `orchestra-block.sh` | **Dropped.** We read from OC's DB directly; the statusLine JSON cost field is only OC's view of a single OC session, not the orchestra subtree sum. |
-| SoHoAI cost-source cascade (sohoai_api → litellm → pricing_yaml → none) | `telemetry-summarize.py` | **Dropped.** Single source: `cost_source: "oc_sqlite"`. |
-| `pricing.yaml` as cost-rate source | `config/pricing.yaml`, `query_litellm_cost()` | **Dropped.** OC's AI-SDK handles its own pricing. |
-| `~/.config/opencode/active-sessions/*.lck` files | `bash-session-init.sh`, `commands/brain.md`, etc. | **Dropped.** Session-ID attribution moves to `.oc-session-id` sidecar. |
-| `BASH_ENV` env var to source `bash-session-init.sh` | `~/.config/opencode/settings.json` | **Dropped.** `bash-session-init.sh` is deleted in v7.3. |
-| `T1` events (`telemetry-events.jsonl`) | `orchestra-hook.sh` start/end appends | **Dropped.** No use case in OC. |
-| `T2` transcript walking (`~/.claude/projects/<mangled>/<uuid>.jsonl`) | `_walk_jsonl_for_tokens` in `telemetry-summarize.py` | **Dropped.** OC writes no such transcripts; OC's DB is the source. |
 
 ---
 
