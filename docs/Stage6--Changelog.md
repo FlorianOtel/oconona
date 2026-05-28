@@ -1,7 +1,7 @@
 ---
 title: "Stage 6 Changelog — oconona"
 created_at: 2026-05-28--00-00
-created_by: Claude Code (Claude Haiku 4.5)
+created_by: Claude Code (Claude Sonnet 4.6)
 context: >
   Implementation log for Stage 6 dual-stream cost telemetry in oconona.
   Records delivered functionality in reverse-chronological order.
@@ -16,7 +16,7 @@ Entries are reverse-chronological. Newest at the top.
 
 ## 2026-05-28 — Stage 6.1: Dual-stream writers + path audit fix
 
-**Commit:** `cbfc067`
+**Commits:** `cbfc067` (docs), `f39e96c` (code)
 
 ### Delivered
 
