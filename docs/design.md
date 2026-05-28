@@ -2,8 +2,8 @@
 title: "OpenCode Orchestra — three-tier Brain/Planner/Actor pattern over OpenCode"
 created_at: 20260424-000000
 created_by: OpenCode (Claude Opus 4.7, 1M context)
-updated_by: Claude Code (Claude Haiku 4.5)
-updated_at: 2026-05-28--14-00
+updated_by: Actor (Claude Haiku 4.5)
+updated_at: 2026-05-28--18-16
 context: >
   Reference architecture for OpenCode Orchestra — a three-tier orchestration
   pattern layered on OpenCode using native subagents. The design supports
@@ -122,7 +122,7 @@ Five hook types in `~/.config/opencode/settings.json`, dispatching to `~/.config
 1. **PreToolUse(Agent)** — `start` mode. Logs subagent invocation to invocations.log.
 2. **SubagentStop** — `end` mode. Logs subagent completion.
 3. **PreCompact** — `compact` mode. Saves `brain-state.md` (plan/task/decision snapshot for resumption post-`/clear`).
-4. **Stop** — `stop` mode (safety net). Fires at the end of **every response turn** (not only on process exit). Walks session_dirs that have no `telemetry.json` **and** no inflight marker — i.e., sessions where cleanup already started (inflight markers removed by `/duo-act`/`/duo-abandon`/`/brain`) but `telemetry-summarize.sh` failed to write `telemetry.json`. Gate (updated 2026-05-06): skip if `.duo-inflight` or `.brain-inflight` is present (session still in-progress — removing the marker here would destroy the badge and cause `NO_SESSION` errors on the next refinement turn); then check for artefacts (`PLAN.md`, `RESEARCH.md`, `telemetry-events.jsonl`). Writes `.outcome=abandoned` before invoking the summariser (mtime bounds the T2 window), and resets `state.env` when finalising a /brain session so the badge clears. Inflight marker removal is the exclusive responsibility of `/duo-act`, `/duo-abandon`, and `/brain`/`/brain-abandon` cleanup.
+4. **Stop** — `stop` mode (safety net). Fires at the end of **every response turn** (not only on process exit). Walks session_dirs that have no `telemetry.json` **and** no inflight marker — i.e., sessions where cleanup already started (inflight markers removed by `/duo-act`/`/duo-abandon`/`/brain`) but `telemetry-summarize.sh` failed to write `telemetry.json`. Gate (updated 2026-05-06): skip if `.duo-inflight` or `.brain-inflight` is present (session still in-progress — removing the marker here would destroy the badge and cause `NO_SESSION` errors on the next refinement turn); then check for artefacts (`PLAN.md`, `RESEARCH.md`). Writes `.outcome=abandoned` before invoking the summariser (mtime bounds the T2 window), and resets `state.env` when finalising a /brain session so the badge clears. Inflight marker removal is the exclusive responsibility of `/duo-act`, `/duo-abandon`, and `/brain`/`/brain-abandon` cleanup.
 5. (No tool-call hooks; subagent tool dispatch is opaque by design.)
 
 ### Status line
@@ -146,17 +146,8 @@ Fields injected by the orchestra block:
 
 The utilization denominator is looked up from `context-windows.yaml` per model ID, with fallback to OpenCode's native `context_window.context_window_size`. Model ID normalization strips `[1m]`, `[200k]`, and date suffixes before lookup. Models with `[1m]` in their ID force a 1,000,000 denominator.
 
-**Non-Anthropic models (`sohoai/*`).** OpenCode does not report reliable token counts for SoHoAI-routed models (e.g. `sohoai/kimi-k2.6`). A SoHoAI fallback reaches into `usage_events` via `query_sohoai_usage()` in `scripts/telemetry-summarize.py` and `sohoai-live-cost.sh`. Key constraints:
-- **Latest request only**: the fallback reads `latest_total_tokens` (size of the most recent API request), NOT cumulative tokens across all turns — cumulative would produce absurd percentages (14M/256K ≈ 5500%).
-- **Model-scoped**: query uses `model = ? OR model LIKE ?` (e.g. `kimi-k2.6` matches `kimi-k2.6:cloud` in the DB). Source filter is intentionally omitted because SoHoAI's LiteLLM callback tags non-Anthropic models with `source='unknown'`.
-- **Time-scoped**: `created_at >=` from the `.lck` `started_at` field isolates this session's requests from other concurrent or prior sessions with the same model.
-- **Denominator consistency**: percentage and display both use `context-windows.yaml` as the denominator. Without this fix OC's `context_window_size` for non-Anthropic models would report ~200K for a 256K-window model, inflating the percentage to 101%.
-- **TTL**: 8 s, so the token bar updates every ~8 s rather than continuously (sufficient for a progress indicator).
-
-**`Σ$X.YZ`** — accumulated running cost (always shown, including `Σ$0.00` from the very first render so the display is visibly live from session start). The `Σ` prefix marks the value as a cumulative total across the session (orchestra subagents + native residual). Source differs by session type:
-- **Orchestra sessions**: SoHoAI `usage_events` table query via SQLite direct read (primary, NFS-accessible) or HTTP API fallback (TTL=8 s cache). Stale cache marked `*`. No `(est)` fallback — JSONL is not used (SoHoAI-proxied sessions do not write `costUSD` to JSONL entries).
-- **Native sessions (no recent orchestra)**: `cost.total_cost_usd` from OC's own `statusLine` JSON input — precise, always current, no external query needed. Last non-zero total (parent + subagents) is written to `active-sessions/<session>.cost-cache` (atomic rename); when OC reports 0 at tool-call turn boundaries the cached value is shown instead, keeping the field continuously visible.
-- **Native sessions (after orchestra session ends in same project)**: `cost_usd_estimate` from the most recent `telemetry.json`, shown instead of the CC JSON estimate — authoritative (SoHoAI subagents + T2 parent). Guard: `telemetry.json` mtime must be strictly greater than the native session's `.lck` mtime (proves the pipeline ended *during* this session, not before). If the `.lck` does not exist yet (`mtime=0`), falls back to CC JSON. This prevents false positives when a new session is opened after an orchestra session ends.
+**`Σ$X.YZ`** — accumulated running cost (always shown, including `Σ$0.00` from the very first render so the display is visibly live from session start). The `Σ` prefix marks the value as a cumulative total across the session (orchestra subagents + native residual). Source:
+- **All sessions**: OC SQLite `session.cost` for the captured `OC_SESSION_ID`. See `docs/pre-Stage7--opencode-redesign.md` for the redesign rationale; v7.1–v7.3 will implement this path.
 
 **`♪ badge`** — orchestra session badge (shown only during active /duo or /brain sessions, or when a subagent is running). Badge formats in descending priority:
 
@@ -180,9 +171,7 @@ The status line script is called by OpenCode on each render tick — after every
 | `/brain` title and mode | `~/.config/opencode/orchestra/state.env` (`ORCHESTRA_MODE=brain`, `ORCHESTRA_TITLE=…`) | `/brain` command setup |
 | `/brain` inflight marker (session-discovery for `/brain-abandon` and explicit CMD-classification by Stop-hook) | `${SESSION_DIR}/.brain-inflight` | `/brain` command setup |
 | Active subagent stage | `~/.config/opencode/orchestra/invocations.log` (last `start` event with no matching `end`) | `orchestra-hook.sh start` (PreToolUse) |
-| Live cost (orchestra) | SoHoAI `usage_events` SQLite (direct) → HTTP API fallback via `sohoai-live-cost.sh` (TTL=8 s) | T2 via SoHoAI API |
-| Live cost (native) | `cost.total_cost_usd` from CC `statusLine` JSON input | CC accumulates cost internally |
-| Live cost (ctx segment) | `context_windows.yaml` + CC context width | ctx-segment.sh |
+| Live cost | OC SQLite `session.cost` (via `scripts/oc-db.py`, v7.1) | OpenCode runtime |
 
 #### ctx segment implementation details
 
@@ -191,46 +180,6 @@ The ctx segment uses `scripts/ctx-segment.sh` which reads `context-windows.yaml`
 Bar: 20 cells, each representing 5% of the context window (filled `▓`, empty `░`). Prior to 2026-05-12 the bar was 10 cells at 10% each; prior to 2026-05-11 it was 8 cells at 12.5% each.
 
 Token formatting: values ≥ 1,000,000 show as `XM` (e.g., `1.2M`), values ≥ 1,000 show as `XK`, otherwise raw `XK`.
-
-#### CC statusLine JSON schema (CC 2.1.139+)
-
-CC passes a rich JSON object to the `statusLine` command on every render. Key fields used by the orchestra block:
-
-| Field | Type | Notes |
-|---|---|---|
-| `session_id` | string | CC session UUID — used directly for native cost display; no `.lck` check |
-| `transcript_path` | string | Absolute path to this session's JSONL transcript |
-| `session_name` | string | Human-readable session name (set via `/rename`) |
-| `cost.total_cost_usd` | float | Precise accumulated session cost (all subagents included) |
-| `model.id` / `model.display_name` | string | Model identifier and display name |
-| `context_window.*` | object | Token counts and utilization percentage |
-| `workspace.current_dir` | string | Session working directory |
-| `version` | string | CC version string |
-
-`session_id` identifies the native session for cost display directly — no `.lck` file check. The `.lck` is only for session finalization (Stop hook → `native-session-finalize.py` → T2 record); removing it from the cost gate fixes resumed sessions (Stop hook removes the old lck at end of each turn; no new lck until the first Bash call). `cost.total_cost_usd` is used as the live cost — precise, always current, no SoHoAI query needed.
-
-#### SoHoAI live cost (orchestra sessions only)
-
-SoHoAI cost for orchestra sessions is retrieved via `scripts/sohoai-live-cost.sh`:
-
-**Primary: SQLite direct read**
-- Reads `usage_events` table from SoHoAI's SQLite DB at `sohoai.db_path` in `config.yaml` (or `SOHOAI_DB_PATH` env var)
-- Query: `SELECT SUM(cost_usd) FROM usage_events WHERE orchestra_session_id = ?`
-- No time filter needed — `orchestra_session_id` uniquely identifies the session
-- Instant (<5 ms), no HTTP overhead, no timeout risk
-- Returns the running accumulated cost (same data as SoHoAI HTTP API)
-
-**Fallback: SoHoAI HTTP API**
-- Fires only when SQLite DB is unavailable/unconfigured
-- `started_at` is derived from `.transcript-path` mtime (written once at session init), NOT from the passed `started_at_unix` (which is the session dir mtime — updated on every file write, effectively always near-now, which caused the original oscillation)
-- 1s timeout; stale cache returned with trailing `*` on failure
-
-**Why `costUSD` JSONL is not used**
-Sessions routed through SoHoAI proxy do not receive a `costUSD` field in JSONL entries (CC only writes this when calling Anthropic directly). Token-based estimation from pricing.yaml overcounts by ~55% because SoHoAI/LiteLLM applies different effective cache_read rates. The SQLite DB contains SoHoAI's own billing records and is the authoritative source.
-
-**TTL**: 8 s (cache hit < 50 ms). Stale cache marked `*`.
-
-Native sessions bypass this path entirely and use `cost.total_cost_usd` from the JSON input instead.
 
 Model ID lookup in `context-windows.yaml` uses:
 - Primary: exact `model.id` match
@@ -258,7 +207,7 @@ commands/
   brain.md, brain-abandon.md
   duo-plan.md, duo-act.md, duo-abandon.md
 scripts/
-  orchestra-hook.sh, ctx-segment.sh, sohoai-live-cost.sh
+  orchestra-hook.sh, ctx-segment.sh
 orchestra/
   config.yaml, context-windows.yaml
   invocations.log (append-only)
@@ -276,7 +225,6 @@ sessions/
     .project-dir           (sidecar: project_dir for attribution; written by commands at session start)
     .last-logfile          (sidecar: hook start writes logfile path; end reads+deletes)
     .outcome               (pass | block | partial | abandoned)
-    telemetry-events.jsonl (T1 live hook stream)
     telemetry.json         (T2 final record, written at cleanup)
     logs/
       <stage>-<UTC-ts>-<HOST>-<PID>.log  (auto-deleted after 30 days)
@@ -314,7 +262,6 @@ Quick-ref troubleshooting:
 | `/brain` command unrecognised | `~/.config/opencode/commands/brain.md` missing or malformed | `/help` lists commands; inspect file frontmatter |
 | `.last-logfile.*` files accumulating in `orchestra/` | Old bug: sidecar used PID of hook process so `end` could never find and delete `start`'s file | Fixed: sidecar now lives in session dir (shared path for start and end); stale files auto-cleaned after 120 min at hook startup |
 | `logs/*.log` growing unbounded | No rotation | Auto-rotated at hook startup: files older than 30 days deleted |
-| `Σ$X.YZ` cost never appears | T1 hook not writing to `telemetry-events.jsonl` | Check `orchestra-hook.sh` is executable and wired in `settings.json` |
 
 ### Deviations from canonical OpenCode
 
@@ -345,210 +292,9 @@ See design-history.md §13.3 for three potential approaches to close the gap.
 
 Multi-tier orchestration has a non-obvious cost structure. Brain (Anthropic Opus 4.7) dominates by token volume — it re-sends its full context every turn (cached after the first hit, but still billed at the cache-read rate of the most expensive model) and receives all subagent returns. Planner (sohoai/glm-5.1) and Reviewer (sohoai/kimi-k2.6) are single-call-per-phase. Actor (sohoai/qwen3-coder-next) is called once per step and may iterate. Without measurement, cost/quality trade-offs are guesses: which tier to change? which phase to skip? does the built-in `Explore` subagent justify a dedicated cheaper Researcher agent? Telemetry makes those decisions data-driven (see `TODO.md §0` for the full decision-gate framework).
 
-Every `/brain` and `/duo` run is instrumented post-hoc by `scripts/telemetry-summarize.{sh,py}`, invoked from each command's cleanup block. Native (non-orchestra) CC sessions are tracked automatically via `bash-session-init.sh` (sourced on every Bash tool call through `BASH_ENV`) and finalized by the Stop hook — see §Native session tracking below.
+Every `/brain` and `/duo` run is instrumented at cleanup by `scripts/telemetry-summarize.{sh,py}`, invoked from each command's cleanup block.
 
-Two complementary approaches cover the full cost picture. They are tried in priority order; the first to return a non-zero value is used.
-
----
-
-### Approach 1 — Local JSONL (T1 + T2 hybrid)
-
-**Prerequisite:** works with **any** Anthropic API endpoint — direct or proxied — as long as JSONL transcripts are written locally by OpenCode under `~/.config/opencode/projects/`. No proxy required.
-
-#### How it works
-
-Two layers instrument every orchestra session:
-
-**T1 — hook-based, real-time.** `orchestra-hook.sh` appends one JSON event per subagent dispatch / completion to `${SESSION_DIR}/telemetry-events.jsonl`. Captures subagent type, timing, and stage identity. Token counts are always `null` (hook payloads do not expose them). T1 drives the live `Σ$X.YZ` status-line badge.
-
-**T2 — transcript parsing, authoritative.** Runs once at cleanup. `telemetry-summarize.py` walks all `*.jsonl` files in the project's transcripts directory whose records fall within the session time window — capturing content split across multiple JSONLs by `--fork-session` or `/clear`-induced UUID rotation. For each in-window parent JSONL, it walks `<uuid>/subagents/agent-*.jsonl` (subagent transcripts), attributed via `agent-*.meta.json` sidecars (`{"agentType": "…"}`). Token counts accumulate across all contributing JSONLs; USD cost is computed via the cost-source cascade (see §Cost-source cascade).
-
-T2 writes:
-- `${SESSION_DIR}/telemetry.json` — rich per-session record: parent + subagent tokens per tier, USD cost estimate (`cost_usd_estimate` = `subagent_cost_usd` + `parent_cost_usd` when source is SoHoAI), iteration counts, outcome, `cost_source`, `parser_warnings`.
-- `~/.config/opencode/orchestra/telemetry.jsonl` — global append-only trend log; one line per session (includes `session_dir` for cross-project lookup).
-- T2 supersedes T1 for all cost figures.
-
-**T2 time window:** `[started_at, ended_at]`. `started_at` is parsed from the session-dir basename (`<YYYYMMDDTHHMMSSZ>-<PID>`). `ended_at` is the mtime of `${SESSION_DIR}/.outcome` when present, falling back to `time.time()`. All exit paths — `/duo-act`, `/duo-abandon`, `/brain` cleanup (all verdicts), `/brain-abandon`, and the Stop-hook safety net — write `.outcome` before invoking the summariser. This makes the window deterministic and re-runs of the summariser idempotent (the window does not expand to "now").
-
-**Safety net:** the `Stop` hook runs T2 on session dirs where cleanup started (inflight markers already removed) but `telemetry.json` was never written. Sessions that still have `.duo-inflight` or `.brain-inflight` are skipped — they are in-progress.
-
----
-
-### Native session tracking
-
-Native (non-orchestra) CC sessions are tracked via a two-step mechanism that avoids the need for any per-request header or proxy instrumentation.
-
-**Registration — `scripts/bash-session-init.sh` (sourced via `BASH_ENV`).**
-OpenCode sets `OC_SESSION_ID` in the environment of every Bash tool call, but not in hook subprocesses. `bash-session-init.sh` exploits this: it is sourced automatically at the start of each Bash tool call (via `BASH_ENV=/home/florian/.config/opencode/scripts/bash-session-init.sh` in `settings.json`). On the first call it writes a `.lck` file to `~/.config/opencode/active-sessions/native-<UUID>.lck` containing:
-
-```
-cc_pid=<stable-claude-PID>
-session_id=native-<UUID>
-started_at=<ISO8601>
-session_uuid=<UUID>
-```
-
-`cc_pid` is the stable top-level `opencode` process — found by checking if `$PPID.comm == "opencode"` (normal case) or walking one level up (if PPID is a transient node subprocess). The script is a no-op for subsequent calls (file already exists) and skips orchestra sessions (`.brain-inflight` / `.duo-inflight` present — handled by orchestra telemetry instead). The UUID serves as the primary key; the PID is stored solely for liveness detection.
-
-**Status-line identification.** The `statusLine` command subprocess does not receive `OC_SESSION_ID` as an env var (unlike Bash tool call subprocesses). Session identification for the live cost display uses `session_id` from the OC `statusLine` JSON input instead — no PID walking, no env vars. See §CC statusLine JSON schema.
-
-**Finalization — `scripts/orchestra-hook.sh` stop mode.**
-The Stop hook fires per response turn. It iterates all `native-*.lck` files and for each runs `kill -0 <cc_pid>`. If the process is dead the session has ended: it invokes `native-session-finalize.py` (T2 cost attribution via the cost-source cascade) and removes the `.lck`. Since `OC_SESSION_ID` is not available in hook context, finalization of session N is triggered by the Stop hook of session N+1 — typically within seconds of the user opening a new session. Edge case: if no new session is opened after session N ends, the `.lck` persists until the next CC session starts. `session-report.py` guards against this by calling `os.kill(cc_pid, 0)` in `load_active_native_sessions()` and silently skipping any stale entry whose process is already dead.
-
-**Re-finalization and dedup (2026-05-12).** `native-session-finalize.py` writes atomically via a `.tmp` rename and strips any prior record for the same `session_id` before writing, so a re-run (e.g. manual finalize followed by a Stop-hook finalize) produces exactly one authoritative record. `session-report.py`'s `load_native_telemetry()` additionally deduplicates on read (last record per `session_id` wins) as a safety net for records written before this fix.
-
-**Cross-source dedup — orchestra-parent suppression (2026-05-14).** When `/brain` or `/duo` runs, the parent CC process registers as a native session (via `bash-session-init.sh`) AND is finalized as an orchestra session. Both have the same `started_at` timestamp (the orchestra session ID encodes the start time; `bash-session-init.sh` records the same value in the `.lck`). Two fixes prevent double-counting:
-- `native-session-finalize.py` skips writing a native record if `started_at` already appears in `~/.config/opencode/orchestra/telemetry.jsonl` — prevents future duplicates from accumulating in source files.
-- `session-report.py` filters out native records whose `started_at` matches any orchestra record at display time — retroactively fixes historical duplicates already in the JSONL files.
-`session-report.py`'s `load_orchestra_telemetry()` also deduplicates by `session_id` (last record wins), mirroring the same pattern in `load_native_telemetry()`.
-
-**Session IDs.** Native session IDs written by `bash-session-init.sh` are `native-<UUID>` (e.g. `native-6dedcd3d-37e5-46a9-958e-fb0a822b5e3a`). The UUID is the CC session UUID (`OC_SESSION_ID`), making IDs globally unique and stable. Older sessions (before the UUID-keyed registration refactor, 2026-05-07) used a `native-<timestamp>-<PID>` format; both formats are stored in `~/.config/opencode/native-sessions/telemetry.jsonl` and handled by the report scripts.
-
-**Telemetry record fields** (written to `~/.config/opencode/native-sessions/telemetry.jsonl`):
-
-| Field | Description |
-|-------|-------------|
-| `session_id` | `native-<UUID>` |
-| `command` | always `"native"` |
-| `started_at` | ISO8601 timestamp from `.lck` creation |
-| `ended_at` | ISO8601 timestamp at finalization |
-| `duration_s` | wall-clock seconds |
-| `cost_usd_estimate` | parent + all subagent costs (from cost-source cascade); `0.0` for non-Anthropic (zero-rate) models |
-| `cost_source` | `sohoai_api` / `litellm` / `pricing_yaml` / `none` |
-| `model` | parent session model name (present when transcript was parsed — both Anthropic and non-Anthropic) |
-| `total_tokens` | parent session token count (present when transcript was parsed; excludes subagent tokens) |
-
-**Non-Anthropic models.** Sessions using SoHoAI-routed models not in `pricing.yaml` (e.g. `sohoai/qwen3-coder-next`, `sohoai/kimi-k2.6`) are recorded with `cost_usd_estimate: 0.0` and `cost_source: "pricing_yaml"` — the transcript was successfully parsed and the model identified, but no pricing rate is available. `session-report.py` renders these as `$0.0000` to distinguish them from sessions where cost attribution failed entirely (`cost_source: "none"`, displayed as `-`). For past records already in `telemetry.jsonl` with a missing `model` field (written before the 2026-05-11 finalize-script fix), `session-report.py` retroactively re-reads the JSONL transcript at display time to fill in the model name.
-
-**Reporting.** `native-session-report.py` reads from two sources and merges them (deduplicating by `session_id`, telemetry takes precedence, sorted newest-first):
-1. `~/.config/opencode/native-sessions/telemetry.jsonl` — primary; contains all sessions finalized since 2026-05-07.
-2. `~/.config/opencode/usage-data/session-meta/*.json` — legacy; populated by CC < 2.1 (April 2026 and earlier); no longer updated by CC 2.1.132.
-
-For sessions with a `native-<UUID>` session ID, the report also looks up the transcript JSONL to obtain per-type token breakdown and project name. For old-format `native-<timestamp>-<PID>` sessions, `total_tokens` from the telemetry record is used directly and project name shows as `native`. `session-report.py` (unified report) applies the same project-name lookup for native sessions, using `*.project-name` sidecar files and NFS path unmangling. `native-session-report.py` defaults to 20 sessions when no date filter is given; when `--since` or `--month` is active and `--last` is not explicitly set, no cap is applied (all matching sessions are shown).
-
-**Requirement.** `BASH_ENV=/home/florian/.opencode/scripts/bash-session-init.sh` must be set in `settings.json` env. This is **not** managed by `deploy.sh` — it must be set manually or persisted in `settings.json`. Without it, `bash-session-init.sh` is never sourced and no `.lck` is written; native sessions appear as `cost_source: "none"` with zero cost.
-
-#### Inspecting per-session data
-
-```bash
-# T1 live events for an orchestra session (timing and stage identity; usage=null)
-cat ~/.config/opencode/orchestra/sessions/<session-id>/telemetry-events.jsonl
-
-# T2 authoritative per-session record
-cat ~/.config/opencode/orchestra/sessions/<session-id>/telemetry.json | jq .
-
-# Verify T1 and T2 captured correctly after a /duo or /brain run
-./scripts/smoke-test.sh
-
-# Check the global orchestra trend log
-tail -20 ~/.config/opencode/orchestra/telemetry.jsonl | jq .
-
-# Check native session records
-tail -10 ~/.config/opencode/native-sessions/telemetry.jsonl | jq .
-```
-
-#### Summary reports
-
-```bash
-# Tabular summary of recent orchestra sessions
-~/.config/opencode/scripts/telemetry-report.sh --last 10
-
-# Per-tier breakdown + cumulative totals across recent sessions
-~/.config/opencode/scripts/telemetry-report.sh --last 10 --tier
-
-# Native CC sessions only — merges native-sessions/telemetry.jsonl (primary, post-2026-05-07)
-# and legacy usage-data/session-meta/ (pre-2026-05-07); newest sessions at top
-~/.config/opencode/scripts/native-session-report.sh --last 10
-~/.config/opencode/scripts/native-session-report.sh --last 10 --tier
-~/.config/opencode/scripts/native-session-report.sh --since 2026-05-01
-
-# Unified report: native + orchestra sessions in one table (most useful day-to-day)
-~/.config/opencode/scripts/session-report.sh --last 10
-~/.config/opencode/scripts/session-report.sh --source orchestra
-~/.config/opencode/scripts/session-report.sh --source native
-~/.config/opencode/scripts/session-report.sh --since 2026-05-01
-~/.config/opencode/scripts/session-report.sh --month 2026-05
-```
-
----
-
-### Approach 2 — SoHoAI proxy (LiteLLM)
-
-**Prerequisite:** API calls must be routed through the [SoHoAI](https://sohoai.org) LiteLLM proxy (`ANTHROPIC_BASE_URL` set to the SoHoAI endpoint). Without this, the SoHoAI API query returns nothing and the system falls back to Approach 1 cost calculation transparently.
-
-#### How it works
-
-SoHoAI tracks cost per API call server-side, attributed by a session header injected into every outbound request. Each `/brain` and `/duo` command writes `X-Orchestra-Session-ID: <session-id>` to `ANTHROPIC_CUSTOM_HEADERS` in `~/.config/opencode/settings.local.json` at session setup, and removes it at cleanup (atomic `tmp + mv -f` to prevent corruption). The header value is the session-dir basename (e.g. `20260507T101953Z-1971495`). For native sessions, `otel-headers-helper.sh` is configured to inject a `native-<UUID>` header, but is not called by CC 2.1.132 — native session cost attribution falls back to T2 (`pricing_yaml`).
-
-At T2 cleanup, `telemetry-summarize.py` queries:
-
-```
-GET {ANTHROPIC_BASE_URL}/v1/usage/stats?session_id=<ID>&since=<ISO8601>&until=<ISO8601>
-```
-
-with a ±60s buffer around the session time window. If SoHoAI returns a non-zero `totals.cost_usd`, that value is used as the **subagent cost** and `cost_source` is set to `"sohoai_api+t2_parent"`. The parent Brain's cost (not visible to SoHoAI — see below) is computed from the T2 JSONL token counts using `pricing.yaml` and added to the SoHoAI subagent figure. Both components are stored in `telemetry.json` as `subagent_cost_usd` and `parent_cost_usd`; `cost_usd_estimate` is their sum. If pricing.yaml is unavailable the parent component is zero and `cost_source` falls back to `"sohoai_api"`. Otherwise the system falls back to litellm or pricing.yaml (see §Cost-source cascade).
-
-For native sessions, `native-session-finalize.py` performs the same SoHoAI query at finalization time. In practice (CC 2.1.132), SoHoAI returns zero for native sessions (no header injected), so cost attribution falls back to `pricing_yaml`. The result is written to `~/.config/opencode/native-sessions/telemetry.jsonl`.
-
-**Why SoHoAI misses the parent Brain cost.** `ANTHROPIC_CUSTOM_HEADERS` (which carries `X-Orchestra-Session-ID`) is written to `settings.local.json` by the session setup block. The parent Brain process reads settings at startup — before the setup block executes — so the parent's own API calls go to SoHoAI *without* the session header. Subagents are spawned after the header is written and inherit it correctly. The T2 parent cost augmentation (above) compensates for this gap.
-
-#### Inspecting per-session data
-
-```bash
-# Check which cost source was used for a specific orchestra session
-cat ~/.config/opencode/orchestra/sessions/<session-id>/telemetry.json | jq '{cost_usd_estimate, cost_source}'
-
-# Check cost source across all finalized native sessions
-cat ~/.config/opencode/native-sessions/telemetry.jsonl | jq '{session_id, cost_source}'
-
-# Distribution of cost sources across orchestra sessions
-grep -o '"cost_source":"[^"]*"' ~/.config/opencode/orchestra/telemetry.jsonl | sort | uniq -c
-
-# Confirm the active-sessions header is set (during an orchestra session)
-cat ~/.config/opencode/settings.local.json | jq .env.ANTHROPIC_CUSTOM_HEADERS
-```
-
-#### Summary reports
-
-Both the unified and orchestra-specific reports show a `Source` column (`sohoai_api` | `litellm` | `pricing_yaml` | `none`) so you can see which cost path was used at a glance:
-
-```bash
-# Unified report with Source column
-~/.config/opencode/scripts/session-report.sh --last 10
-
-# Orchestra-only report with Source column
-~/.config/opencode/scripts/telemetry-report.sh --last 10
-
-# Filter to native sessions only (finalized via SoHoAI where available)
-~/.config/opencode/scripts/session-report.sh --source native --last 10
-
-# Scope to a date range
-~/.config/opencode/scripts/session-report.sh --since 2026-05-01
-~/.config/opencode/scripts/session-report.sh --month 2026-05
-```
-
----
-
-### Cost-source cascade
-
-T2 applies sources in priority order; first non-zero value wins:
-
-| Priority | Source | `cost_source` value | Condition |
-|---|---|---|---|
-| 1 | SoHoAI API + T2 parent | `"sohoai_api+t2_parent"` | `ANTHROPIC_BASE_URL` set; SoHoAI returns non-zero; pricing.yaml provides parent rate |
-| 1a | SoHoAI API only | `"sohoai_api"` | SoHoAI returns non-zero; pricing.yaml unavailable (parent cost = 0) |
-| 2 | litellm | `"litellm"` | litellm installed; `completion_cost()` returns non-zero for session models |
-| 3 | pricing.yaml | `"pricing_yaml"` | `config/pricing.yaml` present with model rates |
-| — | none (0.0) | `"none"` | All three unavailable or return zero |
-
-`pricing.yaml` carries a `last_updated` field. `telemetry-report.sh` warns if rates are > 90 days stale; bump manually after verifying against https://docs.anthropic.com/en/docs/about-claude/models/all-models.
-
-**Caveats:**
-- Per-session `telemetry.json` is the authoritative source (T2). The global `telemetry.jsonl` stores totals only.
-- `OC_SESSION_ID` is not set in subprocess environments (all hook invocations show `session: "unknown"`). `OPENCODE_PROJECT_DIR` is set in hook subprocesses but not in Bash tool call subprocesses. All three places that compute a project path (`orchestra-hook.sh`, `duo.md`, `brain.md`) normalize with `realpath` to resolve symlinks to the physical NFS path.
-- T2 transcript discovery uses `.transcript-path` (stored at session-dir creation) as primary, and a global `~/.config/opencode/projects/*/` scan as secondary. No hardcoded path remains.
-
----
+**Telemetry architecture is being redesigned for Stage 7.** See `docs/pre-Stage7--opencode-redesign.md` for the rationale and `docs/Stage7.md` for the roadmap. The OC-native SQLite implementation ships in v7.1–v7.3.
 
 ### Per-tier cost interpretation
 

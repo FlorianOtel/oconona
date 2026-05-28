@@ -1,22 +1,42 @@
 ---
-title: "Stage 6 Changelog — oconona"
-created_at: 2026-05-28--00-00
-created_by: Claude Code (Claude Sonnet 4.6)
-updated_by: Claude Code (Claude Opus 4.7)
-updated_at: 2026-05-28--21-30
+title: "Stage 7 Changelog — oconona"
+created_at: 2026-05-28--18-16
+created_by: Actor (Claude Haiku 4.5)
 context: >
-  Implementation log for Stage 6 dual-stream cost telemetry in oconona.
-  Records delivered functionality in reverse-chronological order.
-  Each entry includes timestamp, commit hash, and a summary of changes.
+  Reverse-chronological implementation log for Stage 7 OC-native telemetry
+  redesign. Carries forward Stage 6 entries with status annotations. Newest
+  entries at top.
 ---
 
-# Stage 6 Changelog
+# Stage 7 Changelog
 
 Entries are reverse-chronological. Newest at the top.
 
 ---
 
-## 2026-05-28 — Stage 6.1.1: `claude-code-*` alias purge
+## 2026-05-28 — v7.0: Stage 7 redesign scaffold + design.md stale-ref purge
+
+**Commit:** TBD (populated after commit)
+
+### Delivered
+
+- Created `docs/pre-Stage7--opencode-redesign.md`: architectural rationale for OC-native SQLite
+  telemetry redesign; empirical findings; design choices; transient staging doc.
+- Created `docs/Stage7.md`: 6-stage roadmap (v7.0–v7.5) with status markers and Stage 6
+  sub-stage status mapping table.
+- Created `docs/Stage7--Changelog.md`: this file; carries forward Stage 6 entries.
+- Deleted `docs/Stage6.md` and `docs/Stage6--Changelog.md`.
+- Cleaned `docs/design.md`: removed T1/T2 hybrid sections, SoHoAI proxy section, cost-source
+  cascade section, native session tracking section (CC-era), CC statusLine JSON schema section
+  (CC-era), SoHoAI live cost subsection, and all stale references. Added forward-pointer in
+  telemetry slot. Refreshed frontmatter timestamps.
+
+### Out of scope
+Code changes deferred to v7.1–v7.3.
+
+---
+
+## 2026-05-28 — Stage 6.1.1: `claude-code-*` alias purge [status: PRESERVED, load-bearing for v7.X]
 
 **Commit:** `67a1434`
 
@@ -42,22 +62,12 @@ Entries are reverse-chronological. Newest at the top.
 - `docs/design.md`: every live prose mention updated (intro, subagents section, /duo workflow advice, model-tier table, model-requirements `/duo` advisory row, non-Anthropic models section, cost section, "deployable surfaces" bullet, multi-model routing table, brain recommendation paragraph, SoHoAI routing-stability note, Reviewer rationale).
 - `AGENTS.md`: agents/ inventory + ctx-segment smoke-test invocations.
 
-### Out of scope (kept as-is)
-- `AGENTS.md:37` smoke-test record — historical record of a specific 2026-05-20 smoke run; next smoke run will overwrite.
-- `docs/design.md:578-591` cumulative-totals sample blocks — frozen `telemetry-report.sh --tier` historical output.
-- All `docs/{design-history,Sonnet-porting-plan,Opus-porting-plan,Glm--*,Kimi-*,Consolidated-migration-plan,architecture-decisions}.md` and `docs/architecture/*.md` — migration records preserved in their original pre-port form.
-- SoHoAI cost-attribution coupling (Surface B in the audit: `query_sohoai_usage`, `cost_source: "sohoai_api"`, `sohoai-live-cost.sh`, `config/config.yaml:sohoai:` block). Deferred to a separate plan that empirically tests whether OC's AI SDK populates `cost.total_cost_usd` for `@ai-sdk/openai-compatible` routes before deciding to decommission.
-
 ### Files changed
 `agents/planner.md`, `agents/actor.md`, `agents/actor-heavy.md`, `agents/reviewer.md`, `config/pricing.yaml`, `config/context-windows.yaml`, `scripts/telemetry-summarize.py`, `status-line/orchestra-block.sh`, `README.md`, `AGENTS.md`, `docs/design.md`, `docs/Stage6--Changelog.md`
 
-### Verification
-
-Operator needs to run `./deploy.sh` then a `/duo-plan <trivial>` to confirm subagent telemetry shows distinct per-tier model IDs (was previously parent's default).
-
 ---
 
-## 2026-05-28 — Brain model recommendation (Anthropic Opus 4.7, advisory only) + commands/agents docs clarification
+## 2026-05-28 — Brain model recommendation (Anthropic Opus 4.7, advisory only) + commands/agents docs clarification [status: PRESERVED]
 
 **Commit:** `a90b4dc`
 
@@ -76,16 +86,14 @@ Operator needs to run `./deploy.sh` then a `/duo-plan <trivial>` to confirm suba
 ### Files changed
 `commands/brain.md`, `README.md`, `docs/design.md`, `AGENTS.md`, `docs/Stage6--Changelog.md`
 
-### Out of scope (kept as-is)
-- Historical porting plans (`docs/Sonnet-porting-plan.md`, `docs/Opus-porting-plan.md`, `docs/Consolidated-migration-plan.md`) retain their original `claude-code-kimi-k2.6` Brain references as frozen migration records.
-- Sample telemetry output blocks in `docs/design.md` (showing `brain claude-code-kimi-k2.6` in cumulative-totals tables) retain their original values as historical sample data.
-- Smoke-test record in `AGENTS.md` line 29 retains its original `claude-code-kimi-k2.6 (Brain)` line as a historical record of a specific past smoke test; the next smoke run will overwrite it with the new Brain model.
-
 ---
 
-## 2026-05-28 — Stage 6.1: Dual-stream writers + path audit fix
+## 2026-05-28 — Stage 6.1: Dual-stream writers + path audit fix [status: PARTIALLY SUPERSEDED]
 
-**Commits:** `cbfc067` (docs), `f39e96c` (code)
+**Commits:** `f39e96c` (code), `cbfc067` (docs)
+
+**Superseded by:** v7.1–v7.3 (Writer A + Writer B + glob+sum cost path will be replaced by OC-SQLite reads).
+**Preserved:** Path audit (`~/.config/opencode/orchestra/` migration), `.project-dir` sidecar, `deploy.sh` `agent/`→`agents/` fix.
 
 ### Delivered
 
@@ -112,4 +120,4 @@ Operator needs to run `./deploy.sh` then a `/duo-plan <trivial>` to confirm suba
 
 ---
 
-*(Future Stage 6 sub-stages will be prepended here)*
+*(Future Stage 7 sub-stage entries will be prepended here)*
