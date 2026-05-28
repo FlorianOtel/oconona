@@ -321,7 +321,7 @@ SubagentStop hook.
 
 ## 2026-05-28 — Stage 6.1: dual-stream writers shipped
 
-**Commit:** [to be filled by git commit]
+**Commit:** `cbfc067`
 
 **Changes:**
 - Path audit: all `${OPENCODE_PROJECT_DIR}/.opencode/orchestra/` references migrated to `~/.config/opencode/orchestra/` (global, NFS-shared)

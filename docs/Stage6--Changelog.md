@@ -16,7 +16,7 @@ Entries are reverse-chronological. Newest at the top.
 
 ## 2026-05-28 — Stage 6.1: Dual-stream writers + path audit fix
 
-**Commit:** `[fill in commit hash after git commit]`
+**Commit:** `cbfc067`
 
 ### Delivered
 
