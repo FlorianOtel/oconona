@@ -6,10 +6,27 @@ A three-tier orchestration layer for [OpenCode](https://opencode.ai) that routes
 
 | Tier | Model | Fallback | Role |
 |---|---|---|---|
-| **Brain** | Your main session (`claude-code-kimi-k2.6` recommended) | — (main session) | Orchestrates, delegates, approves |
+| **Brain** | Your main session, **Anthropic Opus 4.7 recommended** (any model permitted) | — (main session) | Orchestrates, delegates, approves |
 | **Planner** | `claude-code-glm-5.1` | — | Decomposes tasks into numbered, reviewable plans |
 | **Actor** | `claude-code-qwen3-coder-next` | `claude-code-kimi-k2.6` for `[tier: heavy]` steps | Executes individual plan steps; scoped, fast, cheap |
 | **Reviewer** | `claude-code-kimi-k2.6` | — | Reviews Actor's output; emits PASS / FIX / BLOCK verdicts |
+
+The project name's "non-Anthropic" refers to the **worker tier** (Planner / Actor / Reviewer / Actor-Heavy). Brain itself runs on Anthropic Opus 4.7 — the orchestrator's job (multi-turn interrogation, plan reasoning, dispatch decisions, review judgment) benefits from Anthropic's strongest reasoning model. The non-Anthropic workers are where the cost savings come from.
+
+## Slash commands vs subagents
+
+Two distinct kinds of `.md` file in this repo, deployed to two different canonical OpenCode directories — easy to conflate, important to keep separate:
+
+| Kind | Source | Deployed to | Invoked by | Purpose |
+|---|---|---|---|---|
+| **Slash command** | `commands/*.md` | `~/.config/opencode/commands/` | Operator typing `/name` | Operator-facing entry point; the body becomes Brain's prompt |
+| **Subagent** | `agents/*.md` | `~/.config/opencode/agents/` | Parent calling the `Task` tool with `subagent_type: name` | Dispatchable worker with isolated context, its own model, its own tool permissions |
+
+`/brain`, `/duo-plan`, `/duo-act`, `/duo-abandon`, `/brain-abandon` are **slash commands** — operator-facing pipeline orchestrators. They dispatch the agents; they are not workers themselves.
+
+`planner`, `actor`, `actor-heavy`, `reviewer` are **subagents** — each has frontmatter declaring its model (different per tier) and its tool permissions (Planner & Reviewer read-only; Actor has Edit/Write/Bash).
+
+**Brain is neither.** Brain *is* the parent OpenCode session that ran `/brain`. It cannot be implemented as a subagent because Phase 0 of `/brain` is multi-turn interactive interrogation with the operator, and OpenCode subagents are single-dispatch (no back-and-forth with the operator).
 
 ## Pipelines
 

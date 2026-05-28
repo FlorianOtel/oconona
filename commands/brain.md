@@ -12,7 +12,7 @@ No separate sessions. No `claude -p` subprocesses. No multi-run registry. If the
 
 `/brain` orchestrates **subagents**: Planner (`claude-code-glm-5.1`) produces the plan, Actor (`claude-code-qwen3-coder-next` or `claude-code-kimi-k2.6` for `[tier: heavy]` steps) makes code changes, Reviewer (`claude-code-kimi-k2.6`) audits the diff. You (Brain) dispatch them via the canonical OpenCode `Task` tool. **You do NOT do the planning or implementation work yourself.** Each phase begins with a `Task` tool call; the templates are in the relevant phase sections below.
 
-**Recommended run environment:** For best results, run `/brain` from the `claude-code-kimi-k2.6` model variant. The pipeline will work with any OpenCode variant, but this model provides the most reliable operator experience for multi-phase orchestration. Alternatively, `claude-code-deepseek-v4-pro` may be considered if it becomes available and stable.
+**Recommended run environment: Anthropic Opus 4.7.** The project name (`opencode-orchestra--non-Anthropic`) refers to the *worker tier* — Planner, Actor, Reviewer, and Actor-Heavy deliberately use non-Anthropic models (GLM-5.1, Qwen3-Coder-Next, Kimi K2.6) for cost efficiency under the SoHoAI flat-rate subscription. **Brain itself is not part of that pattern**: the orchestrator's job (multi-turn interrogation, plan reasoning, dispatch decisions, review judgment) is best served by Anthropic's strongest reasoning model. The Prerequisites section below emits an advisory if Brain is running on a different model, but does **not** enforce — this is a deliberate deviation from claude-orchestra, where the same check is a hard gate.
 
 ### Override of plan-mode's plan-file directive
 
@@ -45,9 +45,19 @@ Each of these means a `Task`-tool dispatch was skipped. If you catch yourself ab
 | Multi-step task, architecture-ish, or anything where a review loop matters | `/brain` |
 | Simple, well-scoped, ≤ 10 steps, low blast-radius | `/duo` |
 
-1. **Plan mode is active.** Phase 0 and Phase 1 must run with the parent in plan mode. If the operator is not in plan mode, stop and say:
+## Prerequisites
+
+1. **Model recommendation (ADVISORY only — never blocks):** Brain runs best on Anthropic Opus 4.7. The pipeline subagents use non-Anthropic models by design; Brain itself benefits from stronger reasoning. This is a **soft recommendation, not a gate** — any model is permitted. Read "The exact model ID is…" from your system context and emit the appropriate one-line notice, then proceed:
+
+   - Model ID is `claude-opus-4-7*` or any newer/higher-capability Anthropic version → proceed silently (no notice).
+   - Any other model (Sonnet 4.6 / Sonnet 4.5 / Haiku / non-Anthropic / unknown) → emit a single-line advisory and proceed:
+     > "ℹ️ /brain recommends Anthropic Opus 4.7 for best orchestration quality. You are on [MODEL-ID] — proceeding anyway (deliberate non-enforcement; `/model claude-opus-4-7` to switch if desired)."
+
+   This is a deliberate deviation from `claude-orchestra`, where the same check is a hard gate (STOP on Haiku/older Sonnet/non-Anthropic). In `oconona` the operator's choice is final.
+
+2. **Plan mode is active.** Phase 0 and Phase 1 must run with the parent in plan mode. If the operator is not in plan mode, stop and say:
    > "Please enter plan mode first (Shift+Tab), then run `/brain` again."
-2. **Bypass-flattens-down caveat.** If the operator launched the parent session with `--dangerously-skip-permissions`, all subagent permission frontmatter is silently overridden and Phase 0's read-only posture is not enforced by the framework. Subagents inherit bypass. Document but do not refuse — this is the operator's choice.
+3. **Bypass-flattens-down caveat.** If the operator launched the parent session with `--dangerously-skip-permissions`, all subagent permission frontmatter is silently overridden and Phase 0's read-only posture is not enforced by the framework. Subagents inherit bypass. Document but do not refuse — this is the operator's choice.
 
 ## Setup — per-invocation artifact directory + housekeeping
 

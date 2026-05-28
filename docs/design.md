@@ -14,11 +14,28 @@ context: >
 
 # OpenCode Orchestra
 
-A three-tier orchestration system for OpenCode: **Brain** delegates reasoning, implementation, and review across **Planner** (claude-code-glm-5.1), **Actor** (claude-code-qwen3-coder-next), and **Reviewer** (claude-code-kimi-k2.6) tiers using OpenCode's native `Task` tool for subagent dispatch. Single global install at `~/.config/opencode/`; usable from any project.
+A three-tier orchestration system for OpenCode: **Brain** (Anthropic Opus 4.7) delegates reasoning, implementation, and review across **Planner** (claude-code-glm-5.1), **Actor** (claude-code-qwen3-coder-next), and **Reviewer** (claude-code-kimi-k2.6) tiers using OpenCode's native `Task` tool for subagent dispatch. Single global install at `~/.config/opencode/`; usable from any project.
 
 ## Intro
 
-OpenCode Orchestra solves the cost/capability trade-off for multi-step code work. A single powerful Brain (user's active model, recommended: claude-code-kimi-k2.6) orchestrates cheaper specialized tiers: a read-only Planner for structured reasoning, a write-capable Actor for implementation, and a read-only Reviewer for quality gates. The key design choice: **Option B — native OpenCode subagents, not separate processes** — which keeps the architecture simple and preserves permission modes and plan-approval gates.
+OpenCode Orchestra solves the cost/capability trade-off for multi-step code work. A single powerful Brain (Anthropic Opus 4.7) orchestrates cheaper specialized tiers: a read-only Planner for structured reasoning, a write-capable Actor for implementation, and a read-only Reviewer for quality gates. The project name's `--non-Anthropic` suffix refers to the **worker tier** — Planner, Actor, Reviewer, and Actor-Heavy are all non-Anthropic (SoHoAI flat-rate); Brain itself runs on Anthropic Opus 4.7 because the orchestrator's job (interrogation, planning, dispatch, review judgment) benefits from Anthropic's strongest reasoning model. The key design choice: **Option B — native OpenCode subagents, not separate processes** — which keeps the architecture simple and preserves permission modes and plan-approval gates.
+
+## Slash commands vs subagents
+
+Two distinct kinds of `.md` file in this repo, deployed to two different OpenCode-canonical directories. Conflating them is a common source of confusion, so the distinction is stated explicitly here.
+
+| Kind | Source | Deployed to | Invoked by | Has model/tools frontmatter? | Purpose |
+|---|---|---|---|---|---|
+| **Slash command** | `commands/*.md` | `~/.config/opencode/commands/` | Operator typing `/name` | No (it's a prompt template) | Operator-facing entry point; the body becomes the parent (Brain) session's prompt |
+| **Subagent** | `agents/*.md` | `~/.config/opencode/agents/` | Parent calling `Task` tool with `subagent_type: name` | **Yes** — per-agent model and tool permissions | Dispatchable worker with isolated context, its own model, its own tool permissions |
+
+**Slash commands (`commands/*.md`):** `brain.md`, `brain-abandon.md`, `duo-plan.md`, `duo-act.md`, `duo-abandon.md`. These are pipeline orchestrators — operator-facing entry points whose body becomes Brain's instructions. They are not "workers"; they coordinate work by dispatching subagents via the `Task` tool.
+
+**Subagents (`agents/*.md`):** `planner.md` (model: `claude-code-glm-5.1`, read-only tools), `actor.md` (model: `claude-code-qwen3-coder-next`, Edit/Write/Bash), `actor-heavy.md` (model: `claude-code-kimi-k2.6`, Edit/Write/Bash), `reviewer.md` (model: `claude-code-kimi-k2.6`, read-only tools). Each has frontmatter that declares its model and tool permissions; OpenCode enforces both at dispatch time.
+
+**Brain is neither.** Brain *is* the parent OpenCode session that executes `/brain` (or `/duo-act`). It runs on Anthropic Opus 4.7. Brain cannot be implemented as a subagent because Phase 0 of `/brain` is multi-turn interactive interrogation with the operator, and OpenCode subagents are single-dispatch units (they cannot have multi-turn dialog with the operator). The orchestration logic in `commands/brain.md` is therefore intentionally in `commands/`, not `agents/`.
+
+**Auxiliary directory:** `agents-md-block/orchestra-guard.md` is yet a third thing — a markdown block injected by `deploy.sh` into `~/.config/opencode/AGENTS.md` between sentinels, to remind Brain about pipeline rules on every turn. Not a subagent, not a slash command — a project-instruction snippet.
 
 Use it when you want code changes reviewed before landing, or when you want to isolate reasoning from implementation for cost control.
 
@@ -32,7 +49,7 @@ Talk to Brain normally. Brain delegates to Planner/Actor/Reviewer as needed. No 
 
 `/duo` is a three-command session-bracketed pipeline. `/duo-plan <task>` opens a planning session (sets up the session_dir, drafts an initial `PLAN.md`, and yields back). The operator then refines the plan across as many normal plan-mode turns as needed. `/duo-act` commits the plan, calls `ExitPlanMode`, dispatches Actor, and runs cleanup + telemetry. `/duo-abandon` cancels the active session cleanly. No Reviewer. Example: "add a docstring to rag_engine/search.py::search_rag" — low risk, no review needed.
 
-Workflow: (1) Launch a OpenCode session (recommended: `claude-code-kimi-k2.6`). (2) `Shift+Tab` to enter plan mode. (3) `/duo-plan <task>`. (4) Refine across turns until the plan is right. (5) `/duo-act` to execute (or `/duo-abandon` to cancel); on approval, `Shift+Tab` to bypassPermissions if desired, Actor runs uninterrupted.
+Workflow: (1) Launch a OpenCode session (any model works for `/duo`; `claude-code-kimi-k2.6` recommended). (2) `Shift+Tab` to enter plan mode. (3) `/duo-plan <task>`. (4) Refine across turns until the plan is right. (5) `/duo-act` to execute (or `/duo-abandon` to cancel); on approval, `Shift+Tab` to bypassPermissions if desired, Actor runs uninterrupted.
 
 Splitting the plan-approval gate into an explicit `/duo-act` (rather than the slash command barrelling through to `ExitPlanMode` in one response) means rejection-or-redirect during planning is now first-class: refinement is a normal multi-turn conversation, not a rejected-plan-and-informally-keep-chatting situation. Telemetry attribution stays correct because `.outcome`-file mtime bounds the T2 time window (see §Telemetry).
 
@@ -54,7 +71,7 @@ When NOT to use /brain: simple tasks with ≤5 steps, low blast radius. Use /duo
 
 | Agent | Model | File | Tools | Role |
 |---|---|---|---|---|
-| **Brain** | any (user's active model) | — (main session) | all | Orchestrates; calls `ExitPlanMode` at plan approval (G2) |
+| **Brain** | Anthropic Opus 4.7 recommended (any model permitted; advisory only) | — (main session) | all | Orchestrates; calls `ExitPlanMode` at plan approval (G2). Strictly speaking Brain is not an "agent" — it's the parent session itself; included here as the top of the tier hierarchy. |
 | **Planner** | `claude-code-glm-5.1` | `~/.config/opencode/agent/planner.md` | Read, Grep, Glob, WebFetch, TodoWrite (read-only) | Decomposes task into numbered plan; Brain persists to PLAN.md |
 | **Actor** | `claude-code-qwen3-coder-next` | `~/.config/opencode/agent/actor.md` | Read, Edit, Write, Bash, Grep, Glob (+ denies on rm -rf, git push) | Executes one step per invocation; self-persists TASKS.json via atomic-rename |
 | **Actor** (heavy) | `claude-code-kimi-k2.6` | `~/.config/opencode/agent/actor-heavy.md` | Read, Edit, Write, Bash, Grep, Glob (+ denies on rm -rf, git push) | Complex multi-file refactors; triggered by `[tier: heavy]` step annotations |
@@ -64,9 +81,14 @@ When NOT to use /brain: simple tasks with ≤5 steps, low blast radius. Use /duo
 
 | Command | Minimum | Recommended | Enforcement |
 |---|---|---|---|
+| `/brain` | none | Anthropic Opus 4.7 | **Advisory only** — Brain emits a one-line notice on non-Opus models and continues. Any model is permitted. |
 | `/duo` | none | claude-code-kimi-k2.6 | Advisory only — Brain warns and continues |
 
 The check happens at command startup before any Bash or setup runs. It is LLM-enforced (Brain reads "The exact model ID is…" injected by OpenCode into every session's system context) — same trust level as the plan-mode gate.
+
+**Why Anthropic Opus 4.7 is recommended for `/brain`.** Brain's job is multi-turn interrogation, plan reasoning over a large session context, dispatch decisions, and review judgment across the cap-3 loop. These all reward strong reasoning, and the cost is small (Brain is one session per pipeline, not per step). The pipeline subagents — Planner, Actor, Actor-Heavy, Reviewer — deliberately use non-Anthropic models because their work is per-step, narrow-context, and benefits more from the SoHoAI flat-rate economics than from incremental reasoning quality.
+
+**Deliberate deviation from `claude-orchestra`.** The upstream `claude-orchestra` project enforces this as a hard gate (STOPs on Haiku, older Sonnet, or non-Anthropic models). `oconona` deliberately downgrades the check to advisory only — the operator's model choice is final, and any model can drive `/brain`. The recommendation is preserved (notice emitted on non-Opus) but never blocks.
 
 ### Sequential Phase Architecture & gates
 
@@ -270,7 +292,7 @@ brain-state.md     (pre-compact snapshot)
 
 All subagents operate under a flat-rate SoHoAI subscription (marginal cost = $0 per invocation):
 
-- **Brain** (user's active model): most expensive; receives every subagent's return. Mitigated by prompt caching + `PreCompact` hook saving state. Cost dominates a typical session.
+- **Brain** (Anthropic Opus 4.7): most expensive; receives every subagent's return. Brain is per-token Anthropic pricing (NOT flat-rate SoHoAI). Mitigated by prompt caching + `PreCompact` hook saving state. Cost dominates a typical session.
 - **Planner** (claude-code-glm-5.1): called once per plan. $0 marginal cost.
 - **Actor** (claude-code-qwen3-coder-next or claude-code-kimi-k2.6 if heavy): called once per step. $0 marginal cost.
 - **Reviewer** (claude-code-kimi-k2.6): called once per review (up to 3 per step). $0 marginal cost.
@@ -321,7 +343,7 @@ See design-history.md §13.3 for three potential approaches to close the gap.
 
 ### Rationale
 
-Multi-tier orchestration has a non-obvious cost structure. Brain (user's active model) dominates by token volume — it re-sends its full context every turn (cached after the first hit, but still billed at the cache-read rate of the most expensive model) and receives all subagent returns. Planner (claude-code-glm-5.1) and Reviewer (claude-code-kimi-k2.6) are single-call-per-phase. Actor (claude-code-qwen3-coder-next) is called once per step and may iterate. Without measurement, cost/quality trade-offs are guesses: which tier to change? which phase to skip? does the built-in `Explore` subagent justify a dedicated cheaper Researcher agent? Telemetry makes those decisions data-driven (see `TODO.md §0` for the full decision-gate framework).
+Multi-tier orchestration has a non-obvious cost structure. Brain (Anthropic Opus 4.7) dominates by token volume — it re-sends its full context every turn (cached after the first hit, but still billed at the cache-read rate of the most expensive model) and receives all subagent returns. Planner (claude-code-glm-5.1) and Reviewer (claude-code-kimi-k2.6) are single-call-per-phase. Actor (claude-code-qwen3-coder-next) is called once per step and may iterate. Without measurement, cost/quality trade-offs are guesses: which tier to change? which phase to skip? does the built-in `Explore` subagent justify a dedicated cheaper Researcher agent? Telemetry makes those decisions data-driven (see `TODO.md §0` for the full decision-gate framework).
 
 Every `/brain` and `/duo` run is instrumented post-hoc by `scripts/telemetry-summarize.{sh,py}`, invoked from each command's cleanup block. Native (non-orchestra) CC sessions are tracked automatically via `bash-session-init.sh` (sourced on every Bash tool call through `BASH_ENV`) and finalized by the Stop hook — see §Native session tracking below.
 
@@ -541,7 +563,7 @@ These are historical examples from the Anthropic-only era. For current non-Anthr
 | `/brain` | variable | ~13% | ~8% | ~13% |
 | `/duo` | ~60% | — | ~40% | — |
 
-Models: Brain (user's active model), Planner (claude-code-glm-5.1), Actor (claude-code-qwen3-coder-next, or claude-code-kimi-k2.6 for heavy steps), Reviewer (claude-code-kimi-k2.6). All subagents operate under flat-rate SoHoAI pricing (marginal cost = $0).
+Models: Brain (Anthropic Opus 4.7), Planner (claude-code-glm-5.1), Actor (claude-code-qwen3-coder-next, or claude-code-kimi-k2.6 for heavy steps), Reviewer (claude-code-kimi-k2.6). All subagents operate under flat-rate SoHoAI pricing (marginal cost = $0); Brain is per-token Anthropic pricing.
 
 Brain's tier dominance is what remains **after** prompt caching has already taken ~86% off Brain's bill — the proportions in the table are post-cache. Three multipliers stack to keep Brain on top: **model rate** (Brain pays per-token Anthropic pricing; subagents run on SoHoAI flat-rate), **context size** (Brain re-sends the whole session every turn; subagents get a fresh, scoped prompt), and **turn count** (Brain runs every user message + every dispatch round-trip; subagents are one-shot). Caching only attacks the first multiplier. To shift the proportions further: trim context (`/compact`, smaller inlined artifacts) or downgrade the Brain model.
 
@@ -600,7 +622,7 @@ Reference: [Design history & amendments](design-history.md) §Amendment 2026-05-
 | Actor (heavy) | `claude-code-kimi-k2.6` | `[tier: heavy]` annotation in PLAN.md step |
 | Reviewer | `claude-code-kimi-k2.6` | all reviews (calibration + flat-rate economics) |
 
-**Brain** runs on the user's active model (no restriction); `/duo` recommends claude-code-kimi-k2.6 (advisory only); any model works.
+**Brain** is recommended on Anthropic Opus 4.7 (advisory only — any model permitted; see §Model requirements above). `/duo` is unconstrained and recommends claude-code-kimi-k2.6 advisory; any model works for `/duo`.
 
 ### Step-level tier annotations
 
