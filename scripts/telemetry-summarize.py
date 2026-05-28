@@ -302,8 +302,8 @@ def query_litellm_cost(
     """Query litellm for cost computation with cache-token rates.
 
     Returns total cost or None if litellm unavailable or computation fails.
-    claude-code-* aliases are SoHoAI gateway aliases (not LiteLLM-registered models);
-    they are treated as $0 per pricing.yaml rather than aborting the entire path.
+    sohoai/* models are not in LiteLLM's registry; they are treated as $0 per
+    pricing.yaml (flat-rate SoHoAI subscription) rather than aborting the entire path.
 
     When pricing_data is supplied, its cache rates take precedence over LiteLLM's
     registry for any model listed in pricing_data. LiteLLM's claude-opus-4-7 entry
@@ -321,8 +321,8 @@ def query_litellm_cost(
     def _model_cost(raw_model: str, tokens: Dict) -> float:
         """Return litellm cost for one model+tokens, or 0.0 on any failure."""
         model = _normalize_model_id(raw_model)
-        # SoHoAI gateway aliases — not in LiteLLM's registry; $0 by design (flat subscription).
-        if model.startswith("claude-code-"):
+        # SoHoAI-routed models — not in LiteLLM's registry; $0 by design (flat subscription).
+        if model.startswith("sohoai/"):
             return 0.0
         try:
             base = litellm.completion_cost(
@@ -363,13 +363,13 @@ def query_litellm_cost(
 
     try:
         if parent.get("model"):
-            if not _normalize_model_id(parent["model"]).startswith("claude-code-"):
+            if not _normalize_model_id(parent["model"]).startswith("sohoai/"):
                 has_native_model = True
             total_cost += _model_cost(parent["model"], parent.get("tokens", {}))
 
         for subagent in subagents:
             if subagent.get("model"):
-                if not _normalize_model_id(subagent["model"]).startswith("claude-code-"):
+                if not _normalize_model_id(subagent["model"]).startswith("sohoai/"):
                     has_native_model = True
                 total_cost += _model_cost(subagent["model"], subagent.get("tokens", {}))
 

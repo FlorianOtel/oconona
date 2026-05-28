@@ -17,7 +17,7 @@
 - **`commands/*.md`** → operator-facing slash commands (deployed to `~/.config/opencode/commands/`). Invoked by the operator typing `/name`. The body becomes Brain's prompt.
 - **`agents/*.md`** → dispatchable subagents (deployed to `~/.config/opencode/agents/`). Invoked by Brain via the `Task` tool with `subagent_type: name`. Each has frontmatter declaring its model and tool permissions.
 
-- `agents/` — planner (claude-code-glm-5.1, read-only), actor (claude-code-qwen3-coder-next), actor-heavy (claude-code-kimi-k2.6), reviewer (claude-code-kimi-k2.6, read-only)
+- `agents/` — planner (sohoai/glm-5.1, read-only), actor (sohoai/qwen3-coder-next), actor-heavy (sohoai/kimi-k2.6), reviewer (sohoai/kimi-k2.6, read-only)
 - `commands/` — /brain (full pipeline: Phase 0 inline + 3 subagents) + /brain-abandon (explicit cancel); /duo-plan, /duo-act, /duo-abandon (lightweight session-bracketed pipeline: Brain plans interactively across multiple turns, Actor acts after /duo-act)
 - `scripts/orchestra-hook.sh` — PreToolUse / SubagentStop / PreCompact / Stop dispatcher
 - `scripts/otel-headers-helper.sh` — X-Orchestra-Session-ID injection; auto-creates native session entries (OC 2.1.132: not called — fallback via bash-session-init.sh)
@@ -57,21 +57,21 @@ Verify T1 (hook events) and T2 (transcript parse) after any /duo or /brain run.
 ### Status-line ctx + SoHoAI cost smoke test (no OC restart needed)
 1. Deploy: `./deploy.sh`
 2. Test ctx segment (low fill, expect green):
-   `~/.config/opencode/scripts/ctx-segment.sh 12 24000 200000 claude-code-kimi-k2.6`
+   `~/.config/opencode/scripts/ctx-segment.sh 12 24000 200000 sohoai/kimi-k2.6`
    → colored `ctx ▓░░░░░░░░░ 12% 24K/200K`
 3. Test ctx segment (high fill, expect orange):
-   `~/.config/opencode/scripts/ctx-segment.sh 85 170000 200000 claude-code-kimi-k2.6`
+   `~/.config/opencode/scripts/ctx-segment.sh 85 170000 200000 sohoai/kimi-k2.6`
    → `ctx ▓▓▓▓▓▓▓▓░░ 85% 170K/200K` in orange
 4. Test ctx 1M variant:
-   `~/.config/opencode/scripts/ctx-segment.sh 12 120000 1000000 'claude-code-deepseek-v4-pro[1m]'`
+   `~/.config/opencode/scripts/ctx-segment.sh 12 120000 1000000 'sohoai/deepseek-v4-pro[1m]'`
    → `ctx ▓░░░░░░░░░ 12% 120K/1M`
 5. Test SoHoAI helper (replace SESSION_ID with active orchestra dir
    basename or `native-<UUID>` from `~/.config/opencode/active-sessions/`):
    `~/.config/opencode/scripts/sohoai-live-cost.sh SESSION_ID $(date +%s) /tmp/test-cost-cache`
    → `~$X.YZ` or empty; <2s wall time
 6. Live render: send any message to OC; observe status bar shows
-   `model | ctx ▓▓░░░░░░░░ N% XK/YM | ~$X.YZ | ◆ project | ⎇ branch`
-   (cost shown for paid models; absent for zero-cost claude-code-* models)
+   `model | ctx ▓▓░░░░░░░░ N% XK/YM | Σ$X.YZ | ◆ project | ⎇ branch`
+   (cost shown for paid models; absent for zero-cost sohoai/* models)
 
 ### Native session telemetry smoke test
 1. Open a fresh OC session (no /brain or /duo).

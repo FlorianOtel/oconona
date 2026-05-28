@@ -1,7 +1,7 @@
 ---
 name: actor
 description: Executes a single, scoped implementation step (or tight set of steps) from PLAN.md. Use when Brain has an approved plan and needs concrete edits made. Updates TASKS.json after completion and returns a short status report plus a diff summary.
-model: claude-code-qwen3-coder-next
+model: sohoai/qwen3-coder-next
 tools: Read, Edit, Write, Bash, Grep, Glob, TodoWrite
 ---
 

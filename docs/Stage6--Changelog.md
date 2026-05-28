@@ -3,7 +3,7 @@ title: "Stage 6 Changelog — oconona"
 created_at: 2026-05-28--00-00
 created_by: Claude Code (Claude Sonnet 4.6)
 updated_by: Claude Code (Claude Opus 4.7)
-updated_at: 2026-05-28--19-00
+updated_at: 2026-05-28--21-30
 context: >
   Implementation log for Stage 6 dual-stream cost telemetry in oconona.
   Records delivered functionality in reverse-chronological order.
@@ -13,6 +13,47 @@ context: >
 # Stage 6 Changelog
 
 Entries are reverse-chronological. Newest at the top.
+
+---
+
+## 2026-05-28 — Stage 6.1.1: `claude-code-*` alias purge
+
+**Commit:** *(pending)*
+
+### Delivered
+
+**Load-bearing fix — agent frontmatter:** `agents/{planner,actor,actor-heavy,reviewer}.md` were declaring `model: claude-code-<X>` in their frontmatter. OpenCode's agent loader has no provider exposing that ID, so dispatch was silently falling back to the parent session's default model. In practice, the multi-tier worker design was running as **single-tier** (Planner, Actor, Reviewer all on whatever the parent used). All four agents now declare canonical OpenCode IDs from the `provider.sohoai` block in `~/.config/opencode/opencode.json`:
+
+| Tier | Was | Now |
+|---|---|---|
+| Planner | `claude-code-glm-5.1` | `sohoai/glm-5.1` |
+| Actor | `claude-code-qwen3-coder-next` | `sohoai/qwen3-coder-next` |
+| Actor-Heavy | `claude-code-kimi-k2.6` | `sohoai/kimi-k2.6` |
+| Reviewer | `claude-code-kimi-k2.6` | `sohoai/kimi-k2.6` |
+
+**Cleanup — dead lookup keys / dead branches:**
+- `config/pricing.yaml`: 6 key renames + `notes:` block rewritten (no more "gateway alias" framing — these are canonical OC IDs). `last_updated: 2026-05-28`.
+- `config/context-windows.yaml`: 6 key renames; preamble comment updated to drop alias language.
+- `scripts/telemetry-summarize.py`: 3 `startswith("claude-code-")` guards → `startswith("sohoai/")`; docstring at line 305 rewritten.
+- `status-line/orchestra-block.sh`: case branches (lines 97, 99) and prefix-strip (line 127) switched to `sohoai/` discriminator. Prefix-strip logic now correctly uses `!=` test instead of empty-string check.
+
+**Docs (live sections only):**
+- `README.md`: model-tier table updated to `sohoai/*` IDs.
+- `docs/design.md`: every live prose mention updated (intro, subagents section, /duo workflow advice, model-tier table, model-requirements `/duo` advisory row, non-Anthropic models section, cost section, "deployable surfaces" bullet, multi-model routing table, brain recommendation paragraph, SoHoAI routing-stability note, Reviewer rationale).
+- `AGENTS.md`: agents/ inventory + ctx-segment smoke-test invocations.
+
+### Out of scope (kept as-is)
+- `AGENTS.md:37` smoke-test record — historical record of a specific 2026-05-20 smoke run; next smoke run will overwrite.
+- `docs/design.md:578-591` cumulative-totals sample blocks — frozen `telemetry-report.sh --tier` historical output.
+- All `docs/{design-history,Sonnet-porting-plan,Opus-porting-plan,Glm--*,Kimi-*,Consolidated-migration-plan,architecture-decisions}.md` and `docs/architecture/*.md` — migration records preserved in their original pre-port form.
+- SoHoAI cost-attribution coupling (Surface B in the audit: `query_sohoai_usage`, `cost_source: "sohoai_api"`, `sohoai-live-cost.sh`, `config/config.yaml:sohoai:` block). Deferred to a separate plan that empirically tests whether OC's AI SDK populates `cost.total_cost_usd` for `@ai-sdk/openai-compatible` routes before deciding to decommission.
+
+### Files changed
+`agents/planner.md`, `agents/actor.md`, `agents/actor-heavy.md`, `agents/reviewer.md`, `config/pricing.yaml`, `config/context-windows.yaml`, `scripts/telemetry-summarize.py`, `status-line/orchestra-block.sh`, `README.md`, `AGENTS.md`, `docs/design.md`, `docs/Stage6--Changelog.md`
+
+### Verification
+
+Operator needs to run `./deploy.sh` then a `/duo-plan <trivial>` to confirm subagent telemetry shows distinct per-tier model IDs (was previously parent's default).
 
 ---
 

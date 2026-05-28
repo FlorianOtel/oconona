@@ -90,13 +90,14 @@ if [ -n "$cwd" ] && [ -f "$HOME/.config/opencode/orchestra/config.yaml" ]; then
     used_percentage=$(printf "%.0f" "$used_percentage")
     model_id=$(echo "$input" | jq -r '.model.id // .model.display_name // ""' 2>/dev/null)
 
-    # Non-Anthropic models (claude-code-*, local/*) — OC gives no token counts.
+    # Non-Anthropic models (sohoai/*, local/*) — OC's token counts are
+    # unreliable for these; we fall back to SoHoAI's usage_events DB below.
     # Soften forced-zero cost: only local/qwen3* models are truly $0.
     _is_non_anthropic=false
     case "$model_id" in
-        local/qwen3*|claude-code-qwen3*)
+        local/qwen3*|sohoai/qwen3*)
             _is_non_anthropic=true ;;
-        claude-code-*)
+        sohoai/*)
             _is_non_anthropic=true ;;
     esac
 
@@ -124,8 +125,8 @@ if [ -n "$cwd" ] && [ -f "$HOME/.config/opencode/orchestra/config.yaml" ]; then
        && [ -n "$live_session_id" ] && [ -n "$_real_started_at" ]; then
         _sohoai_cache="$HOME/.config/opencode/active-sessions/${live_session_id}.sohoai"
         # Derive bare model name from OC model_id for SoHoAI LIKE query
-        _model_filter="${model_id#claude-code-}"
-        if [ -z "$_model_filter" ]; then
+        _model_filter="${model_id#sohoai/}"
+        if [ "$_model_filter" = "$model_id" ]; then
             _model_filter="${model_id#local/}"
         fi
         [ -z "$_model_filter" ] && _model_filter="$model_id"
@@ -210,7 +211,7 @@ import sys; sys.exit(1 if t>0.01 and abs(d-t)/t>0.05 else 0)
       >> "$invlog" 2>/dev/null || true
 
     if printf '%s' "$_display_cost" | grep -qE '^[0-9]+\.?[0-9]*$'; then
-      live_cost=$(LC_ALL=C printf '~$%.2f' "$_display_cost" 2>/dev/null || true)
+      live_cost=$(LC_ALL=C printf 'Σ$%.2f' "$_display_cost" 2>/dev/null || true)
     fi
 
     # Insert ctx+cost at position 2: right after model field, before project/branch.

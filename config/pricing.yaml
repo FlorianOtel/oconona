@@ -1,12 +1,13 @@
-last_updated: 2026-05-20
+last_updated: 2026-05-28
 source: https://docs.anthropic.com/en/docs/about-claude/models/all-models
 notes: |
-  Anthropic entries retained for historical T2 fallback (sessions predating the non-Anthropic switch).
-  Non-Anthropic entries serve current flat-rate SoHoAI pipelines (marginal cost = $0 per invocation).
-  Authoritative cost for non-Anthropic sessions is the SoHoAI API (cost_source=sohoai_api).
-  Verify against https://docs.anthropic.com/en/docs/about-claude/models/all-models on every bump.
+  Anthropic entries serve T2 fallback for Brain (which runs on Anthropic per the
+  /brain advisory) and any direct Anthropic-routed session.
+  sohoai/* entries are flat-rate (marginal cost = $0 per invocation) — Brain pays
+  for itself; worker tier is bundled into the operator's flat-rate SoHoAI subscription.
+  Verify Anthropic rates against https://docs.anthropic.com/en/docs/about-claude/models/all-models on every bump.
 models:
-  # ── Anthropic models (historical T2 fallback, retained for legacy sessions) ──
+  # ── Anthropic models (Brain + any direct Anthropic-routed session) ──
   claude-opus-4-7:
     input: 15.00
     output: 75.00
@@ -27,22 +28,22 @@ models:
     output: 5.00
     cache_creation: 1.25
     cache_read: 0.10
-  # ── SoHoAI / LiteLLM-routed non-Anthropic aliases (flat-rate, marginal = $0) ──
-  claude-code-glm-5.1:
+  # ── SoHoAI-routed worker-tier models (canonical OC IDs; flat-rate, marginal = $0) ──
+  sohoai/glm-5.1:
     input: 0.00
     output: 0.00
-  claude-code-qwen3-coder-next:
+  sohoai/qwen3-coder-next:
     input: 0.00
     output: 0.00
-  claude-code-kimi-k2.6:
+  sohoai/kimi-k2.6:
     input: 0.00
     output: 0.00
-  claude-code-deepseek-v4-pro:
+  sohoai/deepseek-v4-pro:
     input: 0.00
     output: 0.00
-  claude-code-qwen3-4b-q6:
+  sohoai/qwen3-4b-q6:
     input: 0.00
     output: 0.00
-  claude-code-qwen3-9b-q4:
+  sohoai/qwen3-9b-q4:
     input: 0.00
     output: 0.00

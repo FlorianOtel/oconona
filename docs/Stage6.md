@@ -257,7 +257,7 @@ SubagentStop hook.
 19. **Wire `CostAggregator` into `src/app.tsx`.** useEffect instantiates,
     subscribes `onChange`, disposes on unmount.
 20. **Update `src/components/StatusLine.tsx`** to accept `runningCost` prop;
-    replace hardcoded `~$0.00` with `~$${runningCost.toFixed(2)}` when > 0.
+    replace hardcoded `Σ$0.00` with `Σ$${runningCost.toFixed(2)}` when > 0.
 21. **Rebuild binary** and smoke-test cost updates within ~5 s of turn completion.
 22. **Update docs/Stage6.md** (octmux's own) with 6.4 commit hash.
     Update `docs/Implementation-plan.md` Stage 6 status to `✓ shipped`.

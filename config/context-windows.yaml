@@ -27,11 +27,12 @@ models:
   claude-sonnet-4-6:          200000
   claude-sonnet-4-5:          200000
   claude-haiku-4-5:           200000
-  # SoHoAI / LiteLLM-routed aliases — values sourced from SoHoAI config.yaml
-  # model_info.context_window (advertised via /proxy/v1/model/info to clients)
-  claude-code-qwen3-4b-q6:    131072   # llama-server: Qwen3.5-4B Q6_K_XL, 1 slot × 131072
-  claude-code-qwen3-9b-q4:    262144   # llama-server: Qwen3.5-9B Q4_K_XL, 1 slot × 262144 (hot-swap via llama-swap)
-  claude-code-deepseek-v4-pro: 1000000  # Ollama Cloud; 1M context
-  claude-code-kimi-k2.6:       256000   # Ollama Cloud; 256K (not binary 262144)
-  claude-code-glm-5.1:         200000   # Ollama Cloud; 200K
-  claude-code-qwen3-coder-next: 262000  # Ollama Cloud; 262K
+  # SoHoAI-routed models — canonical OC IDs (sohoai/<key> per opencode.json).
+  # Values sourced from SoHoAI config.yaml model_info.context_window
+  # (advertised via /proxy/v1/model/info to clients).
+  sohoai/qwen3-4b-q6:     131072   # llama-server: Qwen3.5-4B Q6_K_XL, 1 slot × 131072
+  sohoai/qwen3-9b-q4:     262144   # llama-server: Qwen3.5-9B Q4_K_XL, 1 slot × 262144 (hot-swap via llama-swap)
+  sohoai/deepseek-v4-pro: 1000000  # Ollama Cloud; 1M context
+  sohoai/kimi-k2.6:       256000   # Ollama Cloud; 256K (not binary 262144)
+  sohoai/glm-5.1:         200000   # Ollama Cloud; 200K
+  sohoai/qwen3-coder-next: 262000  # Ollama Cloud; 262K
