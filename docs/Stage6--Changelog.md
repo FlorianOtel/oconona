@@ -18,7 +18,7 @@ Entries are reverse-chronological. Newest at the top.
 
 ## 2026-05-28 — Stage 6.1.1: `claude-code-*` alias purge
 
-**Commit:** *(pending)*
+**Commit:** `67a1434`
 
 ### Delivered
 
