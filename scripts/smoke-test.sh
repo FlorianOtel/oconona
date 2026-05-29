@@ -48,13 +48,20 @@ echo ""
 echo "--- Check B (OC DB row + child count) ---"
 if [ -n "${OC_ID:-}" ]; then
     "${PYTHON3}" - <<PYEOF
-import sys, os
-sys.path.insert(0, os.path.expanduser("~/.config/opencode/scripts"))
-try:
-    import oc_db
-except ImportError:
-    print("✗ oc_db module not found at ~/.config/opencode/scripts/oc_db.py")
+import importlib.util
+import sys
+from pathlib import Path
+
+# oc-db.py uses a hyphen (project naming convention); Python's import
+# statement can't load it. Use importlib.util.spec_from_file_location
+# like scripts/telemetry-summarize.py does.
+_db_path = Path.home() / ".config/opencode/scripts/oc-db.py"
+if not _db_path.exists():
+    print(f"✗ oc-db.py not found at {_db_path}")
     sys.exit(1)
+spec = importlib.util.spec_from_file_location("oc_db", _db_path)
+oc_db = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(oc_db)
 
 oc_id = "${OC_ID}"
 try:
@@ -89,9 +96,9 @@ try:
         d = json.load(f)
     cost_usd = d.get("totals", {}).get("cost_usd_estimate", 0)
     cost_source = d.get("cost_source", "")
-    tokens_in = d.get("totals", {}).get("tokens_input", 0)
-    tokens_out = d.get("totals", {}).get("tokens_output", 0)
-    total_tokens = tokens_in + tokens_out
+    _t = d.get("totals", {})
+    total_tokens = (_t.get("tokens_input", 0) + _t.get("tokens_output", 0)
+                    + _t.get("tokens_cache_read", 0) + _t.get("tokens_cache_write", 0))
 
     print(f"  cost_usd_estimate: \${cost_usd:.4f}")
     print(f"  cost_source:       {cost_source}")

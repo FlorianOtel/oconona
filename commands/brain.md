@@ -97,6 +97,15 @@ printf '%s' "<task title, ≤30 chars, no single-quotes>" \
   > "${SESSION_DIR}/.brain-inflight.tmp"
 mv -f "${SESSION_DIR}/.brain-inflight.tmp" "${SESSION_DIR}/.brain-inflight"
 printf '%s\n' "${OPENCODE_PROJECT_DIR:-$(pwd)}" > "${SESSION_DIR}/.project-dir"
+# Sanity check: warn if OC daemon was anchored at $HOME with no project context.
+# Operator likely launched octmux from a project dir but OC's session.directory
+# is the daemon's cwd, so relative paths won't resolve where they expect.
+if [ "$(realpath "${OPENCODE_PROJECT_DIR:-$(pwd)}")" = "$(realpath "$HOME")" ] && \
+   ! git -C "$HOME" rev-parse --show-toplevel >/dev/null 2>&1; then
+    echo "WARN: OC daemon cwd is \$HOME (${HOME}). Relative paths in your /brain prompt"
+    echo "WARN: resolve against \$HOME, not octmux's launch directory. Use absolute paths,"
+    echo "WARN: or restart OC from a project root (systemctl --user restart opencode-server)."
+fi
 # Resolve the current OC session ID via OC's HTTP API. OC 1.15.11 does not export
 # OC_SESSION_ID into bash subprocesses; the env var is unreliable. The HTTP API
 # is the authoritative source. Pick the most-recently-updated top-level

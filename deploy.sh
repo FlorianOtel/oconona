@@ -95,36 +95,32 @@ for f in "$REPO"/commands/*.md; do
 done
 
 # ── 5. Hook scripts + telemetry tools ────────────────────────────────────────
-# All shell scripts below are deployed to ~/.config/opencode/scripts/ and marked +x.
-#   orchestra-hook.sh        — PreToolUse/SubagentStop/PreCompact/Stop dispatcher
-#   telemetry-summarize.sh   — T2 transcript-parser wrapper (calls .py)
-#   telemetry-report.sh      — orchestra session cost report
-#   ctx-segment.sh           — status-line context-window bar renderer
+# Convention: shell wrappers (.sh) are +x and invoke the Python implementation
+# via the venv; Python files (.py) are NOT +x — they're called through the wrapper.
+#   orchestra-hook.sh         — PreToolUse/SubagentStop/PreCompact/Stop dispatcher
+#   telemetry-summarize.sh    — telemetry.json writer wrapper (calls .py)
+#   telemetry-report.sh       — orchestra session cost report (shell-only)
+#   session-report.sh         — orchestra session unified report wrapper (calls .py)
+#   native-session-report.sh  — non-orchestra OC session report wrapper (calls .py)
+#   smoke-test.sh             — 3-check end-of-/brain validation (shell-only)
+#   ctx-segment.sh            — status-line context-window bar renderer
 echo "Scripts:"
 for s in \
     orchestra-hook.sh telemetry-summarize.sh telemetry-report.sh \
+    session-report.sh native-session-report.sh smoke-test.sh \
     ctx-segment.sh; do
     if [ -f "$REPO/scripts/$s" ]; then
         copy_file "$REPO/scripts/$s" "$OC_HOME/scripts/$s"
         $DRY_RUN || chmod +x "$OC_HOME/scripts/$s"
     fi
 done
-# Python parsers — no chmod
-if [ -f "$REPO/scripts/telemetry-summarize.py" ]; then
-    copy_file "$REPO/scripts/telemetry-summarize.py" "$OC_HOME/scripts/telemetry-summarize.py"
-fi
-if [ -f "$REPO/scripts/session-report.py" ]; then
-    copy_file "$REPO/scripts/session-report.py" "$OC_HOME/scripts/session-report.py"
-fi
-if [ -f "$REPO/scripts/oc-db.py" ]; then
-    copy_file "$REPO/scripts/oc-db.py" "$OC_HOME/scripts/oc-db.py"
-fi
-
-# Shell wrappers
-if [ -f "$REPO/scripts/session-report.sh" ]; then
-    copy_file "$REPO/scripts/session-report.sh" "$OC_HOME/scripts/session-report.sh"
-    $DRY_RUN || chmod +x "$OC_HOME/scripts/session-report.sh"
-fi
+# Python implementations — no chmod (always called through the .sh wrapper or
+# via importlib from another Python module).
+for p in telemetry-summarize.py session-report.py native-session-report.py oc-db.py; do
+    if [ -f "$REPO/scripts/$p" ]; then
+        copy_file "$REPO/scripts/$p" "$OC_HOME/scripts/$p"
+    fi
+done
 
 # Clean up artifacts deleted in the headless→subagents revert (idempotent).
 # Per-category orphan removal — only delete specific known-deleted files,
