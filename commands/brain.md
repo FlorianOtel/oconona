@@ -101,7 +101,17 @@ printf '%s' "<task title, ≤30 chars, no single-quotes>" \
   > "${SESSION_DIR}/.brain-inflight.tmp"
 mv -f "${SESSION_DIR}/.brain-inflight.tmp" "${SESSION_DIR}/.brain-inflight"
 printf '%s\n' "${OPENCODE_PROJECT_DIR:-$(pwd)}" > "${SESSION_DIR}/.project-dir"
-printf '%s\n' "${OC_SESSION_ID:-}" > "${SESSION_DIR}/.oc-session-id"
+# Resolve the current OC session ID via OC's HTTP API. OC 1.15.11 does not export
+# OC_SESSION_ID into bash subprocesses; the env var is unreliable. The HTTP API
+# is the authoritative source. Pick the most-recently-updated top-level
+# (parentID null) session in this directory — that's the one running our setup.
+_OC_PORT="${OPENCODE_PORT:-4096}"
+_OC_DIR="$(realpath "${OPENCODE_PROJECT_DIR:-$(pwd)}" 2>/dev/null || pwd)"
+_OC_SESSION_ID=$(curl -sS "http://localhost:${_OC_PORT}/session" 2>/dev/null \
+    | jq -r --arg dir "$_OC_DIR" '
+        [.[] | select(.parentID == null and .directory == $dir)]
+        | sort_by(.time.updated) | last | .id // ""' 2>/dev/null)
+printf '%s\n' "${_OC_SESSION_ID:-}" > "${SESSION_DIR}/.oc-session-id"
 echo "session_dir=${SESSION_DIR}"
 echo "retention_days=${RETENTION_DAYS}"
 ```
