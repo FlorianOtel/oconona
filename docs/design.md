@@ -3,7 +3,7 @@ title: "OpenCode Orchestra — three-tier Brain/Planner/Actor pattern over OpenC
 created_at: 20260424-000000
 created_by: OpenCode (Claude Opus 4.7, 1M context)
 updated_by: Actor (Claude Haiku 4.5)
-updated_at: 2026-05-28--18-16
+updated_at: 2026-05-29--12-37
 context: >
   Reference architecture for OpenCode Orchestra — a three-tier orchestration
   pattern layered on OpenCode using native subagents. The design supports
@@ -173,6 +173,39 @@ The status line script is called by OpenCode on each render tick — after every
 | Active subagent stage | `~/.config/opencode/orchestra/invocations.log` (last `start` event with no matching `end`) | `orchestra-hook.sh start` (PreToolUse) |
 | Live cost | OC SQLite `session.cost` (via `scripts/oc-db.py`, v7.1) | OpenCode runtime |
 
+#### Amendment 2026-05-29--07-54 — octmux status-line cost source (from octmux /brain session)
+
+> **Context:** The following amendment was produced during a `/brain` session in the octmux repo
+> (session `20260529T075453Z-2939750`) and records architectural decisions that affect the
+> Data sources table above. See also `docs/Stage7.md` v7.5 amendment and octmux `docs/Stage8.md`.
+
+The standalone-OC status line (row "Live cost" in the table above) reads cost from OC's SQLite
+`session.cost` column via `scripts/oc-db.py` — a live, sub-second-accurate source. octmux cannot
+use the same path for a structurally different reason: `telemetry.json` — the cross-repo contract
+defined in `docs/Stage7.md` — is written only at orchestra session **cleanup**, not during the
+session. This means `telemetry.json` is stale (or absent) for any active session; an octmux
+aggregator that reads it would display the cost of the *previous* session rather than the live one.
+
+The octmux `/brain` session (Stage 8) therefore chose **Option A: OC SDK direct**. `CostAggregator`
+(new file `octmux/src/cost-aggregator.ts`) calls `client.session.messages({ path: { id: sessionID } })`
+and sums `AssistantMessage.cost` for the active session, then calls `client.session.children()` and
+accumulates per-child costs. This is symmetric with standalone-OC behaviour: both read live cost from
+the same underlying data (OC's session rows), they simply use different access paths (HTTP SDK vs.
+direct SQLite). For completed sessions, both paths arrive at the same dollar value. They differ only
+for in-flight work, where octmux's HTTP poll is live and `telemetry.json` is stale.
+
+Implementation details:
+- **Cadence:** 5-second poll. No SSE subscription in this iteration.
+- **Scope:** octmux reads cost only for the OC session it is directly attached to (the session
+  established on startup). Child sessions (subagent `Task` dispatches) are enumerated one level deep
+  via `client.session.children()`.
+- **No `telemetry.json` reads.** octmux does not glob `~/.config/opencode/orchestra/sessions/*/telemetry.json`.
+- **No `oc-db.py` coupling.** octmux is a pure HTTP API consumer; it does not link against, invoke,
+  or depend on oconona's Python scripts. The two repos share only the inflight-marker filesystem
+  convention and the `state.env` schema (for the orchestra badge, also in Stage 8).
+
+**Cross-references:** `docs/Stage7.md` v7.5 amendment (2026-05-29--07-54) · octmux `docs/Stage8.md`.
+
 #### ctx segment implementation details
 
 The ctx segment uses `scripts/ctx-segment.sh` which reads `context-windows.yaml` from `~/.config/opencode/orchestra/`. Model ID normalisation strips `[1m]`, `[200k]`, and `-YYYYMMDD` suffixes before lookup. If the original ID contains `[1m]`, the denominator is forced to 1,000,000 regardless of the map entry.
@@ -225,14 +258,14 @@ sessions/
     .project-dir           (sidecar: project_dir for attribution; written by commands at session start)
     .last-logfile          (sidecar: hook start writes logfile path; end reads+deletes)
     .outcome               (pass | block | partial | abandoned)
-    telemetry.json         (T2 final record, written at cleanup)
+    telemetry.json         (per-session OC-SQLite record, written at cleanup; full shape in `docs/Stage7.md` §Cross-repo contract)
     logs/
       <stage>-<UTC-ts>-<HOST>-<PID>.log  (auto-deleted after 30 days)
 native-sessions/
   native-<OC_SESSION_ID>.json      (Writer A residual tick files)
 state.env          (ORCHESTRA_MODE + ORCHESTRA_TITLE, append-only)
 invocations.log    (subagent start/end events, append-only)
-telemetry.jsonl    (global append-only trend log; one line per orchestra session)
+telemetry.jsonl    (dropped in v7.1; v7.3 `session-report.py` walks `sessions/*/telemetry.json` directly)
 brain-state.md     (pre-compact snapshot)
 ```
 

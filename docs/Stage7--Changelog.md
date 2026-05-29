@@ -2,6 +2,8 @@
 title: "Stage 7 Changelog — oconona"
 created_at: 2026-05-28--18-16
 created_by: Actor (Claude Haiku 4.5)
+updated_by: Actor (Claude Haiku 4.5)
+updated_at: 2026-05-29--12-37
 context: >
   Reverse-chronological implementation log for Stage 7 OC-native telemetry
   redesign. Carries forward Stage 6 entries with status annotations. Newest
@@ -11,6 +13,64 @@ context: >
 # Stage 7 Changelog
 
 Entries are reverse-chronological. Newest at the top.
+
+---
+
+## 2026-05-29 — v7.1: `oc-db.py` + `telemetry-summarize.py` OC-SQLite rewrite
+
+**Commit:** `<hash>` *(backfilled after commit)*
+
+### Empirical findings
+
+- **`time_archived` Hypothesis B confirmed** (2026-05-29 DB inspection): `time_archived` is
+  NULL for all observed sessions including those closed hours ago. OC never sets it on normal
+  session close. The `time_updated < now - 30 min` fallback in `oc_db.is_session_over()` is
+  **load-bearing**, not just defensive.
+
+- **`model` column is JSON**: OC's `session.model` stores a JSON object
+  `{"id":"kimi-k2.6","providerID":"sohoai","variant":"default"}`. `oc-db.py`'s `_parse_model()`
+  extracts the `id` field; falls back to the raw string for NULL or non-JSON values.
+  Stage7.md originally assumed plain strings — corrected in this commit.
+
+- **File disambiguation**: `telemetry.json` (per-session, at
+  `sessions/<UTC-ts>-<PID>/telemetry.json`) is distinct from `telemetry.jsonl` (global
+  append-only index at `orchestra/telemetry.jsonl`). The latter is dropped here; v7.3's
+  `session-report.py` rewrite will walk `sessions/*/telemetry.json` directly.
+
+### Delivered
+
+- **`scripts/oc-db.py`** (new, ~90 lines): read-only OC SQLite helper. Functions:
+  `open_db()`, `_check_schema()`, `_parse_model()`, `get_session()`, `get_child_sessions()`,
+  `is_session_over()`, `_zero_tier()`, `_row_to_tier()`, `get_session_telemetry()`.
+  Safety: `?mode=ro` URI, WAL, 5 s timeout, schema self-check at first open.
+
+- **`scripts/telemetry-summarize.py`** (full rewrite, 852 → ~150 lines): drops T2/SoHoAI/
+  litellm/pricing.yaml cascade entirely. Now reads `.oc-session-id` sidecar, calls
+  `oc_db.get_session_telemetry()`, writes `telemetry.json` per cross-repo contract shape.
+  Drops global `telemetry.jsonl` append. Handles missing `.oc-session-id` gracefully
+  (`cost_source: "none"` + stderr warning).
+
+- **`scripts/telemetry-summarize.sh`** (minor): removed `.transcript-uuid` fallback.
+
+- **`docs/Stage7.md`**: corrected empirical findings (Hypothesis B confirmed, `model` JSON
+  format); added explicit path for `telemetry.json` + disambiguation note in §Cross-repo
+  contract.
+
+- **`docs/design.md`**: updated file inventory annotations: `telemetry.json` label corrected
+  (removed stale "T2"); `telemetry.jsonl` noted as dropped in v7.1.
+
+### Smoke tests: PASS T1–T8
+
+T1 schema ok · T2 `_parse_model` JSON/None/plain · T3 `get_session` live row ·
+T4 `is_session_over` old session · T5 `get_session_telemetry` structure ·
+T6 unknown-id zero-struct · T7 summariser with `.oc-session-id` ·
+T8 summariser without `.oc-session-id`
+
+### Out of scope (v7.2)
+
+Live callers (`orchestra-hook.sh`, `commands/*.md`) are not updated here.
+The `.oc-session-id` sidecar is not yet written by any orchestra session command.
+All live sessions produce `cost_source: "none"` until v7.2 ships. This is expected.
 
 ---
 

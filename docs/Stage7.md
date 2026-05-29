@@ -2,8 +2,8 @@
 title: "Stage 7 — OC-native telemetry redesign roadmap"
 created_at: 2026-05-28--18-16
 created_by: Actor (Claude Haiku 4.5)
-updated_by: Claude Code (Claude Opus 4.7)
-updated_at: 2026-05-28--20-00
+updated_by: Actor (Claude Haiku 4.5)
+updated_at: 2026-05-29--12-37
 context: >
   Stage 7 roadmap doc, produced by Brain/Planner session
   20260528T181605Z-2855594. Tracks the v7.0–v7.5 sub-stages replacing the
@@ -32,7 +32,7 @@ After Stage 7 ships, the T1/T2 hybrid and SoHoAI cost-attribution path (Surface 
 | Stage | Scope | Status |
 |---|---|---|
 | **v7.0** | Doc restructure: `docs/pre-Stage7--opencode-redesign.md` + `docs/Stage7.md` + `docs/Stage7--Changelog.md` + delete Stage6 docs + clean `docs/design.md` stale refs | shipped (commit `de631cc`) |
-| **v7.1** | `scripts/oc-db.py` (new SQLite helper) + `scripts/telemetry-summarize.py` rewrite — read from OC SQLite instead of T2 JSONL | not started |
+| **v7.1** | `scripts/oc-db.py` (new SQLite helper) + `scripts/telemetry-summarize.py` rewrite — read from OC SQLite instead of T2 JSONL | shipped (commit `<hash>`) |
 | **v7.2** | `scripts/orchestra-hook.sh` T1/T2 strip + commands setup/cleanup block updates — drop `active-sessions/*.lck` writes, add `.oc-session-id` sidecar capture | not started |
 | **v7.3** | Status-line rewrite + `session-report.py` rewrite + dead file deletion (`sohoai-live-cost.sh`, `otel-headers-helper.sh`, `bash-session-init.sh`, `native-session-finalize.py`, `native-subagent-cost.sh`) + `deploy.sh`/`collect.sh` updates + fold `docs/pre-Stage7--opencode-redesign.md` into `docs/design.md` | not started |
 | **v7.4** | Carry-forward of original Stage 6.2 model-relaxation for `/duo` (per-role `config.yaml models:`, deploy.sh materialisation, Anthropic rate refresh) | not started |
@@ -61,6 +61,10 @@ v7.4 and v7.5 are independent of each other and can ship in either order (or in 
 
 OC's SQLite `session` table at `~/.local/share/opencode/opencode.db`. The `session` row carries `cost`, `tokens_input`, `tokens_output`, `tokens_reasoning`, `tokens_cache_read`, `tokens_cache_write`, `model`, `agent`, `parent_id`, `time_created`, `time_updated`, `time_archived`, `directory`. The `@ai-sdk/anthropic` provider populates `cost` accurately for Anthropic-routed sessions. The `@ai-sdk/openai-compatible` provider correctly reports `cost = 0` for `sohoai/*` (flat-rate marginal).
 
+The `model` column stores a JSON object `{"id":"...","providerID":"...","variant":"..."}`.
+`oc-db.py`'s `_parse_model()` helper extracts the `id` field; falls back to raw string
+for NULL or non-JSON values.
+
 ### Per-tier breakdown via `parent_id`
 
 OC creates child sessions for every `Task`-tool dispatch. Querying `WHERE parent_id = <brain_session_id>` returns one row per subagent dispatch, each with its own `agent` (`planner`, `actor`, etc.), `model`, `cost`, `tokens_*`. No SoHoAI session-ID tagging is required.
@@ -70,6 +74,12 @@ OC creates child sessions for every `Task`-tool dispatch. Querying `WHERE parent
 At orchestra session setup (`/brain`, `/duo-plan`), the bash setup block captures the `OC_SESSION_ID` env var into `${SESSION_DIR}/.oc-session-id`. This is the only "glue" between orchestra session-dirs and OC session rows. Cleanup reads it back, queries OC's DB, and writes `telemetry.json`.
 
 ### `telemetry.json` shape (the cross-repo contract)
+
+**Path:** `${SESSION_DIR}/telemetry.json`
+where `SESSION_DIR = ~/.config/opencode/orchestra/sessions/<UTC-ts>-<PID>/`
+
+**Not to be confused with** `~/.config/opencode/orchestra/telemetry.jsonl` (global
+append-only index, one summary line per session — dropped in v7.1).
 
 ```json
 {
@@ -169,7 +179,9 @@ After v7.1 ships, the new code path exists but is **not yet wired into the live 
 
 2. **Add standalone smoke test for `oc-db.py`**: `python3 -c "import sys; sys.path.insert(0,'.../scripts'); import oc_db; conn = oc_db.open_db(); print('schema ok')"`. Verify against the live DB.
 
-3. **Empirically verify `time_archived` semantics**. Run `SELECT id, time_archived FROM session ORDER BY time_created DESC LIMIT 5` against the live DB after closing a normal OC session. If `time_archived` is populated → Hypothesis A. Otherwise → Hypothesis B (30-min `time_updated` fallback is load-bearing). Document finding in v7.1 changelog entry.
+3. **Verified pre-plan** (2026-05-29): Hypothesis B confirmed. `time_archived` is NULL for all
+   observed sessions. No code change beyond the dual-check already designed. Documented in
+   v7.1 changelog entry.
 
 4. **Rewrite `scripts/telemetry-summarize.py`**. Drop: `_normalize_model_id` complexity, `get_transcript_path`, `load_pricing_yaml`, `_load_sohoai_config`, `query_sohoai_usage`, `query_sohoai_cost`, `query_litellm_cost`, `read_telemetry_events`, `_walk_jsonl_for_tokens`, `process_transcript`, `compute_cost`, `cross_check_t1_t2`, the entire cost-source cascade, `--status in_flight` separate write path, and the `~/.config/opencode/orchestra/telemetry.jsonl` global append. Keep: arg parsing, atomic tmp+rename write, the `--status` flag (now controls only an early-return for `in_flight`; no separate file shape).
 
@@ -344,6 +356,10 @@ This stage is in the **octmux repo**, not oconona. It is included in Stage 7's r
 
 ### Numbered steps
 
+> **Note (superseded by Amendment 2026-05-29--07-54 below):** Steps 33–35 below describe the
+> original `telemetry.json` glob-sum approach. The octmux /brain session revised this; see the
+> amendment section after the Handover notes.
+
 33. **Create `src/cost-aggregator.ts` in octmux.** Reads `~/.config/opencode/orchestra/sessions/*/telemetry.json`. Sums `cost_usd_estimate` (top-level field; falls back to `totals.cost_usd_estimate` if the top-level is absent). 5-second poll. Graceful absence (file missing → contributes 0). Never throws.
 34. **Wire `CostAggregator` into `src/app.tsx`.** `useEffect` instantiates, subscribes `onChange`, disposes on unmount.
 35. **Update `src/components/StatusLine.tsx`** to accept a `runningCost` prop. Replace the hardcoded `Σ$0.00` (line 64 in the file as of v7.0) with `Σ$${runningCost.toFixed(2)}` when > 0. Keep `Σ$0.00` for cold start.
@@ -364,6 +380,122 @@ This stage is in the **octmux repo**, not oconona. It is included in Stage 7's r
 - The aggregator reads only `telemetry.json` files written by oconona. octmux does NOT query OC's SQLite DB directly — that coupling stays in oconona. If oconona's `telemetry.json` shape changes in a future stage, octmux's aggregator needs updating; the contract is documented in `docs/design.md` §Telemetry.
 - Stage 6.3 (octmux orchestra inflight badge) was originally a separate sub-stage. If not yet shipped, it can fold into v7.5 or remain as a follow-on v7.6.
 
+### Amendment 2026-05-29--07-54 — octmux uses OC SDK direct (from octmux /brain session)
+
+**Status of v7.5:** approach revised; implementation pending in octmux repo (octmux Stage 8).
+**Cross-reference:** octmux `docs/Stage8.md` · `oconona/docs/design.md` §Status line → §Amendment 2026-05-29--07-54.
+
+#### What changed and why
+
+The original v7.5 plan (Steps 33–35 above, now superseded) called for octmux to glob
+`~/.config/opencode/orchestra/sessions/*/telemetry.json`, sum `cost_usd_estimate`, and display
+the result in the status bar. The octmux `/brain` session (session `20260529T075453Z-2939750`,
+2026-05-29) reviewed this approach and chose **Option A: OC SDK direct** instead.
+
+Reasons:
+
+1. **`telemetry.json` is written at session cleanup, not tick-time.** During any active orchestra
+   session, `telemetry.json` for that session does not yet exist (or reflects the previous run).
+   An aggregator reading it would display stale cost — the cost of the last completed session,
+   not the current one.
+2. **v7.2 removes `native-sessions/*.json`.** The "native cost" half of the original glob-sum
+   disappears when v7.2 ships, leaving `telemetry.json` as the only file in the glob path. But
+   see point 1: that file is absent during the very session whose cost we want to show.
+3. **Symmetry with standalone-OC behaviour.** The standalone-OC status-line block reads live
+   cost from OC's SQLite `session.cost` column. If octmux read `telemetry.json` (post-cleanup,
+   stale) while standalone-OC reads live SQLite, the two would display different values for the
+   same session. Option A is symmetric: both read live cost from the same underlying data via
+   different access paths (HTTP SDK vs. direct SQLite).
+4. **No oconona dependency at runtime.** octmux is a pure HTTP API consumer; coupling it to
+   `oc-db.py`, to the `telemetry.json` shape, or to oconona's Python environment introduces a
+   cross-repo coupling that breaks the layering. Option A removes this coupling entirely.
+
+#### Replacement implementation (octmux Stage 8)
+
+| Item | Detail |
+|---|---|
+| **Source** | `client.session.messages({ path: { id: sessionID } })` — sum `msg.info.cost` for `AssistantMessage` rows. Then `client.session.children({ path: { id: sessionID } })` — enumerate children, repeat per child. |
+| **File** | `octmux/src/cost-aggregator.ts` (new) |
+| **Cadence** | 5-second poll |
+| **No `telemetry.json` reads** | octmux does NOT read or glob `telemetry.json` files |
+| **No `oc-db.py` coupling** | octmux does NOT invoke or link any oconona Python scripts |
+| **No Bun SQLite** | No direct SQLite reads in octmux |
+
+In addition, the badge feature originally scoped as a possible v7.6 (Stage 6.3 — orchestra
+inflight badge, referenced in the Handover notes above) has been **folded into Stage 8**.
+Both the cost aggregator and the orchestra badge ship together in a single octmux rebuild and
+commit as Stage 8. The badge reads `~/.config/opencode/orchestra/sessions/*/[.brain-inflight|.duo-inflight]`,
+filters by `.project-dir` against `process.cwd()`, and reads `state.env` for the brain title.
+
+#### Sequencing implication
+
+Under the original plan, v7.5 depended on v7.3 because the `telemetry.json` shape had to be
+stabilised before octmux could read it. **Under Option A, v7.5 has no hard dependency on any
+prior oconona sub-stage.** The OC HTTP API has been stable since before Stage 7. octmux Stage 8
+can ship independently of v7.1 / v7.2 / v7.3 / v7.4.
+
+#### Revised deliverables for v7.5 (octmux Stage 8)
+
+- `octmux/src/cost-aggregator.ts` — OC SDK direct poll; no `telemetry.json` reads
+- `octmux/src/orchestra-watch.ts` — inflight marker watcher (folded in from original Stage 6.3)
+- `octmux/src/app.tsx` — wiring of CostAggregator + OrchestraWatcher
+- `octmux/src/components/StatusLine.tsx` — `runningCost` prop + `orchestraBadge` prop
+- Rebuilt octmux binary; octmux `docs/Stage8.md` (new); memory update; git commit in octmux repo
+- **No oconona files are modified by Stage 8** (these oconona doc amendments are the sole oconona-side output of this session)
+
+### octmux notes — 2026-05-29 (Stage 8 shipped)
+
+octmux Stage 8 (`feat(octmux): Stage 8 — live cost (OC SDK) + orchestra inflight badge`, commit `bd561fc`) implements the octmux side of v7.5. These notes document what shipped and what oconona must provide for the integration to work.
+
+#### How octmux renders cost
+
+Cost is summed event-driven (not polled): the existing `refreshTokenUsage()` in `src/app.tsx` is extended to also sum `AssistantMessage.cost` for all messages in the active session, then calls `client.session.children({ path: { id } })` and sums one level of child sessions. This runs on every `session-idle` SSE event (i.e. after each model response completes) and on session switches (cost resets to 0). Displayed as `Σ$X.XX` in the status bar; `Σ$0.00` for SoHoAI flat-rate sessions (OC reports cost=0 for those, which is correct).
+
+No `telemetry.json` files are read. No `oc-db.py` coupling. Pure OC HTTP API.
+
+#### How octmux renders the orchestra badge
+
+`src/orchestra-watch.ts` (`OrchestraWatcher` class) uses Bun's `fs.watch()` on `~/.config/opencode/orchestra/sessions/` plus a 5-second `setInterval` fallback poll (handles missed events and NFS attribute cache lag). On each scan:
+1. Glob all session subdirs.
+2. Read `.project-dir` sidecar; skip if it doesn't match `process.cwd()`.
+3. Skip if the inflight marker's `mtime` is older than 24 hours (stale-after-crash guard).
+4. Check for `.duo-inflight` (priority) or `.brain-inflight`.
+5. For `/duo`: read `.duo-inflight` content as title.
+6. For `/brain`: read `ORCHESTRA_TITLE=` line from `~/.config/opencode/orchestra/state.env`.
+7. Truncate title to 30 chars. Render as `♪ plan <title>` (duo) or `♪ brain <title>` (brain), color `#d3869b`.
+
+#### What oconona must provide (contract)
+
+| What octmux reads | Written by | Status |
+|---|---|---|
+| OC HTTP API `/session/{id}/message` — `AssistantMessage.cost` | OpenCode runtime | OC built-in, no oconona action needed |
+| OC HTTP API `/session/{id}/children` | OpenCode runtime | OC built-in, no oconona action needed |
+| `~/.config/opencode/orchestra/sessions/*/[.brain-inflight\|.duo-inflight]` | oconona `orchestra-hook.sh` + `/brain`/`/duo-plan` | Already deployed — stable since oconona Stage 5 |
+| `${SESSION_DIR}/.project-dir` sidecar | oconona `/brain`/`/duo-plan` setup bash | Already deployed |
+| `~/.config/opencode/orchestra/state.env` (`ORCHESTRA_TITLE=` line) | oconona `/brain` setup bash | Already deployed |
+
+**No new oconona code, deploy steps, or configuration is needed for octmux Stage 8 cost or badge to function.** Both paths are stable against the current oconona deploy. This will remain true through oconona v7.1–v7.4. oconona v7.5's scope is superseded by this note; see Amendment 2026-05-29--07-54 above.
+
+**Cross-reference:** octmux `docs/Stage8.md` · octmux commit `bd561fc`.
+
+### octmux notes — 2026-05-29 (Stage 8.1 shipped)
+
+octmux Stage 8.1 (`feat(octmux): Stage 8.1 — active subagent stage indicator`, commit `c30d30a`) adds the `▶ stage` real-time indicator.
+
+#### How it works
+
+`OrchestraWatcher.scan()` reads `~/.config/opencode/orchestra/invocations.log` synchronously on each scan (triggered by fs events or the 5-second fallback poll). It reverse-scans for the last `{"event":"start"}` and last `{"event":"end"}` lines, parses `.ts` and `.stage` fields as JSON, and compares timestamps lexicographically. If `start.ts > end.ts` (or no end event exists), the stage is active. The active stage label (`plan`, `implement`, `review`, `research`) is attached to `OrchestraBadge.stage` and rendered as `  ▶ <stage>` in yellow (`#d79921`) immediately after the badge title. The indicator only shows when the project-filtered badge is showing — it inherits the project filter implicitly.
+
+#### What oconona must provide (contract)
+
+| What octmux reads | Written by | Status |
+|---|---|---|
+| `~/.config/opencode/orchestra/invocations.log` — newline-delimited JSON with `event`, `stage`, `ts` fields | oconona `orchestra-hook.sh` PreToolUse(Agent) + SubagentStop hooks | Already deployed; explicitly preserved through v7.2 (`Keep: subagent start/end logging` per Stage7.md Step 9) |
+
+**No new oconona code or deploy steps required.** The log is written by the current deploy and stable through all planned Stage 7 sub-stages.
+
+**Cross-reference:** octmux `docs/Stage8.md` § Stage indicator · octmux commit `c30d30a`.
+
 ---
 
 ## Doc impact
@@ -379,7 +511,10 @@ This stage is in the **octmux repo**, not oconona. It is included in Stage 7's r
 
 ## Risks / unknowns
 
-1. **`time_archived` semantics unverified.** Resolved by the dual-check in `oc_db.is_session_over()`. v7.1 Step 3 empirically verifies and documents the finding.
+1. **Confirmed Hypothesis B** (2026-05-29 DB inspection). `time_archived` is NULL for all
+   observed sessions including those closed hours ago. OC never sets it on normal session
+   close. The `time_updated < now - 30 min` fallback in `oc_db.is_session_over()` is
+   **load-bearing**.
 2. **`OC_SESSION_ID` availability in setup bash blocks.** Per `AGENTS.md` it is set in Bash subprocesses. v7.2 Step 11 depends on this. Smoke-test in v7.2 verifies by reading the resulting `.oc-session-id` and querying OC's DB.
 3. **`OC session.agent` column values for subagent rows.** Empirically present (10 examples in the operator's DB). `oc-db.py` passes them through as-is. Risk: if values are OpenCode-internal symbols rather than human-readable strings, `telemetry.json` `subagents[].agent` may need a mapping. Document any mismatch in v7.1 changelog.
 4. **2026-05-28 `sohoai/glm-5.1` cost anomaly.** OC's `cost` field is treated as truth unconditionally. No reconciliation. If future audit reveals systematic over-attribution, revisit at that point.
@@ -404,10 +539,18 @@ This stage is in the **octmux repo**, not oconona. It is included in Stage 7's r
 
 Entries are appended as stages ship. Newest at top.
 
+### 2026-05-29 — v7.1 shipped
+
+**Commits:** `<hash>` *(backfilled)*
+
+`scripts/oc-db.py` created. `scripts/telemetry-summarize.py` rewritten (852→~150 lines).
+`telemetry.jsonl` global append dropped. Smoke tests T1–T8 PASS. Empirical findings:
+`time_archived` Hypothesis B confirmed; `model` column is JSON.
+
 ### 2026-05-28 — v7.0 shipped
 
 **Commits:** `de631cc` (main), `de40d03` (changelog backfill)
 
 Doc restructure committed. See `docs/Stage7--Changelog.md` for delivery details.
 
-*(Future v7.1–v7.5 entries appended here)*
+*(Future v7.2–v7.5 entries appended here)*
