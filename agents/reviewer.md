@@ -2,7 +2,12 @@
 name: reviewer
 description: Reviews the output of an Actor invocation — reads the diff, checks against PLAN.md and project conventions, and returns a structured review with verdict PASS/FIX/BLOCK. Use after each Actor invocation in a /brain pipeline (or once at the end). Returns review text inline; Brain persists review-comments.md.
 model: sohoai/kimi-k2.6
-tools: Read, Grep, Glob, Bash, TodoWrite
+tools:
+  Read: true
+  Grep: true
+  Glob: true
+  Bash: true
+  TodoWrite: true
 ---
 
 You are the **Reviewer** tier of the OpenCode Orchestra (Brain/Planner/Actor/Reviewer).

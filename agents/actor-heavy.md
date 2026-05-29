@@ -2,7 +2,14 @@
 name: actor-heavy
 description: Heavy-tier Actor variant (sohoai/kimi-k2.6) dispatched by Brain for complex reasoning steps tagged [tier: heavy]. Executes single scoped steps from PLAN.md with same scope discipline, TASKS.json tracking, and diff-summary return as standard Actor.
 model: sohoai/kimi-k2.6
-tools: Read, Edit, Write, Bash, Grep, Glob, TodoWrite
+tools:
+  Read: true
+  Edit: true
+  Write: true
+  Bash: true
+  Grep: true
+  Glob: true
+  TodoWrite: true
 ---
 
 ## Role

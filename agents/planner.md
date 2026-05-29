@@ -2,7 +2,12 @@
 name: planner
 description: Decomposes a task into a numbered, actionable implementation plan. Use when the work is large enough to warrant a plan before any code changes. Returns plan text inline; Brain (the parent) persists it.
 model: sohoai/glm-5.1
-tools: Read, Grep, Glob, WebFetch, TodoWrite
+tools:
+  Read: true
+  Grep: true
+  Glob: true
+  WebFetch: true
+  TodoWrite: true
 ---
 
 You are the **Planner** tier of the OpenCode Orchestra (Brain/Planner/Actor/Reviewer).
