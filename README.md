@@ -137,13 +137,13 @@ If you use a custom `status-line.sh`, `deploy.sh` appends orchestra indicators a
 Status line shows (when orchestra is installed):
 
 ```
-✦ Sonnet 4.6 | [bar] 10% | ↯ 100k/1000k | ◆ MyProject | ⎇ main | ♪ default
-                                                                  ▲
-                                                          orchestra badge
+✦ Sonnet 4.6 | ctx ▓▓░░░░░░░░ 20% 40K/200K | Σ$0.15 | ◆ MyProject | ⎇ main | ♪ orchestra
+                     ▲                         ▲                                     ▲
+                 ctx bar                    cost                            orchestra badge
 
 ♪ orchestra -> plan <title>       — /duo-plan session active, planning in progress
 ♪ orchestra -> plan <title> ▶ implement   — /duo-act has dispatched Actor
-♪ orchestra -> brain <title> ⚠ >200K       — Brain context too large to delegate safely
+♪ orchestra -> brain <title> ▶ phase0       — Brain in Phase 0 interrogation
 ```
 
 ## Updating
@@ -194,7 +194,6 @@ opencode-orchestra--non-Anthropic/
 ├── config/
 │   ├── config.yaml            Global orchestra configuration
 │   ├── context-windows.yaml   Model context window sizes (denominator for status-line ctx bar)
-│   ├── pricing.yaml           Non-Anthropic model pricing (SoHoAI, Ollama)
 │   └── settings-hooks.json    Hook entries to merge into settings.json
 ├── docs/
 │   ├── design.md              Full design reference (architecture, decisions, TO DOs)

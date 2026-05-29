@@ -3,7 +3,7 @@ title: "OpenCode Orchestra — three-tier Brain/Planner/Actor pattern over OpenC
 created_at: 20260424-000000
 created_by: OpenCode (Claude Opus 4.7, 1M context)
 updated_by: Actor (Claude Haiku 4.5)
-updated_at: 2026-05-29--11-09
+updated_at: 2026-05-29--12-17
 context: >
   Reference architecture for OpenCode Orchestra — a three-tier orchestration
   pattern layered on OpenCode using native subagents. The design supports
@@ -240,7 +240,7 @@ commands/
   brain.md, brain-abandon.md
   duo-plan.md, duo-act.md, duo-abandon.md
 scripts/
-  orchestra-hook.sh, ctx-segment.sh
+  orchestra-hook.sh, ctx-segment.sh, oc-db.py
 orchestra/
   config.yaml, context-windows.yaml
   invocations.log (append-only)
@@ -262,11 +262,8 @@ sessions/
     telemetry.json         (per-session OC-SQLite record, written at cleanup; full shape in `docs/Stage7.md` §Cross-repo contract)
     logs/
       <stage>-<UTC-ts>-<HOST>-<PID>.log  (auto-deleted after 30 days)
-native-sessions/
-  native-<OC_SESSION_ID>.json      (Writer A residual tick files)
 state.env          (ORCHESTRA_MODE + ORCHESTRA_TITLE, append-only)
 invocations.log    (subagent start/end events, append-only)
-telemetry.jsonl    (dropped in v7.1; v7.3 `session-report.py` walks `sessions/*/telemetry.json` directly)
 brain-state.md     (pre-compact snapshot)
 ```
 
@@ -328,7 +325,35 @@ Multi-tier orchestration has a non-obvious cost structure. Brain (Anthropic Opus
 
 Every `/brain` and `/duo` run is instrumented at cleanup by `scripts/telemetry-summarize.{sh,py}`, invoked from each command's cleanup block.
 
-**Telemetry architecture is being redesigned for Stage 7.** See `docs/pre-Stage7--opencode-redesign.md` for the rationale and `docs/Stage7.md` for the roadmap. The OC-native SQLite implementation ships in v7.1–v7.3.
+OC-native SQLite telemetry shipped in v7.1–v7.3. See §OC SQLite schema below and `docs/Stage7.md` §Architecture for the full rationale.
+
+### OC SQLite schema
+
+OpenCode's native SQLite database (`~/.local/share/opencode/opencode.db`) stores session metadata and cost information. The v7.3 orchestration layer reads from this database directly via `scripts/oc-db.py` — a lightweight, read-only Python helper that queries session and child-session rows without invoking an HTTP API.
+
+**Database location:** `~/.local/share/opencode/opencode.db` (WAL mode, local NVMe)
+
+**Key `session` columns used by oconona:**
+- `id` — stable session identifier (set at session creation)
+- `cost` — accumulated cost in USD (float, pre-computed by OC)
+- `tokens_input` — cumulative input tokens
+- `tokens_output` — cumulative output tokens
+- `model` — model ID (JSON in some versions)
+- `agent` — agent type (for subagent sessions; NULL for Brain sessions)
+- `parent_id` — parent session ID (NULL for Brain, set for subagent Task dispatches)
+- `time_created` — session start timestamp
+- `time_updated` — last update timestamp
+- `time_archived` — session completion timestamp (NULL observed for all sessions tested; present in schema)
+
+**Per-tier breakdown:** A query `WHERE parent_id = <brain_session_id>` returns one row per subagent dispatch (Planner, Actor, Reviewer, Actor-Heavy), with cost pre-summed. Brain session itself has `parent_id = NULL`.
+
+**Sidecar glue point:** `.oc-session-id` file written by `/brain` and `/duo-plan` setup contains the OC session ID string. At cleanup, telemetry generation and status-line cost reading both use this sidecar to query the correct OC session row, ensuring attribution stays aligned across the session lifecycle.
+
+**Design rationale:**
+- **Read-only SQLite direct** — no HTTP API dependency, no rate-limit exposure, sub-millisecond access
+- **Cost pre-computed** — OC computes cost centrally; oconona simply reads it
+- **Schema coupling localised to `scripts/oc-db.py`** — single file encapsulates OC DB queries; if the schema drifts, one edit point
+- **`time_archived` dual-check** — hypothesis testing in v7.2–v7.3 confirmed: `time_archived` remains NULL even for completed sessions (OC marks completion via cost presence + time_updated advancement, not via `time_archived`)
 
 ### Per-tier cost interpretation
 

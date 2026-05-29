@@ -67,7 +67,6 @@ for dir in agents commands scripts orchestra; do
     $DRY_RUN || mkdir -p "$OC_HOME/$dir"
 done
 $DRY_RUN || mkdir -p "$OC_HOME/orchestra/logs"
-$DRY_RUN || mkdir -p "$OC_HOME/orchestra/native-sessions"
 
 # ── 3. Subagent definitions ───────────────────────────────────────────────────
 echo "Agents:"
@@ -98,18 +97,11 @@ done
 #   orchestra-hook.sh        — PreToolUse/SubagentStop/PreCompact/Stop dispatcher
 #   telemetry-summarize.sh   — T2 transcript-parser wrapper (calls .py)
 #   telemetry-report.sh      — orchestra session cost report
-#   otel-headers-helper.sh   — OTEL session-ID header injection helper
-#   bash-session-init.sh     — native session registration (sourced via BASH_ENV)
 #   ctx-segment.sh           — status-line context-window bar renderer
-#   sohoai-live-cost.sh      — live cost query: SoHoAI primary + JSONL fallback
-#   native-subagent-cost.sh  — native session: walks subagent JSONLs, returns cost
-#                              float; called by the status-line orchestra block to
-#                              add subagent spend to the parent's cost.total_cost_usd
 echo "Scripts:"
 for s in \
     orchestra-hook.sh telemetry-summarize.sh telemetry-report.sh \
-    otel-headers-helper.sh bash-session-init.sh ctx-segment.sh \
-    sohoai-live-cost.sh native-subagent-cost.sh; do
+    ctx-segment.sh; do
     if [ -f "$REPO/scripts/$s" ]; then
         copy_file "$REPO/scripts/$s" "$OC_HOME/scripts/$s"
         $DRY_RUN || chmod +x "$OC_HOME/scripts/$s"
@@ -119,21 +111,14 @@ done
 if [ -f "$REPO/scripts/telemetry-summarize.py" ]; then
     copy_file "$REPO/scripts/telemetry-summarize.py" "$OC_HOME/scripts/telemetry-summarize.py"
 fi
-if [ -f "$REPO/scripts/native-session-finalize.py" ]; then
-    copy_file "$REPO/scripts/native-session-finalize.py" "$OC_HOME/scripts/native-session-finalize.py"
-fi
-if [ -f "$REPO/scripts/native-session-report.py" ]; then
-    copy_file "$REPO/scripts/native-session-report.py" "$OC_HOME/scripts/native-session-report.py"
-fi
 if [ -f "$REPO/scripts/session-report.py" ]; then
     copy_file "$REPO/scripts/session-report.py" "$OC_HOME/scripts/session-report.py"
 fi
+if [ -f "$REPO/scripts/oc-db.py" ]; then
+    copy_file "$REPO/scripts/oc-db.py" "$OC_HOME/scripts/oc-db.py"
+fi
 
 # Shell wrappers
-if [ -f "$REPO/scripts/native-session-report.sh" ]; then
-    copy_file "$REPO/scripts/native-session-report.sh" "$OC_HOME/scripts/native-session-report.sh"
-    $DRY_RUN || chmod +x "$OC_HOME/scripts/native-session-report.sh"
-fi
 if [ -f "$REPO/scripts/session-report.sh" ]; then
     copy_file "$REPO/scripts/session-report.sh" "$OC_HOME/scripts/session-report.sh"
     $DRY_RUN || chmod +x "$OC_HOME/scripts/session-report.sh"
@@ -182,13 +167,27 @@ if ! $DRY_RUN; then
         rm -f "$OC_HOME/agent/researcher.md"
         ok "cleaned orphan: $OC_HOME/agent/researcher.md"
     fi
+
+    # 7e. v7.3 dead scripts + config.
+    for orphan in bash-session-init.sh native-session-finalize.py \
+                  native-subagent-cost.sh sohoai-live-cost.sh \
+                  otel-headers-helper.sh native-session-report.sh \
+                  native-session-report.py; do
+        if [ -f "$OC_HOME/scripts/$orphan" ]; then
+            rm -f "$OC_HOME/scripts/$orphan"
+            ok "cleaned orphan: $OC_HOME/scripts/$orphan"
+        fi
+    done
+    if [ -f "$OC_HOME/orchestra/pricing.yaml" ]; then
+        rm -f "$OC_HOME/orchestra/pricing.yaml"
+        ok "cleaned orphan: $OC_HOME/orchestra/pricing.yaml"
+    fi
 fi
 
 # ── 6. Orchestra config ───────────────────────────────────────────────────────
 echo "Config:"
 copy_file "$REPO/config/config.yaml" "$OC_HOME/orchestra/config.yaml"
 copy_file "$REPO/config/context-windows.yaml" "$OC_HOME/orchestra/context-windows.yaml"
-copy_file "$REPO/config/pricing.yaml" "$OC_HOME/orchestra/pricing.yaml"
 
 # ── 7. Merge orchestra hooks into settings.json ───────────────────────────────
 echo "Settings:"
@@ -303,8 +302,14 @@ echo "AGENTS.md guard:"
 GLOBAL_AGENTS_MD="$HOME/.config/opencode/AGENTS.md"
 GUARD_SOURCE="$REPO/agents-md-block/orchestra-guard.md"
 if [ ! -f "$GLOBAL_AGENTS_MD" ]; then
-    warn "~/.config/opencode/AGENTS.md not found — skipping orchestra-guard injection (Component A reinforcement in /brain.md still active; see plans/adaptive-exploring-bunny.md)"
-elif [ ! -f "$GUARD_SOURCE" ]; then
+    if $DRY_RUN; then
+        info "would create: $GLOBAL_AGENTS_MD (empty, for orchestra-guard injection)"
+    else
+        touch "$GLOBAL_AGENTS_MD"
+        ok "created: $GLOBAL_AGENTS_MD"
+    fi
+fi
+if [ ! -f "$GUARD_SOURCE" ]; then
     warn "agents-md-block/orchestra-guard.md not found in repo — skipping injection"
 else
     GUARD_PRESENT=false

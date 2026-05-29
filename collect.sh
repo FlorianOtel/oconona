@@ -66,7 +66,7 @@ collect_file "$OC_HOME/command/duo-abandon.md"   "$REPO/commands/duo-abandon.md"
 echo "Scripts:"
 collect_file "$OC_HOME/scripts/orchestra-hook.sh" "$REPO/scripts/orchestra-hook.sh"
 collect_file "$OC_HOME/scripts/ctx-segment.sh" "$REPO/scripts/ctx-segment.sh"
-collect_file "$OC_HOME/scripts/sohoai-live-cost.sh" "$REPO/scripts/sohoai-live-cost.sh"
+collect_file "$OC_HOME/scripts/oc-db.py" "$REPO/scripts/oc-db.py"
 
 echo "Config:"
 collect_file "$OC_HOME/orchestra/config.yaml"    "$REPO/config/config.yaml"

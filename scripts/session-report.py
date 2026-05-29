@@ -1,94 +1,26 @@
 #!/usr/bin/env python3
 """
-session-report.py — Unified cost report for native and orchestra sessions.
+session-report.py — Cost report for orchestra sessions (v7.1+).
 
-Usage: session-report.py [--last N] [--since DATE] [--month YYYY-MM] [--source native|orchestra|brain|duo|all]
+Usage: session-report.py [--last N] [--since DATE] [--month YYYY-MM] [--source orchestra|brain|duo|all]
 
-Reads telemetry from:
-- ~/.config/opencode/native-sessions/telemetry.jsonl — native session records
-- ~/.config/opencode/orchestra/telemetry.jsonl — orchestra session records
+Reads telemetry from ~/.config/opencode/orchestra/sessions/*/telemetry.json
 
 Produces a unified tabular report with filtering and aggregation.
 
 --source options:
-  native    — native sessions only
-  orchestra — any orchestra command (brain, duo, etc.; excludes native)
+  orchestra — any orchestra command (brain, duo, etc.; default)
   brain     — /brain command sessions only
   duo       — /duo command sessions only
-  all       — all sources (default)
+  all       — alias for orchestra (for backward compatibility)
 """
 
 import argparse
 import json
 import os
-import re
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
-
-
-_NATIVE_UUID_RE = re.compile(
-    r'^native-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$'
-)
-
-
-def _read_model_from_jsonl(uuid: str) -> Optional[str]:
-    """Return first non-synthetic model from transcript JSONL, or None."""
-    projects_root = Path.home() / ".config" / "opencode" / "projects"
-    try:
-        for proj_dir in sorted(projects_root.iterdir()):
-            if not proj_dir.is_dir():
-                continue
-            p = proj_dir / f"{uuid}.jsonl"
-            if p.exists():
-                with open(p) as f:
-                    for line in f:
-                        if not line.strip():
-                            continue
-                        try:
-                            r = json.loads(line)
-                        except json.JSONDecodeError:
-                            continue
-                        if r.get("type") == "assistant" and "message" in r:
-                            m = r["message"].get("model")
-                            if m and m != "<synthetic>":
-                                return m
-    except Exception:
-        pass
-    return None
-
-
-def _get_project_friendly_name(mangled: str) -> str:
-    """Return friendly project name from mangled ~/.config/opencode/projects/ dir name.
-    Checks *.project-name sidecar first; falls back to last path component."""
-    projects_root = Path.home() / ".config" / "opencode" / "projects"
-    project_dir = projects_root / mangled
-    if project_dir.exists():
-        try:
-            for sidecar in project_dir.glob("*.project-name"):
-                return sidecar.read_text().strip()
-        except Exception:
-            pass
-    # NFS mangled paths: -mnt-nfs-Florian-Gin-AI-projects-<name> → <name>
-    if mangled.startswith("-mnt-nfs-"):
-        parts = mangled.split("-")
-        if len(parts) > 4:
-            return parts[-1]
-    return mangled
-
-
-def _read_project_from_jsonl(uuid: str) -> str:
-    """Locate transcript JSONL for uuid; return friendly project name, or ''."""
-    projects_root = Path.home() / ".config" / "opencode" / "projects"
-    try:
-        for proj_dir in sorted(projects_root.iterdir()):
-            if not proj_dir.is_dir():
-                continue
-            if (proj_dir / f"{uuid}.jsonl").exists():
-                return _get_project_friendly_name(proj_dir.name)
-    except Exception:
-        pass
-    return ""
 
 
 def parse_iso8601(timestamp_str: str) -> datetime:
@@ -99,41 +31,20 @@ def parse_iso8601(timestamp_str: str) -> datetime:
         return datetime.now(timezone.utc)
 
 
-def load_native_telemetry() -> List[Dict[str, Any]]:
-    """Load telemetry from ~/.config/opencode/native-sessions/telemetry.jsonl.
-    Deduplicates by session_id, keeping the last record (re-runs are authoritative)."""
-    path = Path.home() / ".config" / "opencode" / "native-sessions" / "telemetry.jsonl"
-    seen: Dict[str, Dict[str, Any]] = {}  # session_id -> record, last wins
-    if path.exists():
-        try:
-            with open(path) as f:
-                for line in f:
-                    if line.strip():
-                        record = json.loads(line)
-                        record["source"] = "native"
-                        seen[record.get("session_id", "")] = record
-        except Exception:
-            pass
-    return list(seen.values())
-
-
-def load_orchestra_telemetry() -> List[Dict[str, Any]]:
-    """Load telemetry from ~/.config/opencode/orchestra/telemetry.jsonl.
-    Deduplicates by session_id, keeping the last record (re-runs are authoritative)."""
-    path = Path.home() / ".config" / "opencode" / "orchestra" / "telemetry.jsonl"
-    seen: Dict[str, Dict[str, Any]] = {}  # session_id -> record, last wins
-    if path.exists():
-        try:
-            with open(path) as f:
-                for line in f:
-                    if line.strip():
-                        record = json.loads(line)
-                        source = record.get("command", "unknown")
-                        record["source"] = source
-                        seen[record.get("session_id", "")] = record
-        except Exception:
-            pass
-    return list(seen.values())
+def load_orchestra_telemetry_v2() -> List[Dict[str, Any]]:
+    """Load telemetry from ~/.config/opencode/orchestra/sessions/*/telemetry.json (v7.1+)."""
+    sessions_root = Path.home() / ".config/opencode/orchestra/sessions"
+    records = []
+    if sessions_root.is_dir():
+        for tf in sorted(sessions_root.glob("*/telemetry.json")):
+            try:
+                rec = json.loads(tf.read_text())
+                rec.setdefault("source", rec.get("command", "orchestra"))
+                rec["session_dir"] = str(tf.parent)
+                records.append(rec)
+            except Exception:
+                pass
+    return records
 
 
 def extract_project_name(session_dir: str) -> str:
@@ -142,10 +53,10 @@ def extract_project_name(session_dir: str) -> str:
     Pattern: <project_dir>/.opencode/orchestra/sessions/<session_id>
     Returns: basename of <project_dir>
 
-    Tries to read project_dir from telemetry.json if available (Stage 6.1+).
+    Tries to read project_dir from telemetry.json if available.
     Falls back to path-based inference for legacy sessions.
     """
-    # Try to read project_dir from telemetry.json if available (Stage 6.1+)
+    # Try to read project_dir from telemetry.json if available
     try:
         telemetry_file = Path(session_dir) / "telemetry.json"
         if telemetry_file.exists():
@@ -171,24 +82,16 @@ def extract_project_name(session_dir: str) -> str:
     return "-"
 
 
-def get_session_telemetry_json(session_dir: str) -> Optional[Dict[str, Any]]:
-    """Read telemetry.json from session_dir if it exists."""
-    try:
-        path = Path(session_dir) / "telemetry.json"
-        if path.exists():
-            with open(path) as f:
-                return json.load(f)
-    except Exception:
-        pass
-    return None
-
-
 def format_cost(cost: float, cost_source: str = "") -> str:
-    """Format cost as $X.XXXX, '$0.0000' for known-zero (non-Anthropic), or '-' if unknown."""
+    """Format cost as $X.XXXX.
+
+    For cost_source == "oc_sqlite", display $0.0000 even when cost is 0 (flat-rate models).
+    For other sources, display '-' when cost is 0.
+    """
     if cost is None:
         return "-"
     if cost == 0:
-        return "$0.0000" if cost_source == "pricing_yaml" else "-"
+        return "$0.0000" if cost_source == "oc_sqlite" else "-"
     return f"${cost:.4f}"
 
 
@@ -204,13 +107,8 @@ def apply_filters(records: List[Dict[str, Any]], args: argparse.Namespace) -> Li
     filtered = records
 
     # --source filter
-    if args.source == "all":
+    if args.source in ("all", "orchestra"):
         pass  # include everything
-    elif args.source == "native":
-        filtered = [r for r in filtered if r.get("source") == "native"]
-    elif args.source == "orchestra":
-        # orchestra is an alias for any non-native source (brain, duo, etc.)
-        filtered = [r for r in filtered if r.get("source") != "native"]
     else:
         # specific command: "brain", "duo", etc.
         filtered = [r for r in filtered if r.get("source") == args.source]
@@ -251,143 +149,61 @@ def apply_filters(records: List[Dict[str, Any]], args: argparse.Namespace) -> Li
     return filtered
 
 
-def load_active_native_sessions() -> List[Dict[str, Any]]:
-    """Load active native sessions from ~/.config/opencode/active-sessions/native-*.lck files."""
-    active = []
-    active_sessions_dir = Path.home() / ".config" / "opencode" / "active-sessions"
-    if active_sessions_dir.exists():
-        for lck_file in active_sessions_dir.glob("native-*.lck"):
-            try:
-                with open(lck_file) as f:
-                    lines = f.readlines()
-                    record = {}
-                    for line in lines:
-                        if "=" in line:
-                            k, v = line.split("=", 1)
-                            record[k.strip()] = v.strip()
-                    cc_pid = int(record.get("cc_pid", 0)) if record.get("cc_pid") else 0
-                    if record.get("session_id") and cc_pid:
-                        try:
-                            os.kill(cc_pid, 0)  # raises if process is dead
-                        except (ProcessLookupError, PermissionError):
-                            continue  # stale .lck — skip silently
-                        active.append({
-                            "session_id": record.get("session_id"),
-                            "cc_pid": cc_pid,
-                            "started_at": record.get("started_at", ""),
-                            "source": "native",
-                            "status": "(active)",
-                        })
-            except Exception:
-                pass
-    return active
-
-
 def main():
     parser = argparse.ArgumentParser(
-        description="Unified cost report: native + orchestra sessions."
+        description="Cost report for orchestra sessions (v7.1+)."
     )
     parser.add_argument("--last", type=int, help="Show last N sessions")
     parser.add_argument("--since", help="Show sessions since DATE (YYYY-MM-DD)")
     parser.add_argument("--month", help="Show sessions in YYYY-MM")
     parser.add_argument(
-        "--source", choices=["native", "orchestra", "brain", "duo", "all"], default="all",
-        help="Filter by source: native, orchestra (any non-native), brain, duo, or all"
+        "--source", choices=["orchestra", "brain", "duo", "all"], default="orchestra",
+        help="Filter by source: brain, duo, or orchestra (any non-native)"
     )
     args = parser.parse_args()
 
-    # Load all records
-    native_records = load_native_telemetry()
-    orchestra_records = load_orchestra_telemetry()
-
-    # Suppress native sessions that are the parent process of an orchestra run.
-    # When /brain or /duo runs, the parent OC process is registered as a native session
-    # AND finalized as an orchestra session — same started_at, different session_id formats.
-    orchestra_start_times = {r.get("started_at") for r in orchestra_records if r.get("started_at")}
-    native_records = [
-        r for r in native_records
-        if r.get("started_at") not in orchestra_start_times
-    ]
-
-    all_records = native_records + orchestra_records
+    # Load all records (v7.1+)
+    all_records = load_orchestra_telemetry_v2()
 
     # Apply filters
     filtered_records = apply_filters(all_records, args)
 
-    # Load active sessions, filtered to the same date window as main records
-    active_sessions = load_active_native_sessions()
-
-    def _active_in_window(active: Dict[str, Any]) -> bool:
-        ts = parse_iso8601(active.get("started_at", ""))
-        if args.since:
-            try:
-                since_dt = datetime.strptime(args.since, "%Y-%m-%d").replace(tzinfo=timezone.utc)
-                if ts < since_dt:
-                    return False
-            except Exception:
-                pass
-        if args.month:
-            try:
-                month_dt = datetime.strptime(args.month, "%Y-%m").replace(tzinfo=timezone.utc)
-                month_next = (month_dt.replace(day=28) + timedelta(days=4)).replace(day=1)
-                if not (month_dt <= ts < month_next):
-                    return False
-            except Exception:
-                pass
-        return True
-
-    active_sessions = [a for a in active_sessions if _active_in_window(a)]
-
     # Prepare display records
     display_records = []
     for rec in filtered_records:
-        tok = rec.get("total_tokens")
-        tok_str = f"{tok:,}" if tok else "-"
-        raw_model = rec.get("model") or "-"
-        cost_source = rec.get("cost_source", "")
-        # Retroactively resolve model for native sessions with missing model field.
-        # Handles past records written before the finalize-script fix (cost_source="none").
-        if raw_model == "-" and rec.get("source") == "native":
-            m = _NATIVE_UUID_RE.match(rec.get("session_id", ""))
-            if m:
-                jsonl_model = _read_model_from_jsonl(m.group(1))
-                if jsonl_model:
-                    raw_model = jsonl_model
-                    if cost_source != "pricing_yaml":
-                        cost_source = "pricing_yaml"
-        if raw_model != "-":
+        # Extract tokens from totals
+        totals = rec.get("totals", {})
+        tokens_in = totals.get("tokens_input", 0)
+        tokens_out = totals.get("tokens_output", 0)
+        total_tokens = tokens_in + tokens_out
+        tok_str = f"{total_tokens:,}" if total_tokens else "-"
+
+        # Extract model from parent
+        parent = rec.get("parent", {})
+        raw_model = parent.get("model", "-") if parent else "-"
+        if raw_model and raw_model != "-":
+            # Clean up model name
+            import re
             raw_model = re.sub(r'\[.*?\]$', '', raw_model)
             raw_model = re.sub(r'-\d{8}$', '', raw_model)
-        # Derive project name: orchestra sessions use session_dir; native sessions look up JSONL
-        if rec.get("session_dir"):
-            project = extract_project_name(rec["session_dir"])
-        elif rec.get("source") == "native":
-            m2 = _NATIVE_UUID_RE.match(rec.get("session_id", ""))
-            project = (_read_project_from_jsonl(m2.group(1)) or "-") if m2 else "-"
-        else:
-            project = "-"
+
+        # Extract cost and source
+        cost_usd = totals.get("cost_usd_estimate", 0)
+        cost_source = rec.get("cost_source", "")
+
+        # Derive project name
+        session_dir = rec.get("session_dir", "")
+        project = extract_project_name(session_dir) if session_dir else "-"
+
         display_records.append({
             "date": parse_iso8601(rec.get("started_at", "")).strftime("%Y-%m-%d--%H-%M"),
             "source": rec.get("source", "-"),
             "project": project,
             "model": raw_model,
             "tokens": tok_str,
-            "cost": format_cost(rec.get("cost_usd_estimate", 0), cost_source),
+            "cost": format_cost(cost_usd, cost_source),
             "duration": format_duration(rec.get("duration_s", 0)),
             "outcome": rec.get("outcome", "-"),
-        })
-
-    # Add active sessions at top
-    for active in active_sessions:
-        display_records.insert(0, {
-            "date": parse_iso8601(active.get("started_at", "")).strftime("%Y-%m-%d--%H-%M"),
-            "source": active.get("source", "-"),
-            "project": "-",
-            "model": "-",
-            "tokens": "-",
-            "cost": "-",
-            "duration": "-",
-            "outcome": active.get("status", "-"),
         })
 
     # Print header
@@ -410,18 +226,17 @@ def main():
         outcome_str = rec["outcome"]
         print(f"{date_str} {source_str} {project_str} {model_str} {tokens_str}  {cost_str}  {dur_str}  {outcome_str}")
 
-        # Accumulate cost and tokens (skip active markers)
-        if rec["outcome"] != "(active)":
-            try:
-                if rec["cost"] != "-" and rec["cost"].startswith("$"):
-                    total_cost += float(rec["cost"][1:])
-                if rec["tokens"] != "-":
-                    total_tokens += int(rec["tokens"].replace(",", ""))
-                session_count += 1
-            except Exception:
-                pass
+        # Accumulate cost and tokens
+        try:
+            if rec["cost"] != "-" and rec["cost"].startswith("$"):
+                total_cost += float(rec["cost"][1:])
+            if rec["tokens"] != "-":
+                total_tokens += int(rec["tokens"].replace(",", ""))
+            session_count += 1
+        except Exception:
+            pass
 
-    # Print aggregates — one item per line
+    # Print aggregates
     print()
     print("--- Aggregates ---")
     print(f"Sessions : {session_count}")

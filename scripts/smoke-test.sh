@@ -1,17 +1,16 @@
 #!/usr/bin/env bash
-# Telemetry smoke test verifier for /duo and /brain sessions.
-# Run after a /duo or /brain invocation to verify T1 and T2 captured it.
+# Telemetry smoke test verifier for /duo and /brain sessions (v7.3+).
+# Run after a /duo or /brain invocation to verify OC-native pipeline.
 #
 # Usage: ./scripts/smoke-test.sh [session_dir]
 #   If session_dir is omitted, uses the most recent session under
-#   ~/.config/opencode/orchestra/sessions/ (or $HOME/.config/opencode/orchestra/sessions if unset).
+#   ~/.config/opencode/orchestra/sessions/.
 
 set -euo pipefail
 
 OPENCODE_PROJECT_DIR="${OPENCODE_PROJECT_DIR:-$(pwd)}"
 SESSIONS_ROOT="${HOME}/.config/opencode/orchestra/sessions"
 PYTHON3="${HOME}/Gin-AI/.Gin-AI-python-3.12/bin/python3"
-GLOBAL_LOG="${HOME}/.config/opencode/orchestra/telemetry.jsonl"
 
 if [ -n "${1:-}" ]; then
     SESSION_DIR="$1"
@@ -27,84 +26,95 @@ if [ -z "${SESSION_DIR:-}" ] || [ ! -d "${SESSION_DIR}" ]; then
 fi
 
 SESSION_ID="${SESSION_DIR##*/}"
-echo "=== Smoke test: ${SESSION_ID} ==="
+echo "=== Smoke test (v7.3+): ${SESSION_ID} ==="
 
 PASS=0
 
-# --- T1: hook events ---
+# --- Check A: .oc-session-id sidecar ---
 echo ""
-echo "--- T1 (hook events: telemetry-events.jsonl) ---"
-T1_FILE="${SESSION_DIR}/telemetry-events.jsonl"
-if [ -f "${T1_FILE}" ]; then
-    LINES=$(wc -l < "${T1_FILE}")
-    echo "✓ telemetry-events.jsonl: ${LINES} event(s)"
-    jq -r '"  " + .event + " | " + (.subagent // "?") + " | " + (.ts // "(no ts)")' \
-        "${T1_FILE}" 2>/dev/null || cat "${T1_FILE}"
-    # Check for null usage (T1 timing-only mode)
-    NULL_USAGE=$(jq -s '[.[] | select(.usage == null)] | length' "${T1_FILE}" 2>/dev/null || echo 0)
-    if [ "${NULL_USAGE:-0}" -gt 0 ]; then
-        echo "  ⚠ ${NULL_USAGE} event(s) have usage=null — T1 is timing-only for this session (T2 is authoritative)"
-    fi
+echo "--- Check A (.oc-session-id sidecar) ---"
+SIDECAR_FILE="${SESSION_DIR}/.oc-session-id"
+if [ -f "${SIDECAR_FILE}" ] && [ -s "${SIDECAR_FILE}" ]; then
+    OC_ID=$(cat "${SIDECAR_FILE}" | tr -d ' \n')
+    echo "✓ .oc-session-id found: ${OC_ID}"
     PASS=$((PASS + 1))
 else
-    echo "✗ telemetry-events.jsonl not found"
-    echo "  T1 hook may not have fired (check PreToolUse hook in ~/.config/opencode/settings.json)"
+    echo "✗ .oc-session-id missing or empty"
+    echo "  Session setup did not write .oc-session-id (pre-v7.2 session dir?)"
 fi
 
-# --- T2: transcript parse ---
+# --- Check B: OC DB row + child count ---
 echo ""
-echo "--- T2 (transcript parse: telemetry.json) ---"
-T2_FILE="${SESSION_DIR}/telemetry.json"
-if [ -f "${T2_FILE}" ]; then
-    echo "✓ telemetry.json found"
+echo "--- Check B (OC DB row + child count) ---"
+if [ -n "${OC_ID:-}" ]; then
     "${PYTHON3}" - <<PYEOF
-import json, sys
-with open("${T2_FILE}") as f:
-    d = json.load(f)
-parent_tok = sum(d.get("parent", {}).get("tokens", {}).values())
-sub_tok = sum(sum(s.get("tokens", {}).values()) for s in d.get("subagents", []))
-total = parent_tok + sub_tok
-print(f"  command:      {d.get('command', '?')}")
-print(f"  outcome:      {d.get('outcome', '?')}")
-print(f"  cost:         \${d.get('cost_usd_estimate', 0):.4f}")
-print(f"  total_tokens: {total}")
-print(f"  parent_model: {d.get('parent', {}).get('model', '?')}")
-sub_types = [s.get('type', '?') for s in d.get('subagents', [])]
-print(f"  subagents:    {sub_types}")
-warnings = d.get("parser_warnings", [])
-if warnings:
-    for w in warnings:
-        print(f"  ⚠ {w}")
-else:
-    print("  ✓ no parser_warnings (T1/T2 within 5%)")
-cost = d.get("cost_usd_estimate", 0)
-sys.exit(0 if cost and cost > 0 else 1)
+import sys, os
+sys.path.insert(0, os.path.expanduser("~/.config/opencode/scripts"))
+try:
+    import oc_db
+except ImportError:
+    print("✗ oc_db module not found at ~/.config/opencode/scripts/oc_db.py")
+    sys.exit(1)
+
+oc_id = "${OC_ID}"
+try:
+    row = oc_db.get_session(oc_id)
+    if row is None:
+        print(f"✗ OC DB row not found for {oc_id}")
+        sys.exit(1)
+    children = oc_db.get_child_sessions(oc_id)
+    print(f"✓ parent row found; {len(children)} child session(s)")
+    sys.exit(0)
+except Exception as e:
+    print(f"✗ Error querying OC DB: {e}")
+    sys.exit(1)
 PYEOF
     if [ $? -eq 0 ]; then
         PASS=$((PASS + 1))
-    else
-        echo "  ✗ cost_usd_estimate is 0 or missing — T2 parse may have failed"
-        echo "  Run manually: ~/.config/opencode/scripts/telemetry-summarize.sh \"${SESSION_DIR}\" duo pass \"\""
+    fi
+else
+    echo "✗ OC_ID not set (Check A failed)"
+fi
+
+# --- Check C: telemetry.json with cost ---
+echo ""
+echo "--- Check C (telemetry.json with cost) ---"
+T_FILE="${SESSION_DIR}/telemetry.json"
+if [ -f "${T_FILE}" ]; then
+    echo "✓ telemetry.json found"
+    "${PYTHON3}" - <<PYEOF
+import json, sys
+try:
+    with open("${T_FILE}") as f:
+        d = json.load(f)
+    cost_usd = d.get("totals", {}).get("cost_usd_estimate", 0)
+    cost_source = d.get("cost_source", "")
+    tokens_in = d.get("totals", {}).get("tokens_input", 0)
+    tokens_out = d.get("totals", {}).get("tokens_output", 0)
+    total_tokens = tokens_in + tokens_out
+
+    print(f"  cost_usd_estimate: \${cost_usd:.4f}")
+    print(f"  cost_source:       {cost_source}")
+    print(f"  total_tokens:      {total_tokens}")
+
+    # Accept cost == 0 if cost_source == "oc_sqlite" (flat-rate models)
+    if cost_source != "oc_sqlite":
+        print("✗ cost_source should be 'oc_sqlite' (v7.3+)")
+        sys.exit(1)
+
+    print("✓ telemetry.json valid (v7.3+ format)")
+    sys.exit(0)
+except Exception as e:
+    print(f"✗ Error reading telemetry.json: {e}")
+    sys.exit(1)
+PYEOF
+    if [ $? -eq 0 ]; then
+        PASS=$((PASS + 1))
     fi
 else
     echo "✗ telemetry.json not found"
-    echo "  T2 pass has not run yet. Trigger manually:"
+    echo "  Telemetry pass may not have completed. Check status-line or run manually:"
     echo "  ~/.config/opencode/scripts/telemetry-summarize.sh \"${SESSION_DIR}\" duo pass \"\""
-fi
-
-# --- Global log ---
-echo ""
-echo "--- Global log (~/.config/opencode/orchestra/telemetry.jsonl) ---"
-if [ -f "${GLOBAL_LOG}" ]; then
-    if grep -q "\"${SESSION_ID}\"" "${GLOBAL_LOG}" 2>/dev/null; then
-        echo "✓ Session found in global log:"
-        grep "\"${SESSION_ID}\"" "${GLOBAL_LOG}" | tail -1 | "${PYTHON3}" -m json.tool
-        PASS=$((PASS + 1))
-    else
-        echo "✗ Session not found in global log (T2 may not have appended yet)"
-    fi
-else
-    echo "✗ ${GLOBAL_LOG} does not exist"
 fi
 
 # --- Summary ---
