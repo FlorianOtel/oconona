@@ -167,10 +167,13 @@ if ! $DRY_RUN; then
     fi
 
     # 7e. v7.3 dead scripts + config.
+    # NB: native-session-report.{sh,py} were deleted in v7.3 but RESTORED in
+    # hotfix #7 (commit 7fabdaa) as OC-SQLite-sourced replacements. Do NOT
+    # add them to this orphan list — doing so deletes them on every deploy
+    # immediately after the Scripts: loop has just copied them.
     for orphan in bash-session-init.sh native-session-finalize.py \
                   native-subagent-cost.sh sohoai-live-cost.sh \
-                  otel-headers-helper.sh native-session-report.sh \
-                  native-session-report.py; do
+                  otel-headers-helper.sh; do
         if [ -f "$OC_HOME/scripts/$orphan" ]; then
             rm -f "$OC_HOME/scripts/$orphan"
             ok "cleaned orphan: $OC_HOME/scripts/$orphan"
