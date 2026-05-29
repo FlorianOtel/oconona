@@ -205,6 +205,7 @@ def get_session_telemetry(session_id: str) -> dict:
                     "tokens_input": 0,
                     "tokens_output": 0,
                     "tokens_cache_read": 0,
+                    "tokens_cache_write": 0,
                 },
             }
 
@@ -218,6 +219,7 @@ def get_session_telemetry(session_id: str) -> dict:
             "tokens_input": sum(t["tokens_input"] for t in all_tiers),
             "tokens_output": sum(t["tokens_output"] for t in all_tiers),
             "tokens_cache_read": sum(t["tokens_cache_read"] for t in all_tiers),
+            "tokens_cache_write": sum(t["tokens_cache_write"] for t in all_tiers),
         }
 
         return {

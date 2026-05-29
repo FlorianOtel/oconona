@@ -171,11 +171,17 @@ def main():
     # Prepare display records
     display_records = []
     for rec in filtered_records:
-        # Extract tokens from totals
+        # Extract tokens from totals — include cache_read/cache_write so the
+        # column reflects all tokens OC processed (not just uncached input + output).
+        # OC's `tokens_input` excludes cache traffic; an Opus session can show
+        # 12K input+output but 400K+ cache_read. Excluding cache made the column
+        # underreport volume by ~97% for cached-heavy sessions.
         totals = rec.get("totals", {})
         tokens_in = totals.get("tokens_input", 0)
         tokens_out = totals.get("tokens_output", 0)
-        total_tokens = tokens_in + tokens_out
+        tokens_cr = totals.get("tokens_cache_read", 0)
+        tokens_cw = totals.get("tokens_cache_write", 0)
+        total_tokens = tokens_in + tokens_out + tokens_cr + tokens_cw
         tok_str = f"{total_tokens:,}" if total_tokens else "-"
 
         # Extract model from parent
