@@ -127,35 +127,6 @@ case "$MODE" in
         "$STAGE" "$SUBAGENT" "$LOGFILE" "$(stamp_fields)" \
         >> "$INVOCATIONS_LOG" 2>/dev/null || true
     fi
-
-    # T1 telemetry: append start-event to active session's telemetry-events.jsonl
-    ACTIVE_SESSION_DIR="$(find_active_session_dir)"
-    # Override STAMP_SESSION with the actual transcript UUID if available
-    if [ -n "$ACTIVE_SESSION_DIR" ] && [ -f "${ACTIVE_SESSION_DIR}/.transcript-uuid" ]; then
-        STAMP_SESSION="$(cat "${ACTIVE_SESSION_DIR}/.transcript-uuid" 2>/dev/null | tr -d '[:space:]' || true)"
-    fi
-    if [ -n "$ACTIVE_SESSION_DIR" ]; then
-      USAGE_JSON="$(printf '%s' "$INPUT_JSON" \
-        | jq -c '.tool_input.usage // .params.usage // null' 2>/dev/null \
-        || echo "null")"
-      printf '{"event":"start","subagent":"%s","stage":"%s","usage":%s,%s}\n' \
-        "$SUBAGENT" "$STAGE" "$USAGE_JSON" "$(stamp_fields)" \
-        >> "${ACTIVE_SESSION_DIR}/telemetry-events.jsonl" 2>/dev/null || true
-      # Capture transcript path using OPENCODE_PROJECT_DIR (reliable in hook env)
-      if [ ! -f "${ACTIVE_SESSION_DIR}/.transcript-path" ]; then
-        _HOOK_MANGLED="$(printf '%s' "${PROJECT_DIR}" | tr '/' '-')"
-        _HOOK_TRANSCRIPTS="${HOME}/.config/opencode/projects/${_HOOK_MANGLED}"
-        if [ -d "$_HOOK_TRANSCRIPTS" ]; then
-          _HOOK_LATEST="$(ls -t "$_HOOK_TRANSCRIPTS"/*.jsonl 2>/dev/null | head -1)"
-          if [ -n "$_HOOK_LATEST" ]; then
-            printf '%s\n' "$_HOOK_LATEST" \
-              > "${ACTIVE_SESSION_DIR}/.transcript-path" 2>/dev/null || true
-            printf '%s\n' "$(basename "$_HOOK_LATEST" .jsonl)" \
-              > "${ACTIVE_SESSION_DIR}/.transcript-uuid" 2>/dev/null || true
-          fi
-        fi
-      fi
-    fi
     ;;
 
   end)
@@ -193,33 +164,6 @@ case "$MODE" in
       printf '{"event":"end","stage":"%s","subagent":"%s","logfile":"%s",%s}\n' \
         "$STAGE" "$SUBAGENT" "$LOGFILE" "$(stamp_fields)" \
         >> "$INVOCATIONS_LOG" 2>/dev/null || true
-    fi
-
-    # T1 telemetry: append end-event to active session's telemetry-events.jsonl
-    ACTIVE_SESSION_DIR="$(find_active_session_dir)"
-    # Override STAMP_SESSION with the actual transcript UUID if available
-    if [ -n "$ACTIVE_SESSION_DIR" ] && [ -f "${ACTIVE_SESSION_DIR}/.transcript-uuid" ]; then
-        STAMP_SESSION="$(cat "${ACTIVE_SESSION_DIR}/.transcript-uuid" 2>/dev/null | tr -d '[:space:]' || true)"
-    fi
-    if [ -n "$ACTIVE_SESSION_DIR" ]; then
-      USAGE_JSON="$(printf '%s' "$INPUT_JSON" \
-        | jq -c '.usage // .tool_input.usage // .params.usage // null' 2>/dev/null \
-        || echo "null")"
-      printf '{"event":"end","subagent":"%s","stage":"%s","usage":%s,%s}\n' \
-        "$SUBAGENT" "$STAGE" "$USAGE_JSON" "$(stamp_fields)" \
-        >> "${ACTIVE_SESSION_DIR}/telemetry-events.jsonl" 2>/dev/null || true
-    fi
-
-    # Writer B: partial telemetry.json cost update after each subagent (best-effort).
-    # Triggers telemetry-summarize.py with --status in_flight; skips global jsonl.
-    if [ -n "$ACTIVE_SESSION_DIR" ]; then
-      _SUMMARISER="${HOME}/.config/opencode/scripts/telemetry-summarize.sh"
-      if [ -x "$_SUMMARISER" ]; then
-        "$_SUMMARISER" "$ACTIVE_SESSION_DIR" "duo" "partial" "" \
-          --status in_flight 2>/dev/null || true
-      fi
-      printf '{"event":"partial_write","stage":"%s",%s}\n' \
-        "$STAGE" "$(stamp_fields)" >> "$INVOCATIONS_LOG" 2>/dev/null || true
     fi
     ;;
 
@@ -336,76 +280,6 @@ case "$MODE" in
                 >> "$STATE_ENV" 2>/dev/null || true
             fi
           done
-    fi
-
-    # Finalise dead native sessions (those whose OC process has ended).
-    ACTIVE_SESSIONS_DIR="${HOME}/.config/opencode/active-sessions"
-    NATIVE_SESSIONS_DIR="${HOME}/.config/opencode/native-sessions"
-    mkdir -p "${NATIVE_SESSIONS_DIR}" "${ACTIVE_SESSIONS_DIR}" 2>/dev/null || true
-
-    # Registration is handled by bash-session-init.sh (sourced via BASH_ENV).
-    # It writes native-<UUID>.lck on the first Bash tool call of each native session,
-    # using the session UUID as the primary key and cc_pid for liveness only.
-    NATIVE_FINALIZER="${HOME}/.config/opencode/scripts/native-session-finalize.py"
-    NATIVE_VENV="${HOME}/Gin-AI/.Gin-AI-python-3.12"
-    for _lck in "${ACTIVE_SESSIONS_DIR}/native-"*.lck; do
-        [ -f "$_lck" ] || continue
-        _pid="$(grep '^cc_pid=' "$_lck" 2>/dev/null | cut -d= -f2 | tr -d '[:space:]')"
-        # Skip if process still alive.
-        kill -0 "$_pid" 2>/dev/null && continue
-        _sid="$(grep '^session_id='  "$_lck" 2>/dev/null | cut -d= -f2 | tr -d '[:space:]')"
-        _sat="$(grep '^started_at=' "$_lck" 2>/dev/null | cut -d= -f2 | tr -d '[:space:]')"
-        _uuid="$(grep '^session_uuid=' "$_lck" 2>/dev/null | cut -d= -f2 | tr -d '[:space:]')"
-        _eat="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-        if [ -f "$NATIVE_FINALIZER" ] && [ -d "$NATIVE_VENV" ] && [ -n "$_sid" ]; then
-            "${NATIVE_VENV}/bin/python3" "$NATIVE_FINALIZER" \
-                "$_sid" "$_pid" "$_sat" "$_eat" \
-                ${_uuid:+--session-uuid "$_uuid"} \
-                >> "${ORCHESTRA_DIR}/invocations.log" 2>/dev/null || true
-        fi
-        rm -f "$_lck"
-    done
-
-    # Writer A: native residual tick. Writes native-sessions/native-<uuid>.json on
-    # every Stop turn. Skipped while any orchestra inflight marker is present.
-    # Residual = OC session total (from hook JSON) minus sum of orchestra session costs.
-    _OC_UUID="${OC_SESSION_ID:-}"
-    if [ -n "$_OC_UUID" ]; then
-      _INFLIGHT=$(find "${ORCHESTRA_DIR}/sessions" -mindepth 2 -maxdepth 2 \
-        \( -name '.brain-inflight' -o -name '.duo-inflight' \) 2>/dev/null | head -1)
-      if [ -z "$_INFLIGHT" ]; then
-        _OC_TOTAL=$(printf '%s' "$INPUT_JSON" \
-          | jq -r '.cost.total_cost_usd // 0' 2>/dev/null || echo "0")
-        # Skip if OC reports zero (transient at turn boundaries)
-        if [ "$_OC_TOTAL" != "0" ] && [ "$_OC_TOTAL" != "0.0" ]; then
-          _ORCH_SUM=$(find "${ORCHESTRA_DIR}/sessions" -name 'telemetry.json' 2>/dev/null \
-            | xargs -r jq -r '.cost_usd_estimate // 0' 2>/dev/null \
-            | awk '{s+=$1} END{printf "%.4f", s+0}')
-          _ORCH_SUM="${_ORCH_SUM:-0}"
-          _RESIDUAL=$("${HOME}/Gin-AI/.Gin-AI-python-3.12/bin/python3" \
-            -c "r=float('${_OC_TOTAL}')-float('${_ORCH_SUM}'); print(f'{max(0.0,r):.4f}')" \
-            2>/dev/null || echo "")
-          if [ -n "$_RESIDUAL" ]; then
-            _NATIVE_DIR="${ORCHESTRA_DIR}/native-sessions"
-            mkdir -p "$_NATIVE_DIR" 2>/dev/null || true
-            _NATIVE_FILE="${_NATIVE_DIR}/native-${_OC_UUID}.json"
-            _PRIOR=$(jq -r '.cost_usd_estimate // 0' "$_NATIVE_FILE" 2>/dev/null || echo "0")
-            # Log monotonic decrease (don't suppress — transient zeros can occur in prior)
-            "${HOME}/Gin-AI/.Gin-AI-python-3.12/bin/python3" \
-              -c "import sys; sys.exit(0 if float('${_RESIDUAL}')>=float('${_PRIOR}') else 1)" \
-              2>/dev/null \
-              || printf '{"event":"native_cost_decrease","prior":%.4f,"now":%.4f,%s}\n' \
-                "$_PRIOR" "$_RESIDUAL" "$(stamp_fields)" >> "$INVOCATIONS_LOG" 2>/dev/null || true
-            # Atomic write
-            printf '{"session_id":"native-%s","cost_usd_estimate":%s,"cost_source":"oc_json","last_updated":"%s","last_updated_unix":%s}\n' \
-              "$_OC_UUID" "$_RESIDUAL" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$(date +%s)" \
-              > "${_NATIVE_FILE}.tmp" 2>/dev/null \
-              && mv -f "${_NATIVE_FILE}.tmp" "$_NATIVE_FILE" 2>/dev/null || true
-            printf '{"event":"native_tick","cost":%s,%s}\n' \
-              "$_RESIDUAL" "$(stamp_fields)" >> "$INVOCATIONS_LOG" 2>/dev/null || true
-          fi
-        fi
-      fi
     fi
 
     printf '{"event":"stop",%s}\n' "$(stamp_fields)" \

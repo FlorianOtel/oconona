@@ -52,11 +52,9 @@ Run via `Bash` (substitute `<SESSION_DIR>` with the literal value captured above
 ```bash
 printf '%s' "abandoned" > "<SESSION_DIR>/.outcome.tmp"
 mv -f "<SESSION_DIR>/.outcome.tmp" "<SESSION_DIR>/.outcome"
-# Remove session ID sidecar so otelHeadersHelper stops injecting the header.
-rm -f "${HOME}/.config/opencode/active-sessions/$(basename "<SESSION_DIR>").lck"
 rm -f "<SESSION_DIR>/.brain-inflight"
 ~/.config/opencode/scripts/telemetry-summarize.sh \
-    "<SESSION_DIR>" brain abandoned "$(cat \"<SESSION_DIR>/.transcript-uuid\" 2>/dev/null || echo \"${OC_SESSION_ID:-}\")" 2>&1 \
+    "<SESSION_DIR>" brain abandoned "" 2>&1 \
     | tail -n 1
 ```
 

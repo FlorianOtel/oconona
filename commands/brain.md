@@ -101,34 +101,9 @@ printf '%s' "<task title, ≤30 chars, no single-quotes>" \
   > "${SESSION_DIR}/.brain-inflight.tmp"
 mv -f "${SESSION_DIR}/.brain-inflight.tmp" "${SESSION_DIR}/.brain-inflight"
 printf '%s\n' "${OPENCODE_PROJECT_DIR:-$(pwd)}" > "${SESSION_DIR}/.project-dir"
-# Capture current session transcript UUID before subagents create new JSONLs
-_MANGLED="$(printf '%s' "${OPENCODE_PROJECT_DIR:-$PWD}" | tr '/' '-')"
-_TRANSCRIPTS="${HOME}/.config/opencode/projects/${_MANGLED}"
-_TRANSCRIPT_UUID=""
-if [ -d "$_TRANSCRIPTS" ]; then
-  _LATEST="$(ls -t "$_TRANSCRIPTS"/*.jsonl 2>/dev/null | head -1)"
-  if [ -n "$_LATEST" ]; then
-    _TRANSCRIPT_UUID="$(basename "$_LATEST" .jsonl)"
-    printf '%s\n' "$_LATEST" > "${SESSION_DIR}/.transcript-path" 2>/dev/null || true
-  fi
-fi
-printf '%s\n' "${_TRANSCRIPT_UUID}" > "${SESSION_DIR}/.transcript-uuid" 2>/dev/null || true
+printf '%s\n' "${OC_SESSION_ID:-}" > "${SESSION_DIR}/.oc-session-id"
 echo "session_dir=${SESSION_DIR}"
 echo "retention_days=${RETENTION_DAYS}"
-# Write per-session lock file so otelHeadersHelper injects the correct session ID.
-# Filename = session ID (human-readable); content = OC process PID (lookup key).
-SESSION_ID_HEADER="$(basename "${SESSION_DIR}")"
-mkdir -p "${HOME}/.config/opencode/active-sessions"
-printf 'cc_pid=%s\n' "${PPID}" \
-  > "${HOME}/.config/opencode/active-sessions/${SESSION_ID_HEADER}.lck.tmp"
-mv -f "${HOME}/.config/opencode/active-sessions/${SESSION_ID_HEADER}.lck.tmp" \
-  "${HOME}/.config/opencode/active-sessions/${SESSION_ID_HEADER}.lck"
-# Housekeeping: remove lck files whose OC process is no longer running.
-for _f in "${HOME}/.config/opencode/active-sessions/"*.lck; do
-  [ -f "$_f" ] || continue
-  _pid="$(grep '^cc_pid=' "$_f" 2>/dev/null | cut -d= -f2 | tr -d '[:space:]')"
-  kill -0 "$_pid" 2>/dev/null || rm -f "$_f"
-done
 ```
 
 After creating the session directory, write the pipeline mode and task title to the orchestra badge. The title is the operator's invocation text (the args after `/brain`), truncated to 30 printable characters, with single-quotes replaced by spaces. Run via `Bash`:
@@ -400,11 +375,9 @@ Order matters: write `.outcome` **before** removing `.brain-inflight` and
 ```bash
 printf '%s' "<outcome: pass | fix-loop | block | abandoned>" > "<SESSION_DIR>/.outcome.tmp"
 mv -f "<SESSION_DIR>/.outcome.tmp" "<SESSION_DIR>/.outcome"
-# Remove session ID lock file so otelHeadersHelper stops injecting the header.
-rm -f "${HOME}/.config/opencode/active-sessions/$(basename "<SESSION_DIR>").lck"
 rm -f "<SESSION_DIR>/.brain-inflight"
 ~/.config/opencode/scripts/telemetry-summarize.sh \
-    "<SESSION_DIR>" brain "<outcome>" "$(cat \"<SESSION_DIR>/.transcript-uuid\" 2>/dev/null || echo \"${OC_SESSION_ID:-}\")" 2>&1 \
+    "<SESSION_DIR>" brain "<outcome>" "" 2>&1 \
     | tail -n 1
 ```
 

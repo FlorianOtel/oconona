@@ -94,11 +94,11 @@ Use the literal session dir path captured above (substitute `<SESSION_DIR>`). Or
 ```bash
 printf '%s' "<outcome: pass | block | partial>" > "<SESSION_DIR>/.outcome.tmp"
 mv -f "<SESSION_DIR>/.outcome.tmp" "<SESSION_DIR>/.outcome"
-# Remove session ID sidecar so otelHeadersHelper stops injecting the header.
-rm -f "${HOME}/.config/opencode/active-sessions/$(basename "<SESSION_DIR>").lck"
+printf 'ORCHESTRA_MODE=default\nORCHESTRA_TITLE=\n' \
+  >> "${HOME}/.config/opencode/orchestra/state.env" 2>/dev/null || true
 rm -f "<SESSION_DIR>/.duo-inflight"
 ~/.config/opencode/scripts/telemetry-summarize.sh \
-    "<SESSION_DIR>" duo "<outcome>" "$(cat \"<SESSION_DIR>/.transcript-uuid\" 2>/dev/null || echo \"${OC_SESSION_ID:-}\")" 2>&1 \
+    "<SESSION_DIR>" duo "<outcome>" "" 2>&1 \
     | tail -n 1
 ```
 

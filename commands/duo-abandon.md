@@ -52,11 +52,11 @@ Run via `Bash` (substitute `<SESSION_DIR>` with the literal value captured above
 ```bash
 printf '%s' "abandoned" > "<SESSION_DIR>/.outcome.tmp"
 mv -f "<SESSION_DIR>/.outcome.tmp" "<SESSION_DIR>/.outcome"
-# Remove session ID sidecar so otelHeadersHelper stops injecting the header.
-rm -f "${HOME}/.config/opencode/active-sessions/$(basename "<SESSION_DIR>").lck"
+printf 'ORCHESTRA_MODE=default\nORCHESTRA_TITLE=\n' \
+  >> "${HOME}/.config/opencode/orchestra/state.env" 2>/dev/null || true
 rm -f "<SESSION_DIR>/.duo-inflight"
 ~/.config/opencode/scripts/telemetry-summarize.sh \
-    "<SESSION_DIR>" duo abandoned "$(cat \"<SESSION_DIR>/.transcript-uuid\" 2>/dev/null || echo \"${OC_SESSION_ID:-}\")" 2>&1 \
+    "<SESSION_DIR>" duo abandoned "" 2>&1 \
     | tail -n 1
 ```
 
