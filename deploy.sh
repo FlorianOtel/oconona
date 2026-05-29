@@ -14,6 +14,7 @@ REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 OC_HOME="${HOME}/.config/opencode"
 DRY_RUN=false
 SHOW_DIFF=false
+NO_RESTART=false
 
 info()  { printf "\033[36m  •\033[0m %s\n" "$*"; }
 ok()    { printf "\033[32m  ✓\033[0m %s\n" "$*"; }
@@ -22,9 +23,10 @@ die()   { printf "\033[31m  ✗\033[0m %s\n" "$*"; exit 1; }
 
 for arg in "$@"; do
     case "$arg" in
-        --dry-run) DRY_RUN=true   ;;
-        --diff)    SHOW_DIFF=true ;;
-        *) die "Unknown argument: $arg. Usage: ./deploy.sh [--dry-run] [--diff]" ;;
+        --dry-run)    DRY_RUN=true    ;;
+        --diff)       SHOW_DIFF=true  ;;
+        --no-restart) NO_RESTART=true ;;
+        *) die "Unknown argument: $arg. Usage: ./deploy.sh [--dry-run] [--diff] [--no-restart]" ;;
     esac
 done
 
@@ -370,11 +372,34 @@ else
     fi
 fi
 
+# ── 11. Restart the OC server ─────────────────────────────────────────────────
+# OC reads its config (agents/, commands/, AGENTS.md, opencode.json) once at
+# startup and never reloads. Without a restart, deployed changes have no effect
+# until the next time the operator manually restarts. Run unconditionally
+# (override with --no-restart for the rare case of file-only deploys).
+echo "OC server:"
+if $DRY_RUN; then
+    info "would restart: systemctl --user restart opencode-server.service"
+elif $NO_RESTART; then
+    warn "skipping restart (--no-restart) — deployed changes will NOT take effect until:"
+    warn "    systemctl --user restart opencode-server.service"
+elif ! command -v systemctl >/dev/null 2>&1; then
+    warn "systemctl not found; restart OC manually for deployed changes to take effect"
+elif ! systemctl --user list-unit-files opencode-server.service >/dev/null 2>&1; then
+    warn "opencode-server.service not installed; restart OC manually for deployed changes to take effect"
+else
+    if systemctl --user restart opencode-server.service 2>&1; then
+        ok "restarted: opencode-server.service"
+    else
+        warn "restart failed — run manually: systemctl --user restart opencode-server.service"
+    fi
+fi
+
 echo ""
 $DRY_RUN && echo "Dry run complete — no files written." || echo "Deploy complete."
 echo ""
 echo "  Quick-start:"
-echo "    1. In OpenCode: Shift+Tab to enter plan mode"
+echo "    1. Set octmux permission mode with Shift-TAB (ask / allow / deny)"
 echo "    2. Type /brain <task>          — full pipeline (Planner → Actor → Reviewer)"
 echo "       Type /brain-abandon         — cancel the active /brain session"
 echo "    3. Type /duo-plan <task>      — open a /duo planning session (multi-turn refinement)"
