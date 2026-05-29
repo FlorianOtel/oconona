@@ -1,5 +1,5 @@
 ---
-description: Full pipeline — Brain interrogates (Phase 0 inline), then dispatches Planner → Actor → Reviewer subagents. For multi-step work warranting research + plan + review. Requires plan mode at parent.
+description: Full pipeline — Brain interrogates (Phase 0 inline), then dispatches Planner → Actor → Reviewer subagents. For multi-step work warranting research + plan + review. Operator approves the plan via natural-language reply.
 ---
 
 # /brain — research → plan → implement → review
