@@ -3,7 +3,7 @@ title: "Stage 7 Changelog — oconona"
 created_at: 2026-05-28--18-16
 created_by: Actor (Claude Haiku 4.5)
 updated_by: Actor (Claude Haiku 4.5)
-updated_at: 2026-05-29--12-37
+updated_at: 2026-05-29--11-09
 context: >
   Reverse-chronological implementation log for Stage 7 OC-native telemetry
   redesign. Carries forward Stage 6 entries with status annotations. Newest
@@ -16,9 +16,54 @@ Entries are reverse-chronological. Newest at the top.
 
 ---
 
+## 2026-05-29 — v7.2: `orchestra-hook.sh` Writers A+B strip + `.oc-session-id` sidecar
+
+**Commit:** `0479ea8`
+
+### Delivered
+
+- **`scripts/orchestra-hook.sh`** (~150 lines removed):
+  - **`stop` mode**: Removed Writer A native-residual-tick block (native-sessions/*.json writes, `OC_TOTAL` minus orchestra sum residual computation). Removed dead-lck-file finalizer loop (no more `.lck` files to track). **Preserved**: orphan-session finalizer (safety net for crash recovery; walks session dirs without `telemetry.json` AND without inflight markers).
+  - **`end` mode**: Removed Writer B partial-telemetry block (`telemetry-summarize.sh ... --status in_flight` call, `partial_write` invocations.log event). **Preserved**: subagent start/end logging to `invocations.log`.
+  - **`start` mode**: Removed telemetry-events.jsonl append logic. Removed `.transcript-uuid` / `.transcript-path` sidecar captures (no longer needed post-v7.1).
+
+- **`commands/brain.md`** setup block:
+  - Removed `~/.config/opencode/active-sessions/*.lck` write + housekeeping loop.
+  - Removed `.transcript-path` + `.transcript-uuid` sidecar writes.
+  - **Added**: `printf '%s\n' "${OC_SESSION_ID:-}" > "${SESSION_DIR}/.oc-session-id"` immediately after `.project-dir` write. This is the **single glue point** between orchestra session-dirs and OC session rows; enables `telemetry-summarize.py` to query OC's DB.
+  - Updated cleanup block: removed `.lck` rm, simplified `telemetry-summarize.sh` 4th arg to `""` (no more transcript-uuid fallback).
+
+- **`commands/duo-plan.md`** setup block: identical edits to `brain.md`.
+
+- **`commands/duo-act.md`** cleanup block:
+  - Removed `.lck` rm line.
+  - **Added** before `.duo-inflight` removal: `printf 'ORCHESTRA_MODE=default\nORCHESTRA_TITLE=\n' >> state.env` to reset the pipeline badge immediately on cleanup.
+  - Updated `telemetry-summarize.sh` 4th arg to `""`.
+
+- **`commands/duo-abandon.md`** cleanup block: identical edits to `duo-act.md`.
+
+- **`commands/brain-abandon.md`** cleanup block:
+  - Removed `.lck` rm line only (state.env reset already present).
+  - Updated `telemetry-summarize.sh` 4th arg to `""`.
+
+### Result
+
+Live `/brain` and `/duo-plan` sessions now write `.oc-session-id` at setup. At cleanup, `telemetry-summarize.py` reads this sidecar, queries OC's SQLite session table via `oc-db.py`, and produces `cost_source: "oc_sqlite"` in the final `telemetry.json`. The active-sessions lck mechanism and native-session cost ticking are gone; cost attribution is now fully OC-native. `invocations.log` writes (Stage 8.1 octmux dependency) are preserved.
+
+### Smoke tests (all PASS)
+
+- **T1**: `orchestra-hook.sh` syntax valid
+- **T2**: `.oc-session-id` sidecar written correctly
+- **T3**: No lck creation code remains in setup blocks
+- **T5**: Writer B removed (no `partial_write` or `in_flight` in stop path)
+- **T6**: No telemetry-events.jsonl appends (only checks for artefact existence in orphan finalizer)
+- **T4**: `telemetry-summarize.py` structure valid, can read `.oc-session-id`
+
+---
+
 ## 2026-05-29 — v7.1: `oc-db.py` + `telemetry-summarize.py` OC-SQLite rewrite
 
-**Commit:** `<hash>` *(backfilled after commit)*
+**Commit:** `21c3bd3`
 
 ### Empirical findings
 

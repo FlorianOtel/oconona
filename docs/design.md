@@ -3,7 +3,7 @@ title: "OpenCode Orchestra — three-tier Brain/Planner/Actor pattern over OpenC
 created_at: 20260424-000000
 created_by: OpenCode (Claude Opus 4.7, 1M context)
 updated_by: Actor (Claude Haiku 4.5)
-updated_at: 2026-05-29--12-37
+updated_at: 2026-05-29--11-09
 context: >
   Reference architecture for OpenCode Orchestra — a three-tier orchestration
   pattern layered on OpenCode using native subagents. The design supports
@@ -256,6 +256,7 @@ sessions/
     .duo-inflight          (present during /duo planning phase + execution; removed by /duo-act or /duo-abandon)
     .brain-inflight        (present throughout /brain Phase 0/1/2/3; removed by cleanup block or /brain-abandon)
     .project-dir           (sidecar: project_dir for attribution; written by commands at session start)
+    .oc-session-id         (sidecar: OC session ID from ${OC_SESSION_ID} env var; enables telemetry.json generation at cleanup)
     .last-logfile          (sidecar: hook start writes logfile path; end reads+deletes)
     .outcome               (pass | block | partial | abandoned)
     telemetry.json         (per-session OC-SQLite record, written at cleanup; full shape in `docs/Stage7.md` §Cross-repo contract)

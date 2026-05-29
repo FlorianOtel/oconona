@@ -3,7 +3,7 @@ title: "Stage 7 — OC-native telemetry redesign roadmap"
 created_at: 2026-05-28--18-16
 created_by: Actor (Claude Haiku 4.5)
 updated_by: Actor (Claude Haiku 4.5)
-updated_at: 2026-05-29--12-37
+updated_at: 2026-05-29--11-09
 context: >
   Stage 7 roadmap doc, produced by Brain/Planner session
   20260528T181605Z-2855594. Tracks the v7.0–v7.5 sub-stages replacing the
@@ -32,8 +32,8 @@ After Stage 7 ships, the T1/T2 hybrid and SoHoAI cost-attribution path (Surface 
 | Stage | Scope | Status |
 |---|---|---|
 | **v7.0** | Doc restructure: `docs/pre-Stage7--opencode-redesign.md` + `docs/Stage7.md` + `docs/Stage7--Changelog.md` + delete Stage6 docs + clean `docs/design.md` stale refs | shipped (commit `de631cc`) |
-| **v7.1** | `scripts/oc-db.py` (new SQLite helper) + `scripts/telemetry-summarize.py` rewrite — read from OC SQLite instead of T2 JSONL | shipped (commit `<hash>`) |
-| **v7.2** | `scripts/orchestra-hook.sh` T1/T2 strip + commands setup/cleanup block updates — drop `active-sessions/*.lck` writes, add `.oc-session-id` sidecar capture | not started |
+| **v7.1** | `scripts/oc-db.py` (new SQLite helper) + `scripts/telemetry-summarize.py` rewrite — read from OC SQLite instead of T2 JSONL | shipped (commit `21c3bd3`) |
+| **v7.2** | `scripts/orchestra-hook.sh` T1/T2 strip + commands setup/cleanup block updates — drop `active-sessions/*.lck` writes, add `.oc-session-id` sidecar capture | shipped (commit `0479ea8`) |
 | **v7.3** | Status-line rewrite + `session-report.py` rewrite + dead file deletion (`sohoai-live-cost.sh`, `otel-headers-helper.sh`, `bash-session-init.sh`, `native-session-finalize.py`, `native-subagent-cost.sh`) + `deploy.sh`/`collect.sh` updates + fold `docs/pre-Stage7--opencode-redesign.md` into `docs/design.md` | not started |
 | **v7.4** | Carry-forward of original Stage 6.2 model-relaxation for `/duo` (per-role `config.yaml models:`, deploy.sh materialisation, Anthropic rate refresh) | not started |
 | **v7.5** | octmux integration — replace glob+sum cost aggregator with OC SQLite reader via `telemetry.json` shape; carry-forward of original Stage 6.4 | not started |
@@ -541,7 +541,7 @@ Entries are appended as stages ship. Newest at top.
 
 ### 2026-05-29 — v7.1 shipped
 
-**Commits:** `<hash>` *(backfilled)*
+**Commits:** `21c3bd3`
 
 `scripts/oc-db.py` created. `scripts/telemetry-summarize.py` rewritten (852→~150 lines).
 `telemetry.jsonl` global append dropped. Smoke tests T1–T8 PASS. Empirical findings:
