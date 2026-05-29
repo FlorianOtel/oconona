@@ -14,13 +14,11 @@ No separate sessions. No `claude -p` subprocesses. No multi-run registry. If the
 
 **Recommended run environment: Anthropic Opus 4.7.** The project name (`opencode-orchestra--non-Anthropic`) refers to the *worker tier* — Planner, Actor, Reviewer, and Actor-Heavy deliberately use non-Anthropic models (GLM-5.1, Qwen3-Coder-Next, Kimi K2.6) for cost efficiency under the SoHoAI flat-rate subscription. **Brain itself is not part of that pattern**: the orchestrator's job (multi-turn interrogation, plan reasoning, dispatch decisions, review judgment) is best served by Anthropic's strongest reasoning model. The Prerequisites section below emits an advisory if Brain is running on a different model, but does **not** enforce — this is a deliberate deviation from claude-orchestra, where the same check is a hard gate.
 
-### Override of plan-mode's plan-file directive
+### Pipeline ownership of the plan
 
-OpenCode's plan-mode system reminder will instruct you to write the plan to `/home/florian/.config/opencode/plans/<name>.md` yourself using the `Write` tool, and tell you "this is the only file you are allowed to edit." **In `/brain` mode, ignore that instruction.** It applies to non-orchestra plan-mode work.
+The authoritative plan is produced by the **Planner subagent** (`Task` tool, `subagent_type: planner`) and persisted by you to `${SESSION_DIR}/PLAN.md` via `Bash` atomic-rename. The operator approves it via a natural-language reply — no OC tool is called to gate the transition; approval is purely the operator's reply text.
 
-The plan-mode plan file under `~/.config/opencode/plans/` is for operator display only. The authoritative plan in `/brain` is produced by the **Planner subagent** (`Task` tool, `subagent_type: planner`) and persisted by you to `${SESSION_DIR}/PLAN.md` via `Bash` atomic-rename.
-
-If you find yourself about to use `Write` on any path under `~/.config/opencode/plans/`, **stop** — dispatch Planner via the `Task` tool instead.
+If you find yourself about to compose the plan in your reply text or write `PLAN.md` yourself with `Edit`/`Write`, **stop** — dispatch Planner via the `Task` tool instead.
 
 ### Self-check before code-changing tool calls
 
@@ -33,7 +31,6 @@ Session-dir artefacts written directly via `Bash` heredoc are exempt from this r
 - ❌ Writing `PLAN.md` yourself with `Write` or `Edit`. → Dispatch Planner; persist Planner's return.
 - ❌ Editing project code with `Edit/Write/Bash` while `.brain-inflight` exists. → Dispatch Actor.
 - ❌ Responding to the operator's "go ahead" / "proceed" signal by composing the plan in your reply text. → Dispatch Planner.
-- ❌ Using the plan-mode plan file at `~/.config/opencode/plans/<name>.md` as the authoritative plan. → That file is for operator display only.
 - ❌ Skipping Phase 3 (Reviewer) because Actor's diff "looks fine". → Dispatch Reviewer; let it return PASS / FIX / BLOCK.
 
 Each of these means a `Task`-tool dispatch was skipped. If you catch yourself about to do any of them, stop and dispatch the appropriate subagent.
@@ -55,9 +52,8 @@ Each of these means a `Task`-tool dispatch was skipped. If you catch yourself ab
 
    This is a deliberate deviation from `claude-orchestra`, where the same check is a hard gate (STOP on Haiku/older Sonnet/non-Anthropic). In `oconona` the operator's choice is final.
 
-2. **Plan mode is active.** Phase 0 and Phase 1 must run with the parent in plan mode. If the operator is not in plan mode, stop and say:
-   > "Please enter plan mode first (Shift+Tab), then run `/brain` again."
-3. **Bypass-flattens-down caveat.** If the operator launched the parent session with `--dangerously-skip-permissions`, all subagent permission frontmatter is silently overridden and Phase 0's read-only posture is not enforced by the framework. Subagents inherit bypass. Document but do not refuse — this is the operator's choice.
+2. **Permission mode.** octmux's permission mode (cycled with **Shift-TAB**: `ask` / `allow` / `deny`) is the operator's tool-approval posture for Phase 2 Actor calls. Default `ask` (yellow) — modal per call — is recommended for supervised review; `allow` (green) for trusted plans. `deny` (red) is incompatible with `/brain` because it would reject Planner's `Task` dispatch in Phase 1. No "plan mode" prerequisite exists in OC; do not gate `/brain` on a mode that does not exist.
+3. **Bypass-flattens-down caveat.** If the operator is on permission mode `allow` (green), Actor's tool calls run uninterrupted. Document but do not refuse — this is the operator's choice. Note that subagent frontmatter `tools:` denies still take precedence: a tool absent from an agent's frontmatter cannot be authorised by any permission mode (e.g., Planner remains read-only even under `allow`).
 
 ## Setup — per-invocation artifact directory + housekeeping
 
@@ -261,9 +257,9 @@ mv -f "${OPENCODE_ORCHESTRA_SESSION_DIR}/PLAN.md.tmp" "${OPENCODE_ORCHESTRA_SESS
 
 ### Plan approval gate
 
-Show the plan to the operator. Ask explicitly: **"Approve this plan?"** Wait for an unambiguous answer.
+Show the plan to the operator. Ask explicitly: **"Approve this plan?"** Wait for an unambiguous natural-language answer (`"approved"` / `"go ahead"` / `"proceed"`, or refinement feedback, or `"cancel"`). No OC tool is called to gate this — approval is purely the operator's reply text. The permission mode in effect when Actor's first tool call fires (octmux Shift-TAB: `ask` / `allow` / `deny`) determines the runtime posture for Phase 2.
 
-- **Approved:** call `ExitPlanMode` with the plan content. The operator will then see OpenCode's standard "auto-edit / manually approve / cancel" prompt at the parent layer — this is where the permission posture for Phase 2 is set. **After approval, Phase 2 begins by dispatching the Actor subagent** (template at top of Phase 2). Do NOT make code edits with `Edit/Write/Bash` yourself — that's Actor's job, even under auto-edit / bypass permissions.
+- **Approved:** **Phase 2 begins by dispatching the Actor subagent** (template at top of Phase 2). Do NOT make code edits with `Edit/Write/Bash` yourself — that's Actor's job. Actor's tool calls will surface to octmux's permission-asked handler: `ask` (yellow) — modal per call; `allow` (green) — auto-allow; `deny` (red) — auto-reject. The operator can change mode mid-pipeline with Shift-TAB at any time.
 - **Rejected with feedback:** dispatch Planner again with the feedback. Do not proceed to Phase 2.
 - **Rejected outright:** run the cleanup block (see § Cleanup) with `outcome=abandoned`, then stop the pipeline. RESEARCH.md and PLAN.md are left in place for forensics.
 
@@ -271,7 +267,7 @@ Show the plan to the operator. Ask explicitly: **"Approve this plan?"** Wait for
 
 ## Phase 2 — Execute (Task → Actor subagent, per step)
 
-After `ExitPlanMode` is approved, the parent is out of plan mode. Actor's tool calls follow the operator's chosen permission posture (auto-accept / manual approve).
+After operator approval, Actor's tool calls (`filesystem` edit/write, `bash`) surface to octmux's permission-asked handler. Behaviour depends on the operator's current mode: `ask` → modal per call; `allow` → auto-allow; `deny` → auto-reject. Mode can be switched at any time with Shift-TAB.
 
 **Tier-aware dispatch:** For each step or step-group, check the PLAN.md entry for a `[tier: heavy]` annotation. If present, dispatch with `subagent_type: actor-heavy` (for heavyweight refactoring, large-scale refactors, or architecturally complex changes); otherwise use `subagent_type: actor` (default). The prompt and instructions are identical; only the subagent type differs.
 

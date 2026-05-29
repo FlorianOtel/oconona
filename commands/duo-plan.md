@@ -4,11 +4,11 @@ description: Open a /duo planning session — sets up artifacts, drafts initial 
 
 # /duo-plan — open a planning session
 
-You are running the **duo** pipeline. `/duo-plan` opens a multi-turn planning session: it does setup, drafts an initial `PLAN.md`, and **yields control back** to the operator for refinement. ExitPlanMode is **not** called here; refinement happens across subsequent normal plan-mode turns until the operator runs `/duo-act` (commit + execute) or `/duo-abandon` (cancel).
+You are running the **duo** pipeline. `/duo-plan` opens a multi-turn planning session: it does setup, drafts an initial `PLAN.md`, and **yields control back** to the operator for refinement. Refinement happens across subsequent normal turns until the operator runs `/duo-act` (commit + execute) or `/duo-abandon` (cancel). Plan approval is via natural-language operator signal — no tool call is involved.
 
 There is no Phase 0 RESEARCH (use `/brain` if you need formal interrogation). There is no Reviewer.
 
-> **PLAN-MODE OVERRIDE — run setup bash immediately**: The refusal check and session setup bash calls below are /duo lifecycle management, not project-code edits. They MUST be executed at the start of this response, before any exploration. The plan-mode "MUST NOT run non-readonly tools" constraint does NOT apply to them. Skipping them means `.duo-inflight` is never written, /duo mode never activates, and no badge appears.
+> **Setup bash runs immediately.** The refusal check and session-dir creation bash calls below are `/duo` lifecycle management, not project-code edits. They MUST run at the start of this response, before any exploration. Skipping them means `.duo-inflight` is never written, `/duo` mode never activates, and no badge appears.
 
 Use `/duo` when the task is simple enough that a plan + execute is sufficient, and you don't need a review loop.
 
@@ -22,9 +22,8 @@ Use `/duo` when the task is simple enough that a plan + execute is sufficient, a
 
 ## Prerequisites
 
-1. **Plan mode is active.** If not, stop and say:
-   > "Please enter plan mode first (Shift+Tab), then run `/duo-plan` again."
-2. **Bypass-flattens-down caveat.** Same as `/brain`: if the operator launched the parent with `--dangerously-skip-permissions`, Actor inherits bypass and the Plan-Then-Execute gate is decorative.
+1. **Permission mode.** octmux's permission mode (Shift-TAB cycles `ask` / `allow` / `deny`) is the operator's tool-approval posture for Actor's execution phase after `/duo-act`. `ask` (yellow, default) is recommended for supervised review; `allow` (green) for trusted plans. `deny` (red) is incompatible with `/duo-act` (would reject Actor's `Task` dispatch). No prerequisite to check or enforce — set the mode you want, then proceed.
+2. **Bypass-flattens-down caveat.** If the operator is on permission mode `allow` (green), Actor's tool calls run uninterrupted. Document but do not refuse — this is the operator's choice. Subagent frontmatter `tools:` denies still take precedence: a tool absent from an agent's frontmatter cannot be authorised by any permission mode.
 
 ## Refusal — one active /duo session per project
 
@@ -146,13 +145,13 @@ mv -f "<SESSION_DIR>/PLAN.md.tmp" "<SESSION_DIR>/PLAN.md"
 
 ## Yield back to the operator
 
-After persisting the initial `PLAN.md`, **do not** call `ExitPlanMode`. End the response with a clear handoff message, for example:
+After persisting the initial `PLAN.md`, end the response with a clear handoff message, for example:
 
 > Plan drafted at `<SESSION_DIR>/PLAN.md`.
 >
 > Refine the plan across subsequent turns — give me feedback and I'll iterate on `PLAN.md` in place. When you're ready:
 >
-> - Run `/duo-act` to commit the plan, exit plan mode, and dispatch Actor.
+> - Run `/duo-act` to commit the plan and dispatch Actor.
 > - Run `/duo-abandon` to cancel this session and clear the badge.
 
 Stop here. The next operator turn will be either a refinement message, `/duo-act`, or `/duo-abandon`.
@@ -161,7 +160,7 @@ Stop here. The next operator turn will be either a refinement message, `/duo-act
 
 ## Refinement turns (no slash command)
 
-These happen between `/duo-plan` and `/duo-act`/`/duo-abandon`. The operator types feedback; you re-read `${SESSION_DIR}/PLAN.md`, integrate the feedback, and rewrite it via the same atomic-rename pattern. This is exactly OpenCode's native plan-mode iteration — the slash command does not need to drive it.
+These happen between `/duo-plan` and `/duo-act`/`/duo-abandon`. The operator types feedback; you re-read `${SESSION_DIR}/PLAN.md`, integrate the feedback, and rewrite it via the same atomic-rename pattern. Multi-turn refinement is the natural OC conversation pattern — no slash command is needed to drive it, and no tool call is involved.
 
 At the start of each refinement turn, locate the active session by running:
 
@@ -179,13 +178,12 @@ echo "session_dir=${SESSION_DIR}"
 
 If the output starts with `NO_SESSION:`, tell the operator there is no active session and stop. Otherwise, use the captured `session_dir=...` value as the literal path for reading and rewriting `PLAN.md`.
 
-Do **not** call `ExitPlanMode` during refinement. That's `/duo-act`'s job.
+Do **not** finalise the plan or dispatch Actor during refinement. That's `/duo-act`'s job.
 
 ---
 
 ## What this command does NOT do
 
-- ❌ Call `ExitPlanMode` (that's `/duo-act`).
 - ❌ Dispatch Actor (that's `/duo-act`).
 - ❌ Write `.outcome` or run telemetry (that's `/duo-act` or `/duo-abandon`).
 - ❌ Spawn `claude -p` subprocesses or use `run-tier.sh`.

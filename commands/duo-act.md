@@ -1,17 +1,16 @@
 ---
-description: Commit the active /duo plan and execute — transitions from planning discussion to action. Calls ExitPlanMode, dispatches Actor subagent, and runs cleanup + telemetry. Refuses if no active /duo session.
+description: Commit the active /duo plan and execute — transitions from planning discussion to action. Presents PLAN.md for approval, dispatches Actor subagent, runs cleanup + telemetry. Refuses if no active /duo session.
 ---
 
 # /duo-act — commit the active /duo plan and execute
 
-You are running the **duo** pipeline's commit-and-execute step. `/duo-act` finalises the active /duo planning session: it presents the current `PLAN.md`, calls `ExitPlanMode`, dispatches the Actor subagent, then runs cleanup + telemetry.
+You are running the **duo** pipeline's commit-and-execute step. `/duo-act` finalises the active /duo planning session: it presents the current `PLAN.md` to the operator for natural-language approval, dispatches the Actor subagent, then runs cleanup + telemetry.
 
 If no /duo session is active (no `.duo-inflight` in any session subdir), refuse and tell the operator to run `/duo-plan` first.
 
 ## Prerequisites
 
-1. **Plan mode is active.** `/duo-act` calls `ExitPlanMode`, which only fires from plan mode. If not, stop and say:
-   > "Please enter plan mode first (Shift+Tab), then run `/duo-act`."
+1. **Permission mode.** octmux's permission mode (Shift-TAB cycles `ask` / `allow` / `deny`) determines how Actor's tool calls (`filesystem` edit/write, `bash`) will surface: `ask` (yellow) — modal per call; `allow` (green) — auto-allow; `deny` (red) — auto-reject. `deny` is incompatible with `/duo-act` (Actor's `Task` dispatch would be rejected). Switch with Shift-TAB before approving, or anytime during execution.
 2. **An active /duo session exists.** Verified below.
 
 ## Locate the active session
@@ -41,7 +40,7 @@ SESSION_DIR="$(dirname "$ACTIVE_INFLIGHT")"
 echo "session_dir=${SESSION_DIR}"
 ```
 
-If the output starts with `NO_SESSION:`, **stop now** — print the message to the operator and end. Do not call `ExitPlanMode`, do not dispatch Actor.
+If the output starts with `NO_SESSION:`, **stop now** — print the message to the operator and end. Do not dispatch Actor.
 
 Capture the `session_dir=...` value; use it as the literal path for the rest of this command.
 
@@ -53,17 +52,16 @@ You may show the operator a brief one-line confirmation of what's about to run, 
 
 ## Plan approval gate
 
-Call `ExitPlanMode` with the full text of `<SESSION_DIR>/PLAN.md`. The operator
-will see OpenCode's standard "auto-edit / manually approve / cancel" prompt.
+Present a one-line confirmation of what's about to execute and ask explicitly: **"Approve and dispatch Actor?"** Wait for an unambiguous natural-language reply (`"approved"` / `"go ahead"` / `"proceed"` / `"yes"`, or `"cancel"` / `"abort"`). No OC tool is called to gate this — approval is purely the operator's reply text.
 
-- **Approved (auto-edit or manually approve):** the parent exits plan mode and Phase 3 below proceeds. The permission posture set here applies to Actor's tool calls.
+- **Approved:** Phase 3 below proceeds. Actor's tool calls will surface to octmux's permission-asked handler according to the current permission mode (`ask`/`allow`/`deny`, cycled with Shift-TAB).
 - **Rejected (cancel):** the assistant's turn pauses. The session **stays open** — `.duo-inflight` is preserved. The operator can refine more and run `/duo-act` again, or run `/duo-abandon` to give up. Do not run any cleanup on rejection.
 
 ---
 
 ## Phase 3 — Execute (Task → Actor subagent)
 
-After `ExitPlanMode` is approved, dispatch Actor via the `Task` tool with `subagent_type: actor`. Prompt includes:
+After operator approval, dispatch Actor via the `Task` tool with `subagent_type: actor`. Prompt includes:
 
 - The literal session directory path (`<SESSION_DIR>`).
 - The full plan text from `PLAN.md`.

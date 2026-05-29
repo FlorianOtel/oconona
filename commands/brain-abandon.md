@@ -10,7 +10,7 @@ If no /brain session is active (no `.brain-inflight` in any session subdir), ref
 
 ## Prerequisites
 
-None beyond an active /brain session. Plan-mode state is irrelevant — this command does not call `ExitPlanMode` and does not dispatch any subagent.
+None beyond an active /brain session. Permission mode (`ask`/`allow`/`deny`) is irrelevant — this command runs cleanup only and dispatches no subagent.
 
 ## Locate the active session
 
@@ -75,7 +75,6 @@ Print to the operator:
 
 ## What this command does NOT do
 
-- ❌ Call `ExitPlanMode`.
 - ❌ Dispatch Planner, Actor, or Reviewer.
 - ❌ Delete `RESEARCH.md`, `PLAN.md`, or any session artefacts (only `.brain-inflight` is removed).
 - ❌ Auto-commit or auto-push.

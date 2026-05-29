@@ -10,7 +10,7 @@ If no /duo session is active (no `.duo-inflight` in any session subdir), refuse 
 
 ## Prerequisites
 
-None beyond an active /duo session. Plan-mode state is irrelevant — this command does not call `ExitPlanMode` and does not dispatch any subagent.
+None beyond an active /duo session. Permission mode (`ask`/`allow`/`deny`) is irrelevant — this command runs cleanup only and dispatches no subagent.
 
 ## Locate the active session
 
@@ -70,7 +70,6 @@ Print to the operator:
 
 ## What this command does NOT do
 
-- ❌ Call `ExitPlanMode`.
 - ❌ Dispatch Actor.
 - ❌ Delete `PLAN.md` or any session artefacts (only `.duo-inflight` is removed).
 - ❌ Auto-commit or auto-push.
