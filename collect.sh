@@ -67,9 +67,10 @@ echo "Scripts:"
 collect_file "$OC_HOME/scripts/orchestra-hook.sh" "$REPO/scripts/orchestra-hook.sh"
 collect_file "$OC_HOME/scripts/ctx-segment.sh" "$REPO/scripts/ctx-segment.sh"
 collect_file "$OC_HOME/scripts/oc-db.py" "$REPO/scripts/oc-db.py"
+collect_file "$OC_HOME/scripts/verify-tier-mapping.sh" "$REPO/scripts/verify-tier-mapping.sh"
 
 echo "Config:"
-collect_file "$OC_HOME/orchestra/config.yaml"    "$REPO/config/config.yaml"
+collect_file "$OC_HOME/orchestra/oconona-config.yaml"    "$REPO/config/oconona-config.yaml"
 collect_file "$OC_HOME/orchestra/context-windows.yaml" "$REPO/config/context-windows.yaml"
 
 echo ""

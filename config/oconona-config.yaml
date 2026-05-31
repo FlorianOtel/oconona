@@ -1,0 +1,9 @@
+# OpenCode Orchestra — global default config
+# Global config: ${HOME}/.config/opencode/orchestra/oconona-config.yaml
+# Design reference: docs/design.md (in this repo)
+
+# -----------------------------------------------------------------------------
+# Per-invocation session housekeeping
+# -----------------------------------------------------------------------------
+housekeeping:
+  session_retention_days: 30       # delete sessions/ subdirs older than N days

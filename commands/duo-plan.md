@@ -77,7 +77,7 @@ _parse_retention() {
   ' "$1" 2>/dev/null
 }
 # Precedence: global default > hardcoded 30.
-RETENTION_DAYS=$(_parse_retention "${HOME}/.config/opencode/orchestra/config.yaml")
+RETENTION_DAYS=$(_parse_retention "${HOME}/.config/opencode/orchestra/oconona-config.yaml")
 RETENTION_DAYS="${RETENTION_DAYS:-30}"
 
 if [ -d "${SESSIONS_ROOT}" ]; then

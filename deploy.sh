@@ -108,7 +108,7 @@ echo "Scripts:"
 for s in \
     orchestra-hook.sh telemetry-summarize.sh telemetry-report.sh \
     session-report.sh native-session-report.sh smoke-test.sh \
-    ctx-segment.sh; do
+    ctx-segment.sh verify-tier-mapping.sh; do
     if [ -f "$REPO/scripts/$s" ]; then
         copy_file "$REPO/scripts/$s" "$OC_HOME/scripts/$s"
         $DRY_RUN || chmod +x "$OC_HOME/scripts/$s"
@@ -194,7 +194,7 @@ fi
 
 # ── 6. Orchestra config ───────────────────────────────────────────────────────
 echo "Config:"
-copy_file "$REPO/config/config.yaml" "$OC_HOME/orchestra/config.yaml"
+copy_file "$REPO/config/oconona-config.yaml" "$OC_HOME/orchestra/oconona-config.yaml"
 copy_file "$REPO/config/context-windows.yaml" "$OC_HOME/orchestra/context-windows.yaml"
 
 # ── 7. Merge orchestra hooks into settings.json ───────────────────────────────
@@ -302,9 +302,9 @@ fi
 # ── 9. Inject orchestra-guard block into ~/.config/opencode/AGENTS.md ──────────────────
 # The guard fires every turn (AGENTS.md is loaded into the system prompt prefix
 # by the harness on every turn), giving us per-turn reinforcement of the
-# orchestra-pipeline rules — matching plan-mode's reminder cadence. Without
+# orchestra-pipeline rules — matching OC's per-turn context reload cadence. Without
 # this, /brain reliably skips Planner/Actor dispatches in long Phase 0 sessions
-# because /brain.md's instructions get buried by repeated plan-mode reminders.
+# because /brain.md's instructions get buried by repeated context reload reminders.
 # Skip-with-warning if the user's global AGENTS.md is absent.
 echo "AGENTS.md guard:"
 GLOBAL_AGENTS_MD="$HOME/.config/opencode/AGENTS.md"

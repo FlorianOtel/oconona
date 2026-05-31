@@ -15,7 +15,7 @@
 
 # ORCHESTRA_BLOCK_START — do not remove; deploy.sh uses this as presence sentinel
 
-if [ -n "$cwd" ] && [ -f "$HOME/.config/opencode/orchestra/config.yaml" ]; then
+if [ -n "$cwd" ] && [ -f "$HOME/.config/opencode/orchestra/oconona-config.yaml" ]; then
     # Gruvbox Dark palette additions
     ORCHESTRA_COLOR="\033[38;2;211;134;155m"  # bright_purple #D3869B
     ACTIVE_COLOR="\033[38;2;215;153;33m"      # dark yellow   #D79921

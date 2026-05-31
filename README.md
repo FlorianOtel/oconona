@@ -38,23 +38,23 @@ Two invocation styles depending on how much structure the task warrants:
 PLAN → [G2 approval] → IMPLEMENT + REVIEW loop (cap 3) → VERIFY + doc/memory update
 ```
 
-Planner drafts a numbered plan; Brain surfaces it for your approval via `ExitPlanMode`; Actor executes each step; Reviewer reviews each step with up to 3 fix iterations; Brain does a doc-delta check and memory update on completion.
+Planner drafts a numbered plan; Brain surfaces it for your approval via natural-language reply; Actor executes each step; Reviewer reviews each step with up to 3 fix iterations; Brain does a doc-delta check and memory update on completion.
 
 Use for: multi-file refactors, architecture changes, anything where a review loop matters.
 
 ### `/duo-plan` / `/duo-act` / `/duo-abandon` — lightweight, session-bracketed
 
 ```
-/duo-plan <task>  →  refinement turns (multi-turn plan-mode iteration)  →  /duo-act
-                                                                           ├→ [G2 approval]
-                                                                           └→ Execute all steps (Actor, auto)
-                                                                           or
-                                                                           /duo-abandon → cancel cleanly
+/duo-plan <task>  →  refinement turns (multi-turn interactive refinement)  →  /duo-act
+                                                                            ├→ [G2 approval]
+                                                                            └→ Execute all steps (Actor, auto)
+                                                                            or
+                                                                            /duo-abandon → cancel cleanly
 ```
 
-`/duo-plan` opens a planning session (sets up artifacts, drafts the initial `PLAN.md`, then yields back). You refine the plan across as many turns as needed using OpenCode's native plan-mode iteration. `/duo-act` calls `ExitPlanMode`, dispatches Actor subagent to execute all approved steps in a single Actor invocation, then runs cleanup + telemetry. `/duo-abandon` cancels the session cleanly (writes `.outcome=abandoned`, runs T2, clears the badge). No review tier, no loop.
+`/duo-plan` opens a planning session (sets up artifacts, drafts the initial `PLAN.md`, then yields back). You refine the plan across as many turns as needed using OpenCode's native interactive refinement. `/duo-act` dispatches Actor subagent after operator approval and runs cleanup + telemetry. `/duo-abandon` cancels the session cleanly (writes `.outcome=abandoned`, runs T2, clears the badge). No review tier, no loop.
 
-Splitting plan-approval into an explicit `/duo-act` (rather than barrelling through `ExitPlanMode` in one response) makes mid-plan refinement first-class and keeps telemetry attribution correct.
+Splitting plan-approval into an explicit `/duo-act` (rather than committing the plan immediately) makes mid-plan refinement first-class and keeps telemetry attribution correct.
 
 Use for: simple, well-scoped tasks (≤ 10 steps) where the plan is clear enough to trust unreviewed execution.
 
@@ -118,8 +118,7 @@ the orchestra automatically. Changes only take effect after an explicit deploy.
 ## Usage
 
 ```
-# 1. Enter plan mode (required for G2 approval gate)
-Shift+Tab   (or /plan-mode in OpenCode)
+# 1. Set octmux permission mode with Shift-TAB (ask / allow / deny)
 
 # 2. Choose a pipeline
 /brain        implement the X feature       — full pipeline
@@ -185,14 +184,14 @@ opencode-orchestra--non-Anthropic/
 │   ├── brain.md           /brain slash command           — full pipeline (Phase 0 inline + Planner/Actor/Reviewer subagents)
 │   ├── brain-abandon.md   /brain-abandon slash command   — cancel the active /brain session, run cleanup + telemetry
 │   ├── duo-plan.md       /duo-plan slash command       — open a /duo planning session (multi-turn refinement)
-│   ├── duo-act.md        /duo-act slash command        — commit the plan, ExitPlanMode, dispatch Actor, cleanup
+│   ├── duo-act.md        /duo-act slash command        — commit plan, dispatch Actor, cleanup
 │   └── duo-abandon.md     /duo-abandon slash command     — cancel the active /duo session, run cleanup + telemetry
 ├── scripts/
 │   └── orchestra-hook.sh      PreToolUse / SubagentStop / PreCompact hook dispatcher
 ├── status-line/
 │   └── orchestra-block.sh     Orchestra additions for status-line.sh
 ├── config/
-│   ├── config.yaml            Global orchestra configuration
+│   ├── oconona-config.yaml            Global orchestra configuration
 │   ├── context-windows.yaml   Model context window sizes (denominator for status-line ctx bar)
 │   └── settings-hooks.json    Hook entries to merge into settings.json
 ├── docs/

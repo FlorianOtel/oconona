@@ -23,7 +23,7 @@
 - `scripts/ctx-segment.sh` — status-line context-window bar renderer
 - `scripts/oc-db.py` — read-only OC SQLite helper (new in v7.1)
 - `scripts/session-report.{sh,py}` — unified cost report (orchestra sessions)
-- `config/config.yaml` — global orchestra defaults
+- `config/oconona-config.yaml` — global orchestra defaults
 - `docs/design.md`    — full architecture reference
 
 ## Do not commit
