@@ -160,6 +160,10 @@ def main():
         "--source", choices=["orchestra", "brain", "duo", "all"], default="orchestra",
         help="Filter by source: brain, duo, or orchestra (any non-native)"
     )
+    parser.add_argument(
+        "--hybrid-detail", action="store_true",
+        help="Show detailed per-subagent marginal cost breakdown for hybrid sessions"
+    )
     args = parser.parse_args()
 
     # Load all records (v7.1+)
@@ -167,6 +171,61 @@ def main():
 
     # Apply filters
     filtered_records = apply_filters(all_records, args)
+
+    # Print per-tier cost delineation if --hybrid-detail requested
+    if args.hybrid_detail and filtered_records:
+        print("\n=== Per-Agent Cost Delineation ===\n")
+        for i, rec in enumerate(filtered_records[:1]):  # Show detail for first (most recent) session
+            session_id = rec.get("session_id", "unknown")
+            print(f"Session: {session_id}")
+            parent = rec.get("parent", {})
+            subagents = rec.get("subagents", [])
+            hybrid = rec.get("hybrid_attribution", {})
+
+            # Print parent (Brain)
+            parent_agent = parent.get("agent", "brain") or "brain"
+            parent_model = parent.get("model", "-")
+            parent_cost = parent.get("cost", 0)
+            parent_tokens_out = parent.get("tokens_output", 0)
+
+            hidden_cost = hybrid.get("hidden_hybrid_cost_usd", 0)
+            ttl_lapse = hybrid.get("ttl_lapse_flag", False)
+
+            cost_str = f"${parent_cost:.4f}"
+            if hidden_cost > 0:
+                cost_str += f" (+${hidden_cost:.4f} hidden)"
+            ttl_marker = " [TTL-lapse?]" if ttl_lapse else ""
+
+            print(f"  Agent | Model | Cost | Tokens")
+            print(f"  {parent_agent:6} | {parent_model:23} | {cost_str:15} | {parent_tokens_out}")
+            if ttl_marker:
+                print(f"  {ttl_marker}")
+
+            # Print subagents
+            if subagents:
+                for sub in subagents:
+                    sub_agent = sub.get("agent", "unknown")
+                    sub_model = sub.get("model", "-")
+                    sub_cost = sub.get("cost", 0)
+                    sub_tokens_out = sub.get("tokens_output", 0)
+                    print(f"  {sub_agent:6} | {sub_model:23} | ${sub_cost:.4f} | {sub_tokens_out}")
+
+            # Print hybrid detail if available
+            if hybrid.get("hybrid_applicable"):
+                marginal_costs = hybrid.get("subagent_marginal_costs", [])
+                if marginal_costs:
+                    print("\n  Marginal Cost Breakdown:")
+                    print(f"  Subagent | Output tokens | Marginal Brain cost")
+                    for mc in marginal_costs:
+                        agent = mc.get("agent", "unknown")
+                        out_tok = mc.get("output_tokens", 0)
+                        marg_cost = mc.get("marginal_cost_usd", 0)
+                        print(f"  {agent:8} | {out_tok:13} | ${marg_cost:.6f}")
+                else:
+                    print("\n  (no hybrid attribution — all tiers paid directly)")
+            else:
+                print("\n  (no hybrid attribution data available)")
+            print()
 
     # Prepare display records
     display_records = []
@@ -197,6 +256,19 @@ def main():
         cost_usd = totals.get("cost_usd_estimate", 0)
         cost_source = rec.get("cost_source", "")
 
+        # Build cost string with hidden-cost annotation
+        cost_str = format_cost(cost_usd, cost_source)
+        hybrid = rec.get("hybrid_attribution", {})
+        if hybrid:
+            hidden_cost = hybrid.get("hidden_hybrid_cost_usd", 0)
+            ttl_lapse = hybrid.get("ttl_lapse_flag", False)
+            if hidden_cost > 0 and cost_str != "-":
+                # Append hidden-cost annotation to the cost cell
+                cost_str += f" (+${hidden_cost:.4f} hidden)"
+            if ttl_lapse and cost_str != "-":
+                # Append TTL-lapse marker
+                cost_str += " [TTL-lapse?]"
+
         # Derive project name
         session_dir = rec.get("session_dir", "")
         project = extract_project_name(session_dir) if session_dir else "-"
@@ -207,7 +279,7 @@ def main():
             "project": project,
             "model": raw_model,
             "tokens": tok_str,
-            "cost": format_cost(cost_usd, cost_source),
+            "cost": cost_str,
             "duration": format_duration(rec.get("duration_s", 0)),
             "outcome": rec.get("outcome", "-"),
         })

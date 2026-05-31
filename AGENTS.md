@@ -17,7 +17,7 @@
 - **`commands/*.md`** → operator-facing slash commands (deployed to `~/.config/opencode/commands/`). Invoked by the operator typing `/name`. The body becomes Brain's prompt.
 - **`agents/*.md`** → dispatchable subagents (deployed to `~/.config/opencode/agents/`). Invoked by Brain via the `Task` tool with `subagent_type: name`. Each has frontmatter declaring its model and tool permissions.
 
-- `agents/` — planner (sohoai/glm-5.1, read-only), actor (sohoai/qwen3-coder-next), actor-heavy (sohoai/kimi-k2.6), reviewer (sohoai/kimi-k2.6, read-only)
+- `agents/` — planner (sohoai/glm-5.1, read-only), actor (sohoai/qwen3-coder-next), actor-heavy (sohoai/kimi-k2.6), reviewer (anthropic/claude-sonnet-4-6 as of v7.3.5, read-only)
 - `commands/` — /brain (full pipeline: Phase 0 inline + 3 subagents) + /brain-abandon (explicit cancel); /duo-plan, /duo-act, /duo-abandon (lightweight session-bracketed pipeline: Brain plans interactively across multiple turns, Actor acts after /duo-act)
 - `scripts/orchestra-hook.sh` — PreToolUse / SubagentStop / PreCompact / Stop dispatcher
 - `scripts/ctx-segment.sh` — status-line context-window bar renderer

@@ -26,9 +26,10 @@ if [ -z "${SESSION_DIR:-}" ] || [ ! -d "${SESSION_DIR}" ]; then
 fi
 
 SESSION_ID="${SESSION_DIR##*/}"
-echo "=== Smoke test (v7.3+): ${SESSION_ID} ==="
+echo "=== Smoke test (v7.3.5+): ${SESSION_ID} ==="
 
 PASS=0
+TOTAL_CHECKS=4
 
 # --- Check A: .oc-session-id sidecar ---
 echo ""
@@ -124,12 +125,28 @@ else
     echo "  ~/.config/opencode/scripts/telemetry-summarize.sh \"${SESSION_DIR}\" duo pass \"\""
 fi
 
+# --- Check D: model rates validation ---
+echo ""
+echo "--- Check D (model rates within 1% tolerance) ---"
+VERIFY_SCRIPT="${HOME}/.config/opencode/scripts/verify-cost-rates.py"
+if [ -f "${VERIFY_SCRIPT}" ]; then
+    "${PYTHON3}" "${VERIFY_SCRIPT}" "${SESSION_DIR}" 2>&1 | grep -E "^  (OK|WARN|STALE):" | head -10
+    if "${PYTHON3}" "${VERIFY_SCRIPT}" "${SESSION_DIR}" >/dev/null 2>&1; then
+        echo "✓ All known-model rates within 1% of OC stored cost"
+        PASS=$((PASS + 1))
+    else
+        echo "✗ At least one tier has rate drift > 1%"
+    fi
+else
+    echo "⊘ verify-cost-rates.py not deployed (pre-v7.3.5); skipping"
+fi
+
 # --- Summary ---
 echo ""
-if [ "${PASS}" -eq 3 ]; then
-    echo "✓ All checks passed (3/3)"
+if [ "${PASS}" -eq "${TOTAL_CHECKS}" ]; then
+    echo "✓ All checks passed (${TOTAL_CHECKS}/${TOTAL_CHECKS})"
     exit 0
 else
-    echo "✗ ${PASS}/3 checks passed"
+    echo "✗ ${PASS}/${TOTAL_CHECKS} checks passed"
     exit 1
 fi

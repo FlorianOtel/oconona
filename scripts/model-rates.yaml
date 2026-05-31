@@ -1,0 +1,167 @@
+# model-rates.yaml — Cost rates for token accounting across hybrid orchestra.
+#
+# Purpose: central source of truth for marginal token costs, keyed by provider-qualified model ID.
+# Used by oc-db.py (_get_rate), smoke-test.sh (Check D), and session-report.py (hybrid_attribution display).
+#
+# ## Rate structure
+#
+# Keys are provider-qualified (`"anthropic/claude-opus-4-7"`, `"sohoai/kimi-k2.6"`).
+# For `providerID == "sohoai"`, the `id` field's `"ollama-cloud/"` or `"local/"` prefix is stripped during normalization.
+# Defensive fallback: if `providerID` is missing but `id` starts with `"claude-"`, assume `"anthropic"`.
+#
+# ## Cache TTL parameterisation
+#
+# `cache_write` is a **TTL-keyed sub-map**; `cache_read`, `input`, `output` are TTL-invariant scalars.
+# Top-level `default_cache_ttl: "5m"` field governs the active tier.
+#
+# ### TTL tiers
+#
+# - `"5m"` (5-minute ephemeral cache): default, lower write cost.
+# - `"1h"` (1-hour extended cache): future adoption; uncomment when Oracle/SoHoAI adds extended-cache header.
+#
+# ### Switching from 5m to 1h
+#
+# When extended-cache is adopted (e.g., anthropic-beta supports 1h TTL):
+#
+#   1. Uncomment `"1h"` lines in all `cache_write` sub-maps.
+#   2. Update `default_cache_ttl: "1h"`.
+#   3. No code changes needed; _get_rate() automatically uses the new default.
+#
+# ### Per-call TTL override (reserved for future)
+#
+# When per-session TTL detection is implemented (Stage 7.4), _get_rate(key, field, ttl="1h")
+# will allow per-turn overrides. Currently all sessions use the global `default_cache_ttl`.
+#
+# ## Rate maintenance
+#
+# Rates are based on Anthropic's public pricing (tokens/1M USD) and are verified quarterly.
+# See scripts/verify-cost-rates.py (Check D) for drift detection.
+#
+# - Anthropic pricing: https://www.anthropic.com/pricing/claude
+# - SoHoAI models: internal pricing (currently free-tier, $0.00 all costs)
+#
+# ### Adding a new model
+#
+# 1. Consult the provider's pricing page (or your negotiated rates).
+# 2. Add an entry under `provider_models`:
+#
+#    ```yaml
+#    "provider/model-id": { input: X.XX, output: Y.YY, cache_read: Z.ZZ, cache_write: { "5m": W.WW } }
+#    ```
+#
+#    or multiline for clarity:
+#
+#    ```yaml
+#    "provider/model-id":
+#      input: X.XX
+#      output: Y.YY
+#      cache_read: Z.ZZ
+#      cache_write:
+#        "5m": W.WW
+#        # "1h": V.VV
+#    ```
+#
+# 3. Run smoke-test.sh or verify-cost-rates.py to confirm no typos.
+#
+# ## How Check D (smoke-test.sh) works
+#
+# Check D compares each session's per-tier cost (from telemetry.json) against
+# the rate-based calculation using model-rates.yaml. Tolerance: 1% by default.
+# Exit code: 0 if OK or WARN, 1 if STALE (drift > tolerance).
+#
+# See verify-cost-rates.py --help for tolerance override.
+
+default_cache_ttl: "5m"
+
+provider_models:
+  "anthropic/claude-opus-4-7":
+    input: 5.00
+    output: 25.00
+    cache_read: 0.50
+    cache_write:
+      "5m": 6.25
+      # "1h": 10.00
+
+  "anthropic/claude-sonnet-4-6":
+    input: 3.00
+    output: 15.00
+    cache_read: 0.30
+    cache_write:
+      "5m": 3.75
+      # "1h": 6.00
+
+  "anthropic/claude-haiku-4-5":
+    input: 0.80
+    output: 4.00
+    cache_read: 0.08
+    cache_write:
+      "5m": 1.00
+      # "1h": 1.60
+
+  # SoHoAI models — free-tier (internal deployment)
+  "sohoai/deepseek-v4-flash":
+    input: 0
+    output: 0
+    cache_read: 0
+    cache_write:
+      "5m": 0
+      "1h": 0
+
+  "sohoai/deepseek-v4-pro":
+    input: 0
+    output: 0
+    cache_read: 0
+    cache_write:
+      "5m": 0
+      "1h": 0
+
+  "sohoai/minimax-m2.5":
+    input: 0
+    output: 0
+    cache_read: 0
+    cache_write:
+      "5m": 0
+      "1h": 0
+
+  "sohoai/kimi-k2.6":
+    input: 0
+    output: 0
+    cache_read: 0
+    cache_write:
+      "5m": 0
+      "1h": 0
+
+  "sohoai/glm-5.1":
+    input: 0
+    output: 0
+    cache_read: 0
+    cache_write:
+      "5m": 0
+      "1h": 0
+
+  "sohoai/qwen3-coder-next":
+    input: 0
+    output: 0
+    cache_read: 0
+    cache_write:
+      "5m": 0
+      "1h": 0
+
+  "sohoai/qwen3-4b-q6":
+    input: 0
+    output: 0
+    cache_read: 0
+    cache_write:
+      "5m": 0
+      "1h": 0
+
+  "sohoai/qwen3-9b-q4":
+    input: 0
+    output: 0
+    cache_read: 0
+    cache_write:
+      "5m": 0
+      "1h": 0
+
+last_verified: 2026-05-31
+last_verified_session: "ses_18a544a4effeLo8NL1EAZJdcKN"

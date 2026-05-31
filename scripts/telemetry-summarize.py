@@ -47,7 +47,7 @@ def read_outcome(session_dir: Path) -> str:
 def _zero_struct() -> Dict[str, Any]:
     """Return a zero-valued telemetry data structure for fallback cases."""
     zero_tier = {
-        "agent": "", "model": "", "cost": 0.0,
+        "agent": "", "model": "", "provider_model_key": "", "cost": 0.0,
         "tokens_input": 0, "tokens_output": 0, "tokens_reasoning": 0,
         "tokens_cache_read": 0, "tokens_cache_write": 0,
     }
@@ -56,6 +56,13 @@ def _zero_struct() -> Dict[str, Any]:
         "subagents": [],
         "totals": {"cost_usd_estimate": 0.0, "tokens_input": 0,
                    "tokens_output": 0, "tokens_cache_read": 0},
+        "hybrid_attribution": {
+            "hybrid_applicable": False,
+            "parent_cache_efficiency_pct": 0,
+            "ttl_lapse_flag": False,
+            "subagent_marginal_costs": [],
+            "hidden_hybrid_cost_usd": 0.0,
+        },
     }
 
 
@@ -168,6 +175,13 @@ def main():
         "cost_source": cost_source,
         "project_dir": project_dir,
         "status": args.status,
+        "hybrid_attribution": db_data.get("hybrid_attribution", {
+            "hybrid_applicable": False,
+            "parent_cache_efficiency_pct": 0,
+            "ttl_lapse_flag": False,
+            "subagent_marginal_costs": [],
+            "hidden_hybrid_cost_usd": 0.0,
+        }),
     }
 
     # Atomic write

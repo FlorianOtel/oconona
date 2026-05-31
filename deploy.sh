@@ -102,7 +102,7 @@ done
 #   telemetry-report.sh       — orchestra session cost report (shell-only)
 #   session-report.sh         — orchestra session unified report wrapper (calls .py)
 #   native-session-report.sh  — non-orchestra OC session report wrapper (calls .py)
-#   smoke-test.sh             — 3-check end-of-/brain validation (shell-only)
+#   smoke-test.sh             — 4-check end-of-/brain validation (shell-only)
 #   ctx-segment.sh            — status-line context-window bar renderer
 echo "Scripts:"
 for s in \
@@ -116,9 +116,16 @@ for s in \
 done
 # Python implementations — no chmod (always called through the .sh wrapper or
 # via importlib from another Python module).
-for p in telemetry-summarize.py session-report.py native-session-report.py oc-db.py; do
+for p in telemetry-summarize.py session-report.py native-session-report.py oc-db.py verify-cost-rates.py; do
     if [ -f "$REPO/scripts/$p" ]; then
         copy_file "$REPO/scripts/$p" "$OC_HOME/scripts/$p"
+    fi
+done
+
+# Data files (YAML, JSON, etc.) — deployed to scripts/ alongside the tools that use them.
+for d in model-rates.yaml; do
+    if [ -f "$REPO/scripts/$d" ]; then
+        copy_file "$REPO/scripts/$d" "$OC_HOME/scripts/$d"
     fi
 done
 

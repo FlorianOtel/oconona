@@ -116,7 +116,12 @@ def apply_filters(rows: List[Dict[str, Any]], args: argparse.Namespace) -> List[
 
 
 def format_row(row: Dict[str, Any]) -> Dict[str, str]:
-    """Convert an OC session row into display-ready string fields."""
+    """Convert an OC session row into display-ready string fields.
+
+    Native (non-orchestra) sessions do not carry hybrid_attribution data in their
+    OC SQLite records, so hidden-cost annotations are not applicable here. This
+    function formats the native-session cost as-is from the OC session.cost column.
+    """
     date_str = parse_session_time(row).strftime("%Y-%m-%d--%H-%M")
     project = Path(row.get("directory") or "-").name or "-"
     model_raw = oc_db._parse_model(row["model"])
