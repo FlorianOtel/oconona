@@ -22,7 +22,7 @@ If you find yourself about to compose the plan in your reply text or write `PLAN
 
 ### Self-check before code-changing tool calls
 
-Before any `Edit`, `Write`, or code-modifying `Bash` call, ask: does `.brain-inflight` exist in any `${OPENCODE_PROJECT_DIR}/.opencode/orchestra/sessions/*/`? If yes, and the change is to project code (not session-dir artefacts: `RESEARCH.md`, `PLAN.md`, `TASKS.json`, `review-comments.md`, `.outcome`, `state.env`), you are about to violate the pipeline. Code changes go through the **Actor subagent** (`Task` tool, `subagent_type: actor`). Stop and dispatch Actor, or run `/brain-abandon` to exit cleanly.
+Before any `Edit`, `Write`, or code-modifying `Bash` call, ask: does `.brain-inflight` exist in any `${HOME}/.config/opencode/orchestra/sessions/*/`? If yes, and the change is to project code (not session-dir artefacts: `RESEARCH.md`, `PLAN.md`, `TASKS.json`, `review-comments.md`, `.outcome`, `state.env`), you are about to violate the pipeline. Code changes go through the **Actor subagent** (`Task` tool, `subagent_type: actor`). Stop and dispatch Actor, or run `/brain-abandon` to exit cleanly.
 
 Session-dir artefacts written directly via `Bash` heredoc are exempt from this rule. Project code is not.
 

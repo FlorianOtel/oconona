@@ -66,7 +66,7 @@ Run via `Bash`:
 ```bash
 # OPENCODE_PROJECT_DIR may be unset in Bash subprocesses — resolve it first.
 OPENCODE_PROJECT_DIR="$(realpath "${OPENCODE_PROJECT_DIR:-$(pwd)}" 2>/dev/null || echo "${OPENCODE_PROJECT_DIR:-$(pwd)}")"
-SESSIONS_ROOT="${OPENCODE_PROJECT_DIR}/.opencode/orchestra/sessions"
+SESSIONS_ROOT="${HOME}/.config/opencode/orchestra/sessions"
 _parse_retention() {
   awk '
     /^housekeeping:/ { in_hk = 1; next }
