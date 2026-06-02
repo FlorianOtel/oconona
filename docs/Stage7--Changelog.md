@@ -2,8 +2,8 @@
 title: "Stage 7 Changelog — oconona"
 created_at: 2026-05-28--18-16
 created_by: Actor (Claude Haiku 4.5)
-updated_by: Brain (Anthropic Opus 4.7 via /brain) — v7.3.5 hotfix 2
-updated_at: 2026-06-02--15-02
+updated_by: Brain (Anthropic Opus 4.7 via /brain) — v7.3.5 hotfix 3
+updated_at: 2026-06-02--20-04
 context: >
   Reverse-chronological implementation log for Stage 7 OC-native telemetry
   redesign. Carries forward Stage 6 entries with status annotations. Newest
@@ -13,6 +13,42 @@ context: >
 # Stage 7 Changelog
 
 Entries are reverse-chronological. Newest at the top.
+
+---
+
+## 2026-06-02 — v7.3.5 hotfix #3: /duo-plan sessions root unified to GLOBAL path
+
+**Commit:** `a0d5151`
+
+### Delivered
+
+- **commands/duo-plan.md line 69:** `SESSIONS_ROOT="${OPENCODE_PROJECT_DIR}/.opencode/orchestra/sessions"` → `SESSIONS_ROOT="${HOME}/.config/opencode/orchestra/sessions"`. Load-bearing fix. Brings `/duo-plan` Setup block in line with the refusal-check block (already global, lines 38-50), `commands/brain.md`, `commands/duo-abandon.md`, and the deployed orchestra-guard.
+- **commands/brain.md line 25 (prose):** `${OPENCODE_PROJECT_DIR}/.opencode/orchestra/sessions/*/` → `${HOME}/.config/opencode/orchestra/sessions/*/`. Hygiene-only; brain.md's actual session creation at line 68 was already on the global path.
+
+### Scope
+
+Two-file edit. No runtime logic changed beyond the sessions-root path. No other commands, scripts, docs, or config files touched. Migration leftovers in `scripts/session-report.py` (docstring + "Legacy fallback" path-inference, still working via telemetry.json primary read), `deploy.sh` (gitignore entry `.opencode/orchestra/`), and `README.md` (obsolete project-local narrative) are back-compat/cosmetic only and deliberately left for a future "v7.5 architecture sweep".
+
+### Verification
+
+```bash
+# 1. Deployed duo-plan.md Setup block uses global path
+grep 'SESSIONS_ROOT' ~/.config/opencode/commands/duo-plan.md
+# expected: two lines, both ${HOME}/.config/opencode/orchestra/sessions
+
+# 2. No project-local path remains
+grep 'OPENCODE_PROJECT_DIR.*opencode/orchestra' ~/.config/opencode/commands/duo-plan.md ~/.config/opencode/commands/brain.md
+# expected: no output
+
+# 3. Smoke: /duo-plan "noop" then /duo-abandon
+#    - new session at ~/.config/opencode/orchestra/sessions/<timestamp>/ (GLOBAL)
+#    - NOT at ${OPENCODE_PROJECT_DIR}/.opencode/orchestra/sessions/
+#    - /duo-abandon finds and removes the session cleanly
+```
+
+### Why
+
+The hotfix #2 smoke session (`20260602T192923Z-368859`, left orphaned in the octmux project tree) surfaced the mismatch: `/duo-plan` created the session at `${OPENCODE_PROJECT_DIR}/.opencode/orchestra/sessions/…` while `/duo-abandon` looked in `${HOME}/.config/opencode/orchestra/sessions/…` — producing "No active /duo session to abandon — nothing to clean up". The deployed orchestra-guard block in `~/.config/opencode/AGENTS.md` (which checks `${HOME}/.config/opencode/orchestra/sessions/*/.brain-inflight` etc. each turn) and the status-line badge renderer (`status-line/orchestra-block.sh:49`) also look at the global path. Migration origin: commit `64f163b` (2026-05-20) set everything project-local; later commits moved most paths global; duo-plan.md line 69 and brain.md line 25 were missed. This hotfix completes the migration for the load-bearing references; the back-compat leftovers stay for a future v7.5 sweep.
 
 ---
 
