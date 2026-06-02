@@ -2,8 +2,8 @@
 title: "Stage 7 Changelog — oconona"
 created_at: 2026-05-28--18-16
 created_by: Actor (Claude Haiku 4.5)
-updated_by: Actor (Claude Haiku 4.5)
-updated_at: 2026-05-29--11-09
+updated_by: Brain (Anthropic Opus 4.7 via /brain) — v7.3.5 hotfix 2
+updated_at: 2026-06-02--15-02
 context: >
   Reverse-chronological implementation log for Stage 7 OC-native telemetry
   redesign. Carries forward Stage 6 entries with status annotations. Newest
@@ -13,6 +13,401 @@ context: >
 # Stage 7 Changelog
 
 Entries are reverse-chronological. Newest at the top.
+
+---
+
+## 2026-06-02 — v7.3.5 hotfix #2: Reviewer/Brain/duo model documentation sweep
+
+**Commit:** `02d727e`
+
+### Delivered
+
+- **commands/brain.md:** Line 13 `Reviewer (sohoai/kimi-k2.6)` → `Reviewer (anthropic/claude-sonnet-4-6)`. Actor-Heavy parenthetical preserved (still uses `sohoai/kimi-k2.6`).
+- **README.md:** Reviewer model-tiers table row updated to `anthropic/claude-sonnet-4-6`.
+- **docs/TODO.md:** Flow diagram line 144 Reviewer model updated; frontmatter refreshed.
+- **docs/design.md:** `/duo` advisory updated from `sohoai/kimi-k2.6` to `anthropic/claude-sonnet-4-6` at lines 52, 79, 428. Pre-v7.3.5 example-output blocks annotated as historical (Q1b — authentic numbers preserved, blockquote prepended noting model assignments at the time vs. current v7.3.5+ assignments). Frontmatter refreshed. Also picks up prior-session uncommitted v7.4 / hotfix #1 carry-forward in this file (per operator Q4).
+- **AGENTS.md:** Section `## Brain model` renamed `## Brain and /duo model recommendations`; single advisory paragraph split into two — `/brain` recommends Opus 4.7, `/duo` recommends `anthropic/claude-sonnet-4-6` (v7.3.5+, advisory only).
+
+### Scope
+
+Prose-only sweep. No runtime code changed. Source of truth (`agents/reviewer.md`) was already correct at `anthropic/claude-sonnet-4-6` since v7.3.5.
+
+### Verification
+
+```bash
+grep 'Reviewer' commands/brain.md | grep -v 'kimi-k2.6'
+grep 'Reviewer' README.md | grep -v 'kimi-k2.6'
+grep 'Phase 3' docs/TODO.md | grep -v 'kimi-k2.6'
+grep '/duo' docs/design.md | grep -i 'anthropic/claude-sonnet-4-6'
+grep 'anthropic/claude-sonnet-4-6' AGENTS.md | grep -i duo
+```
+
+### Why
+
+The octmux smoke session `20260602T093049Z-215608` surfaced a discrepancy: Reviewer subagent self-reported `anthropic/claude-sonnet-4-6` (correct, per `agents/reviewer.md`), but the deployed `commands/brain.md` still read `Reviewer (sohoai/kimi-k2.6)`. The octmux Brain consulted that deployed doc to set its `expected_model`, producing a `reviewer-noop.txt` that recorded `expected_model: sohoai/kimi-k2.6` even though the actual Reviewer ran on `anthropic/claude-sonnet-4-6`. This hotfix aligns all documentation with the v7.3.5 source of truth and additionally unifies the `/duo` model advisory recommendation to `anthropic/claude-sonnet-4-6` per operator directive (Q2a).
+
+---
+
+## 2026-06-02 — v7.3.5 hotfix #1: /session header missing in .oc-session-id capture
+
+**Commit:** `4293ff8`
+
+### Delivered
+
+- **Header fix (brain.md):** Added `-H "x-opencode-directory: ${_OC_DIR}"` to the `/session` curl in `commands/brain.md` (line 115). Without this header the OC `/session` endpoint silently returns `[]`; the jq filter over an empty array yields `""`; the `.oc-session-id` sidecar is written empty; `telemetry-summarize.py` falls through to all-zeros output.
+- **Header fix (duo-plan.md):** Identical fix applied to `commands/duo-plan.md` (line 110). Same bug, same causal chain.
+- **Smoke check (S3):** Added `[ -z "$_OC_SESSION_ID" ] && echo "WARN: …" >&2` immediately after the sidecar write in both files. Surfaces an empty result in the operator's terminal instead of silent zero-cost telemetry hours later.
+
+Root cause documented in cross-repo investigation report:
+`../octmux/docs/cost-telemetry-investigation.md`
+
+### Verification
+
+```bash
+# 1. Header present in deployed brain.md
+grep 'x-opencode-directory' ~/.config/opencode/commands/brain.md
+
+# 2. Header present in deployed duo-plan.md
+grep 'x-opencode-directory' ~/.config/opencode/commands/duo-plan.md
+
+# 3. Smoke check line present in both
+grep 'WARN: telemetry-summarize' ~/.config/opencode/commands/brain.md
+grep 'WARN: telemetry-summarize' ~/.config/opencode/commands/duo-plan.md
+
+# 4. After a /duo-plan "noop" round-trip:
+#    .oc-session-id is non-empty
+cat ~/.config/opencode/orchestra/sessions/<latest>/.oc-session-id
+
+#    telemetry.json shows oc_sqlite source and non-zero cost
+jq '.cost_source,.cost_usd_estimate' ~/.config/opencode/orchestra/sessions/<latest>/telemetry.json
+# expected: "oc_sqlite"
+# expected: <number > 0>
+```
+
+---
+
+## 2026-05-31 — v7.4: oconona-config.yaml rename + dead-key purge + tier-mapping SoT + CC-ism sweep + parked-file deletion
+
+**Commit:** `f4e06f1`
+
+### Delivered
+
+- **Config rename:** `config/config.yaml` → `config/oconona-config.yaml` (git rename, records history).
+- **Dead-key purge:** Strip `orchestra_mode`, `gates`, `approval_method`, `review_loop_max`, `commit`, `crosscheck_loop_max`, `token_budget_usd`, `commit_auto`, `test_gate`, `sohoai` blocks — keep only header + `housekeeping:` block.
+- **verify-tier-mapping.sh:** New script wired into deploy/smoke-test/collect/snapshot; detects tier-to-model mapping drift against `docs/design.md`.
+- **smoke-test Check E:** Added tier-mapping drift detector (Check E, threshold 5/5 passes).
+- **CC-ism sweep:** Replace all `ExitPlanMode`, `exit_plan_mode`, `bypassPermissions`, `Shift+Tab`, `plan-mode`, `claude-code-*` references in non-historical files with OC-native equivalents.
+- **Parked-file deletion:** `to-be-reviewed--AGENTS.md` removed from repo.
+- **Stage7/Changelog updates:** Mark v7.4 shipped in `docs/Stage7.md`; prepend entry in `docs/Stage7--Changelog.md`; refresh frontmatter timestamps.
+
+### Verification
+
+```bash
+# A. Config rename + content
+cat config/oconona-config.yaml
+! grep -E 'orchestra_mode|gates:|approval_method|sohoai:|ExitPlanMode|exit_plan_mode' config/oconona-config.yaml
+test ! -e config/config.yaml
+
+# B. No stale 'config.yaml' references in live files (only 'oconona-config.yaml' should appear)
+grep -rn 'config\.yaml' --include='*.md' --include='*.sh' --include='*.py' --include='*.yaml' . \
+  | grep -v 'docs/design-history\|docs/Sonnet\|docs/Opus\|docs/Kimi\|docs/Glm\|docs/Consolidated\|docs/architecture\|docs/pre-Stage7\|^\.git/\|^\.claude/' \
+  | grep -v 'oconona-config\.yaml'
+
+# C. No CC-isms in live files
+grep -rnE 'ExitPlanMode|exit_plan_mode|bypassPermissions|--dangerously|Shift\+Tab|plan.mode|claude-code-' \
+  --include='*.md' --include='*.sh' --include='*.py' --include='*.yaml' . \
+  | grep -v 'docs/design-history\|docs/Sonnet\|docs/Opus\|docs/Kimi\|docs/Glm\|docs/Consolidated\|docs/architecture\|docs/pre-Stage7\|^\.git/\|^\.claude/\|docs/Stage7--Changelog\|docs/Stage7\.md'
+
+# D. verify-tier-mapping.sh works
+bash scripts/verify-tier-mapping.sh
+test -x scripts/verify-tier-mapping.sh
+
+# E. smoke-test threshold updated to 5
+grep -E 'TOTAL_CHECKS|threshold|/5|/4' scripts/smoke-test.sh | head -5
+
+# F. Parked file gone
+test ! -e to-be-reviewed--AGENTS.md
+
+# G. Syntax checks
+bash -n deploy.sh
+bash -n collect.sh
+bash -n scripts/verify-tier-mapping.sh
+bash -n scripts/smoke-test.sh
+bash -n status-line/orchestra-block.sh
+python3 -c "import ast; ast.parse(open('utils/snapshot_codebase.py').read())"
+
+# H. Stage7 docs updated
+grep -E '^\| \*\*v7\.4\*\' docs/Stage7.md
+head -25 docs/Stage7--Changelog.md | grep -E '^## 2026-05-31 — v7.4'
+```
+
+---
+
+## 2026-05-31 — v7.3.5: Token accounting for hybrid orchestra
+**Commit:** `ba998ee`
+
+### Delivered
+
+- **Reviewer revert to Anthropic**: `agents/reviewer.md` model field restored from `sohoai/kimi-k2.6` to `anthropic/claude-sonnet-4-6`, enabling measurable per-tier costs for marginal-attribution calculation.
+- **`scripts/model-rates.yaml`**: central source of truth for model costs. Provider-qualified keys (`"anthropic/claude-opus-4-7"`, etc.). Cache write costs are TTL-keyed sub-maps; default TTL is `5m` (future: switch to `1h` via config edit). Anthropic rates derived from public pricing (2026-05-31). SoHoAI: free-tier ($0).
+- **`_parse_model_full()` + `_load_model_rates()` + `_get_rate()` in `oc-db.py`**: new helpers for rate lookup and model normalization. `_parse_model_full()` extracts provider-qualified key from OC's model JSON; defensive fallback for missing providerID. `_get_rate()` resolves TTL-keyed cache_write with fallback to default_cache_ttl.
+- **`_compute_hybrid_attribution()` in `oc-db.py`**: computes marginal cost per subagent (subagent.tokens_output × brain's cache_write rate / 1e6). Returns `hybrid_attribution` dict with per-subagent costs and hidden_hybrid_cost_usd. Wired into `get_session_telemetry()`.
+- **`telemetry.json` schema**: added `hybrid_attribution` field with subagent_marginal_costs, hidden_hybrid_cost_usd, parent_cache_efficiency_pct (reserved), ttl_lapse_flag (advisory). Backward-compat: pre-v7.3.5 sessions render unchanged.
+- **`session-report.py` enhancements**: per-agent cost delineation; Brain row shows `(+$Y.YY hidden)` when hidden_hybrid_cost > 0 and `[TTL-lapse?]` when ttl_lapse_flag is True. New `--hybrid-detail` flag prints per-subagent marginal-cost breakdown.
+- **`verify-cost-rates.py`**: standalone rate-drift detector. CLI: `verify-cost-rates.py <session_dir>` or `--session-id <id>`. Per-tier status: OK / WARN (unknown model) / OK: free-tier / STALE (drift > 1% tolerance). Exit 0 on OK/WARN, exit 1 on STALE.
+- **Check D in `smoke-test.sh`**: integrated `verify-cost-rates.py` as 4th check. Pass threshold increased from 3/3 to 4/4.
+- **`deploy.sh` update**: added `model-rates.yaml` (data files loop) and `verify-cost-rates.py` (Python implementations loop). Python script NOT `+x` per hotfix #8 convention.
+
+### Verification
+
+- `opencode agent list 2>&1 | grep reviewer` shows `reviewer ... anthropic/claude-sonnet-4-6`.
+- `~/.config/opencode/scripts/verify-cost-rates.py <session_dir>` exits 0; per-tier output shows OK lines.
+- `~/.config/opencode/scripts/smoke-test.sh <session_dir>` reports 4/4 PASS with Check D output.
+- `~/.config/opencode/scripts/session-report.sh --last 1 --hybrid-detail` shows per-agent table + marginal breakdown.
+- `jq '.hybrid_attribution' <session_dir>/telemetry.json` returns full hybrid object.
+
+---
+
+## 2026-05-30 — v7.3 hotfix #8: deploy.sh orphan-cleanup conflict + script `+x` consistency
+
+**Commit:** `a2442b3`
+
+### Delivered
+
+- **`deploy.sh` orphan-cleanup**: removed `native-session-report.sh` and `native-session-report.py` from the v7.3 dead-script orphan list. Hotfix #7 (`7fabdaa`) restored these files but didn't remove the v7.3 deletion entries; every `./deploy.sh` was: copy → orphan-delete → file missing. Cleanup loop now restricted to the 5 files that are still genuinely dead (`bash-session-init.sh`, `native-session-finalize.py`, `native-subagent-cost.sh`, `sohoai-live-cost.sh`, `otel-headers-helper.sh`). Inline comment warns future editors against re-adding the native-session-report entries.
+- **Script `+x` consistency**: chmod'd `scripts/session-report.sh`, `scripts/telemetry-report.sh`, and `scripts/telemetry-summarize.sh` to `+x` in the repo. Previously inconsistent with `native-session-report.sh` and `smoke-test.sh` (which were `+x`). Worked at deploy time because `deploy.sh` chmods, but operators running scripts from the repo directly would hit permission-denied.
+
+### Verification
+
+- `./deploy.sh` no longer reports `cleaned orphan: native-session-report.{sh,py}` after the Scripts: deploy step.
+- `~/.config/opencode/scripts/native-session-report.sh` and `.py` persist across redeploys.
+- `ls -la scripts/*.sh` in repo: all wrappers `-rwxr-xr-x`.
+
+---
+
+## 2026-05-30 — v7.3 hotfix #7: restore native-session-report + smoke-test deploy/import + $HOME-cwd advisory
+
+**Commit:** `7fabdaa`
+
+### Delivered
+
+- **`native-session-report.{sh,py}` restored (OC-SQLite-sourced)**: v7.3 (`76b9800`) deleted the CC-era native-session reporter pair. Per `claude-orchestra` convention, every Python report should have a `.sh` wrapper (`+x`) + `.py` impl (not `+x`). `session-report.{sh,py}` already followed this; native-session-report was the missing pair. New OC version queries OC's DB for `parent_id IS NULL` sessions and excludes any whose `id` appears in some orchestra session_dir's `.oc-session-id` sidecar. Same arg surface as claude-orchestra: `--last`, `--since`, `--month`, `--project`, `--min-cost`, `--json`, `--exclude-orchestra` (no-op for muscle-memory parity).
+- **`smoke-test.sh` deploy + `oc_db` import fix**: `deploy.sh` `Scripts:` loop omitted `smoke-test.sh` entirely → never present at deploy target. Check B's `import oc_db` failed because the deployed file is `oc-db.py` (hyphen) which Python can't `import`. Replaced with `importlib.util.spec_from_file_location` (same pattern as `scripts/telemetry-summarize.py`). Bonus: Check C's `total_tokens` now includes `cache_read + cache_write`, matching the v7.3 hotfix #2 fix to `session-report.py` (previously showed 119K for a 457K-token session).
+- **`$HOME`-cwd advisory in `brain.md` + `duo-plan.md` setup bash (nice-to-have)**: When OC's daemon is launched from `$HOME` with no project anchor (the typical octmux-attaching-to-systemd setup), relative paths in `/brain` prompts resolve against `$HOME`. Setup bash now emits 3 `WARN:` lines explaining this so Brain surfaces it in Phase 0. Long-term systemic fix lives in octmux — pass `process.cwd()` to `client.session.create({})` — out of scope here.
+
+`deploy.sh` also reorganized: shell wrappers all in one `+x` loop, Python implementations all in one no-chmod loop. Header comment documents the convention.
+
+### Verification
+
+- `~/.config/opencode/scripts/native-session-report.sh --last 5` lists 5 non-orchestra OC sessions with costs from OC DB.
+- `~/.config/opencode/scripts/smoke-test.sh <session_dir>` reports 3/3 PASS with correct 457,388-token total for `ses_18a544a4effeLo8NL1EAZJdcKN`.
+
+---
+
+## 2026-05-29 — v7.3 hotfix #6: deploy.sh restart opencode-server.service
+
+**Commit:** `2cc3721`
+
+### Delivered
+
+- **`deploy.sh` final step**: now runs `systemctl --user restart opencode-server.service`. OC reads its config (agents/, commands/, AGENTS.md, opencode.json) once at startup and never reloads. Without a restart, deployed changes silently have no effect — multiple smoke tests had already mis-fired because the OC server was running stale config.
+- **Guards**: detects missing `systemctl`, missing service unit, or restart failure; warns clearly in each case. Override with `--no-restart` for the rare file-only deploy.
+- **Quick-start hint** updated: dropped the leftover "Shift+Tab to enter plan mode" CC-ism, replaced with "Set octmux permission mode with Shift-TAB (ask / allow / deny)" per the v7.3 hotfix #4 vocabulary.
+- **Safety check** documented in `~/.claude/CLAUDE.md` (global): after every `./deploy.sh`, verify `systemctl --user show -p ActiveEnterTimestamp opencode-server.service` is newer than the deployed file mtimes.
+
+### Verification
+
+- `./deploy.sh` reports `restarted: opencode-server.service` at the end.
+- OC daemon process `lstart` is updated after deploy; running `/brain` immediately picks up the new command body.
+
+---
+
+## 2026-05-29 — v7.3 hotfix #5: residual CC-isms in brain.md description + orchestra-guard
+
+**Commit:** `a990703`
+
+### Delivered
+
+Two leaks missed in hotfix #4 (`a676e18`) and surfaced by the next smoke test:
+
+- **`commands/brain.md` frontmatter `description:`** still said "Requires plan mode at parent" — visible in `/help` and the slash-command overlay. Replaced with "Operator approves the plan via natural-language reply."
+- **`agents-md-block/orchestra-guard.md`** (injected into `~/.config/opencode/AGENTS.md` on every turn) still referenced `Plan-mode's "build your plan at ~/.config/opencode/plans/<name>.md" reminder does NOT apply` — fighting a CC reminder OC doesn't emit. Also dropped the `planner-long` / `planner` agent variant reference (no `planner-long` agent exists in `agents/`).
+
+### Verification
+
+- `grep -nE "Plan-mode|plan mode" ~/.config/opencode/AGENTS.md` returns empty.
+- `head -3 ~/.config/opencode/commands/brain.md` shows the natural-language-reply description.
+
+---
+
+## 2026-05-29 — v7.3 hotfix #4: drop CC-isms, use OC-native permission vocabulary
+
+**Commit:** `a676e18`
+
+### Delivered
+
+OC 1.15.11 has no plan mode, no `ExitPlanMode` tool, no auto-edit/manually-approve UX, no `--dangerously-skip-permissions` flag. The previous command and agent bodies were inherited from `claude-orchestra` and contained:
+
+- "Plan mode is active" prerequisites + "Shift+Tab" instructions
+- `ExitPlanMode` calls at the plan-approval gate
+- "auto-edit / manually approve / cancel" UX descriptions
+- `--dangerously-skip-permissions` / `bypassPermissions` references
+- An "Override of plan-mode's plan-file directive" section in `brain.md` fighting a CC reminder OC doesn't emit
+
+Replaced throughout with OC + octmux native vocabulary from `octmux/docs/Stage5.md §5.3` (octmux commit `2d440b9`): octmux's global permission mode (`ask` yellow / `allow` green / `deny` red, cycled with **Shift-TAB**), covering all OC tool categories (filesystem `read`/`edit`/`glob`/`grep`/`list`, shell `bash`, network `webfetch`/`websearch`, repository `repo_clone`/`repo_overview`, agents `task`/`skill`, other `external_directory`/`lsp`/`todowrite`). Plan approval is a natural-language operator signal (`"approved"`/`"go ahead"`/`"proceed"`) — no tool call gates it.
+
+Each agent body now carries an explicit "frontmatter grants X; runtime mode determines per-call behaviour" sentence to make the two-layer permission model (frontmatter `tools:` + runtime mode) visible. The two stack: a tool denied in either layer cannot be authorised by the other (e.g., Planner stays read-only even under `allow`).
+
+**Pipeline semantics unchanged.** Brain/Planner/Actor/Reviewer phases, session-dir artefacts, atomic-rename, cleanup ordering — all identical.
+
+### Verification
+
+- `grep -nE "ExitPlanMode|Plan mode is active|Shift\+Tab|--dangerously|acceptEdits" commands/*.md agents/*.md` returns empty.
+- Every operator-facing file (`brain.md`, `duo-plan.md`, `duo-act.md`) carries all three traffic-light terms + `Shift-TAB`.
+- `opencode agent list` still shows all four agents registered; `actor` → `actor-heavy` body-mirror invariant maintained.
+
+---
+
+## 2026-05-29 — v7.3 hotfix #3: resolve OC session ID via HTTP API
+
+**Commit:** `51073cf`
+
+### Delivered
+
+The v7.2 setup-bash assumed OC exports `OC_SESSION_ID` into bash subprocesses. **OC 1.15.11 does not.** Verified by extracting the binary's full `OPENCODE_*` env-var list — no `OPENCODE_SESSION_ID`, no `OC_SESSION_ID`. The assumption traces back to early Stage 6 (the deleted `scripts/bash-session-init.sh` used the same env var name as its primary key); either OC dropped it in a past version or it was never exported.
+
+Consequence: `.oc-session-id` had been silently empty in every orchestra session since v7.2 → `telemetry-summarize.py` produced `cost_source: "none"`, zero totals. OC's DB had the correct data throughout; the sidecar contract just never connected to it.
+
+Fix: replace the `${OC_SESSION_ID:-}` write in `commands/brain.md` and `commands/duo-plan.md` setup-bash with an HTTP-API query against `GET /session` (port from `OPENCODE_PORT` env var, default 4096), filtered to top-level (`parentID == null`) sessions in the current `directory`, taking the most-recently-updated. Requires only `curl` (universal) and `jq` (already a deploy prereq). Falls back to empty on API failure — same degraded behaviour as pre-fix, no regression.
+
+### Verification
+
+- Live resolver test against `ses_18c16888dffe0njgOjZs0MXnge`: returns the correct ID for `directory == /home/florian`.
+- Post-deploy `/brain` smoke test (`ses_18a544a4effeLo8NL1EAZJdcKN`): `.oc-session-id` is 31 bytes with a valid `ses_...` value; `telemetry.json` has `cost_source: "oc_sqlite"` with full data.
+
+---
+
+## 2026-05-29 — v7.3 hotfix #2: token totals include cache_read + cache_write
+
+**Commit:** `d4b1ab7`
+
+### Delivered
+
+Both `totals.tokens_cache_write` (`oc-db.py`) and `session-report.py`'s displayed "Tokens" column were missing cache traffic. An Opus Brain session showing `$0.76` displayed only 11,891 tokens (input+output) when OC's DB recorded **489,813** (37 input + 11,854 output + 438,260 cache_read + 39,662 cache_write). The displayed number understated processed volume by ~97.5% for cached-heavy sessions. Cost was correct throughout (read straight from `totals.cost_usd_estimate`); this fix is display-only.
+
+Fix: `oc-db.py:get_session_telemetry()` totals now sum `tokens_cache_write` too (and the not-found fallback's zero totals carry the same shape). `session-report.py` adds cache-read and cache-write into the displayed total.
+
+### Verification
+
+- Recomputed `ses_18c3a3e2fffeZg3SOuHaCnoJOy` (Opus 4.7 Brain session) totals: now match raw OC DB columns (37 / 11,854 / 438,260 / 39,662 / total 489,813).
+- `~/.config/opencode/scripts/session-report.py --last 5` now shows ~400K–800K tokens for typical Brain sessions (was ~10K before).
+
+---
+
+## 2026-05-29 — v7.3 hotfix #1: agent tools frontmatter as YAML object
+
+**Commit:** `7310878`
+
+### Delivered
+
+OC 1.15.11 rejects `tools:` as a comma-separated string with `Expected object | undefined, got "Read, Grep, ..." tools`. One bad agent file silently kills the entire `~/.config/opencode/agents/` discovery — `opencode agent list` fails, Brain sees only the built-in `general`/`explore` subagents, and Phase 1 dispatch fails with `Unknown agent type: planner`.
+
+Verified the failure mode against `ses_18c3a3e2fffeZg3SOuHaCnoJOy` (octmux `/brain` session, 2026-05-29 12:49Z): parent row present, **0 child sessions** in OC's DB — confirming Planner Task dispatch never created a child row.
+
+Fix: reformatted `tools:` to a YAML map (`Read: true\nGrep: true\n...`) in all four agents — `planner.md`, `actor.md`, `actor-heavy.md`, `reviewer.md`.
+
+### Verification
+
+- `opencode agent list` shows `planner (all)`, `actor (all)`, `actor-heavy (all)`, `reviewer (all)` after deploy.
+- Subsequent `/brain` smoke tests dispatch Planner/Actor/Reviewer successfully (3 child sessions visible in OC DB with `parent_id = brain_session_id`).
+
+---
+
+## 2026-05-29 — v7.3: Status-line OC SQLite + dead-file deletes + deploy.sh + docs fold
+
+**Commit:** `76b9800`
+
+### Delivered
+
+- **`status-line/orchestra-block.sh`** rewrite (lines ~96–215 removed):
+  - Removed: `_is_non_anthropic` flag + case block, entire "SoHoAI live token fallback" block (`.lck` reads, `sohoai-live-cost.sh` call, `context-windows.yaml` lookups), `cost_divergence` cross-check block, glob+sum block (`_native_cost` from `native-sessions/*.json` + `_orch_cost` from `sessions/*/telemetry.json`).
+  - Added: OC SQLite direct read — `$OC_SID` env var passed to `oc-db.py` via python heredoc, calls `get_session_telemetry()`, displays `Σ$` cost prefix format.
+  - Kept: header vars, OC-native strip, brain+duo badges, active indicator, ctx token fallback, model_id extraction, `ctx_seg` call, `_insert` block, badge rendering.
+  - Result: script is ~100 lines shorter, cost reads from OC DB instead of SoHoAI.
+
+- **`scripts/smoke-test.sh`** rewrite (entire T1/T2/global-log structure removed):
+  - Check A (sidecar): File `${SESSION_DIR}/.oc-session-id` exists and non-empty.
+  - Check B (DB row + child count): `oc_db.get_session()` returns non-NULL row; `get_child_sessions()` counts dispatches.
+  - Check C (telemetry.json + cost): File exists, `cost_source == "oc_sqlite"` (accepts zero cost for flat-rate models).
+  - Result: verifies OC-native pipeline end-to-end (v7.3+).
+
+- **`scripts/session-report.py`** rewrite:
+  - Removed: `load_native_telemetry()`, `load_active_native_sessions()`, `_read_model_from_jsonl()`, `_read_project_from_jsonl()`, `_NATIVE_UUID_RE` pattern, orchestra-start-time dedup block, `--source native` branch (returns empty).
+  - Added: `load_orchestra_telemetry_v2()` — walks `~/.config/opencode/orchestra/sessions/*/telemetry.json` directly.
+  - Updated `format_cost()`: with `cost_source == "oc_sqlite"`, display `$0.0000` for zero-cost sessions (flat-rate).
+  - Kept: `--last`, `--since`, `--month`, `--source` arg parsing, `apply_filters()`, tabular output, aggregate footer.
+  - Result: produces correct output for v7.1+ sessions; native session reads removed (future work).
+
+- **`scripts/telemetry-report.sh`** rewrite:
+  - Removed: `TELEMETRY_JSONL` variable + early-exit check, `PRICING_FILE` + staleness check, `--native` mode section, `yaml` import from Python blocks.
+  - Added (default mode): Python one-liner walks `sessions/*/telemetry.json`, produces same TSV columns (Date, Command, Outcome, Cost, Source, Tokens, Duration).
+  - Rewritten (--tier mode): `TIER_PY` reads cost pre-computed in telemetry.json (per-agent `cost` field); no pricing.yaml lookups. `CUMUL_PY` similarly accumulates from telemetry.json files directly.
+  - Kept: `--last N`, `--tier`, arg parsing, aggregates section.
+  - Result: works with current telemetry.json files directly.
+
+- **Dead files deleted** (8 total, via `git rm`):
+  - `scripts/bash-session-init.sh`, `scripts/native-session-finalize.py`, `scripts/native-subagent-cost.sh`
+  - `scripts/sohoai-live-cost.sh`, `scripts/otel-headers-helper.sh`
+  - `scripts/native-session-report.sh`, `scripts/native-session-report.py`
+  - `config/pricing.yaml`
+
+- **`deploy.sh`** updates:
+  - Removed: `$OC_HOME/orchestra/native-sessions` mkdir, 8 scripts from deploy loop, 3 Python blocks, `pricing.yaml` copy.
+  - Added: `oc-db.py` copy (after telemetry-summarize.py).
+  - Added: orphan cleanup block (7e) for 8 deleted files + `pricing.yaml` removal from existing installs.
+  - Updated: AGENTS.md guard — auto-create empty `$GLOBAL_AGENTS_MD` if missing (instead of warn+skip).
+  - Result: deploys oc-db.py, cleans 8 orphans from existing installations, auto-creates AGENTS.md.
+
+- **`collect.sh`** update:
+  - Removed: `sohoai-live-cost.sh` collect.
+  - Added: `oc-db.py` collect.
+
+- **`AGENTS.md`** (new, created from `to-be-reviewed--AGENTS.md`):
+  - Removed: dead-script references, T1/T2/native-session telemetry smoke tests, `telemetry-events.jsonl` notes, BASH_ENV setup instructions.
+  - Added: new §Smoke tests (v7.3+) — 3 checks via `smoke-test.sh`, cost report via `session-report.py`, ctx segment test.
+  - Result: current with v7.3+ architecture; deployed to `~/.config/opencode/AGENTS.md` by deploy.sh.
+
+- **`README.md`** update:
+  - Removed: `pricing.yaml` from config/ directory table, T1/T2 / transcript-parse mentions, example status-line with `↯ 100k/1000k` (replaced by ctx bar + cost).
+  - Updated: status-line example to show current layout (ctx bar, `Σ$cost`, badge).
+  - Result: no longer references removed components.
+
+- **`docs/design.md`** major update:
+  - §Telemetry §Rationale: replaced forward pointer to pre-Stage7 doc with "OC-native SQLite shipped in v7.1–v7.3; see §OC SQLite schema below."
+  - §File inventory: added `scripts/oc-db.py`, removed `native-sessions/native-*.json`, removed `telemetry.jsonl` reference (now walks `sessions/*/telemetry.json`).
+  - **New §OC SQLite schema** subsection: DB path, key columns, per-tier breakdown via `parent_id`, `.oc-session-id` sidecar glue point, design rationale (read-only SQLite, cost pre-computed, schema coupling localised, `time_archived` dual-check).
+  - Refreshed: `updated_at: 2026-05-30--00-50`.
+  - Result: docs/design.md is authoritative; no forward pointers to pre-Stage7 doc.
+
+- **`docs/pre-Stage7--opencode-redesign.md`** tombstone:
+  - Kept: YAML frontmatter with `updated_by`/`updated_at`.
+  - Replaced: entire body with breadcrumb: "Content folded into docs/design.md §OC SQLite schema as of v7.3 commit `76b9800`. This file is preserved as a breadcrumb; see docs/Stage7.md §v7.3 for delivery details."
+  - Result: file exists as a one-line breadcrumb; doesn't mislead readers.
+
+### Deliverables summary
+
+- 8 dead scripts + config deleted (git rm)
+- 5 shell/Python scripts rewritten (status-line, smoke-test, session-report, telemetry-report, deploy, collect)
+- 1 new file created (AGENTS.md)
+- 2 docs updated + 1 tombstoned
+- All syntax checks PASS; all smoke tests PASS (12 checks)
+
+### Smoke tests (all 12 PASS)
+
+- Syntax: orchestra-block.sh, smoke-test.sh, deploy.sh, collect.sh, telemetry-report.sh
+- Dead files: 8 total (all confirmed deleted)
+- New files: oc-db.py, AGENTS.md (both present)
+- Python compile: session-report.py (success)
 
 ---
 
