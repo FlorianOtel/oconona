@@ -9,7 +9,7 @@ A three-tier orchestration layer for [OpenCode](https://opencode.ai) that routes
 | **Brain** | Your main session, **Anthropic Opus 4.7 recommended** (any model permitted) | — (main session) | Orchestrates, delegates, approves |
 | **Planner** | `sohoai/glm-5.1` | — | Decomposes tasks into numbered, reviewable plans |
 | **Actor** | `sohoai/qwen3-coder-next` | `sohoai/kimi-k2.6` for `[tier: heavy]` steps | Executes individual plan steps; scoped, fast, cheap |
-| **Reviewer** | `sohoai/kimi-k2.6` | — | Reviews Actor's output; emits PASS / FIX / BLOCK verdicts |
+| **Reviewer** | `anthropic/claude-sonnet-4-6` | — | Reviews Actor's output; emits PASS / FIX / BLOCK verdicts |
 
 The project name's "non-Anthropic" refers to the **worker tier** (Planner / Actor / Reviewer / Actor-Heavy). Brain itself runs on Anthropic Opus 4.7 — the orchestrator's job (multi-turn interrogation, plan reasoning, dispatch decisions, review judgment) benefits from Anthropic's strongest reasoning model. The non-Anthropic workers are where the cost savings come from.
 

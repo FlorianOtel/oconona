@@ -7,9 +7,11 @@
 ./collect.sh         # sync ~/.config/opencode/ changes back to repo before committing
 ```
 
-## Brain model
+## Brain and /duo model recommendations
 
-**Brain** (the parent OpenCode session running `/brain` or `/duo-act`) is recommended to run on **Anthropic Opus 4.7**. The project name `--non-Anthropic` refers to the **worker tier** only (Planner / Actor / Reviewer / Actor-Heavy); Brain itself benefits from Anthropic's strongest reasoning model because the orchestrator's job (interrogation, planning, dispatch, review judgment) rewards strong reasoning. `/brain` emits an **advisory only** when Brain is not on Opus 4.7 — it does **not** enforce. Any model is permitted (deliberate deviation from `claude-orchestra`, which hard-gates this check).
+**`/brain`** (the parent OpenCode session running the full pipeline) is recommended to run on **Anthropic Opus 4.7**. The project name `--non-Anthropic` refers to the **worker tier** only (Planner / Actor / Reviewer / Actor-Heavy); Brain itself benefits from Anthropic's strongest reasoning model because the orchestrator's job (interrogation, planning, dispatch, review judgment) rewards strong reasoning. `/brain` emits an **advisory only** when Brain is not on Opus 4.7 — it does **not** enforce. Any model is permitted (deliberate deviation from `claude-orchestra`, which hard-gates this check).
+
+**`/duo`** (the lightweight session-bracketed pipeline running `/duo-plan` → `/duo-act`) is recommended to run on **`anthropic/claude-sonnet-4-6`** (v7.3.5+). No Reviewer is dispatched in `/duo`, so the Brain-tier choice carries more weight on plan quality; Sonnet 4.6 provides the best balance of reasoning quality and token cost for interactive planning turns. `/duo` is **advisory only** — any model is permitted.
 
 ## Layout
 
