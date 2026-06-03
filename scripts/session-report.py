@@ -50,13 +50,10 @@ def load_orchestra_telemetry_v2() -> List[Dict[str, Any]]:
 def extract_project_name(session_dir: str) -> str:
     """Extract project name from session_dir path.
 
-    Pattern: <project_dir>/.opencode/orchestra/sessions/<session_id>
-    Returns: basename of <project_dir>
-
-    Tries to read project_dir from telemetry.json if available.
-    Falls back to path-based inference for legacy sessions.
+    Pattern: ~/.config/opencode/orchestra/sessions/<session_id>
+    Returns: basename of project_dir read from telemetry.json["project_dir"].
+    Returns "-" if telemetry.json is absent or project_dir is not set.
     """
-    # Try to read project_dir from telemetry.json if available
     try:
         telemetry_file = Path(session_dir) / "telemetry.json"
         if telemetry_file.exists():
@@ -64,19 +61,6 @@ def extract_project_name(session_dir: str) -> str:
                 tel = json.loads(f.read())
                 if tel.get("project_dir"):
                     return Path(tel["project_dir"]).name
-    except Exception:
-        pass
-
-    # Legacy fallback: infer from path
-    try:
-        path = Path(session_dir)
-        # Remove /.opencode/orchestra/sessions/<session_id>
-        parts = path.parts
-        # Find .opencode index
-        if ".opencode" in parts:
-            idx = parts.index(".opencode")
-            if idx > 0:
-                return parts[idx - 1]
     except Exception:
         pass
     return "-"

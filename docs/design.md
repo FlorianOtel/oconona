@@ -2,8 +2,8 @@
 title: "OpenCode Orchestra — three-tier Brain/Planner/Actor pattern over OpenCode"
 created_at: 20260424-000000
 created_by: OpenCode (Claude Opus 4.7, 1M context)
-updated_by: Brain (Anthropic Opus 4.7 via /brain) — v7.3.5 hotfix 2
-updated_at: 2026-06-02--14-45
+updated_by: Brain (Anthropic Opus 4.7 via /brain) — v7.5beta
+updated_at: 2026-06-03--07-52
 context: >
   Reference architecture for OpenCode Orchestra — a three-tier orchestration
   pattern layered on OpenCode using native subagents. The design supports
@@ -14,11 +14,11 @@ context: >
 
 # OpenCode Orchestra
 
-A three-tier orchestration system for OpenCode: **Brain** (Anthropic Opus 4.7) delegates reasoning, implementation, and review across **Planner** (sohoai/glm-5.1), **Actor** (sohoai/qwen3-coder-next), and **Reviewer** (anthropic/claude-sonnet-4-6) tiers using OpenCode's native `Task` tool for subagent dispatch. Single global install at `~/.config/opencode/`; usable from any project.
+A three-tier orchestration system for OpenCode: **Brain** delegates reasoning, implementation, and review across **Planner**, **Actor**, and **Reviewer** tiers using OpenCode's native `Task` tool for subagent dispatch. Tier-to-model assignment is declared in `config/orchestra-tiers.yaml` (the SSOT); a summary appears in the Agents table below. Single global install at `~/.config/opencode/`; usable from any project.
 
 ## Intro
 
-OpenCode Orchestra solves the cost/capability trade-off for multi-step code work. A single powerful Brain (Anthropic Opus 4.7) orchestrates cheaper specialized tiers: a read-only Planner for structured reasoning, a write-capable Actor for implementation, and a read-only Reviewer for quality gates. The project name's `--non-Anthropic` suffix refers to the **worker tier** — Planner, Actor, Reviewer, and Actor-Heavy are all non-Anthropic (SoHoAI flat-rate); Brain itself runs on Anthropic Opus 4.7 because the orchestrator's job (interrogation, planning, dispatch, review judgment) benefits from Anthropic's strongest reasoning model. The key design choice: **Option B — native OpenCode subagents, not separate processes** — which keeps the architecture simple and preserves permission modes and plan-approval gates.
+OpenCode Orchestra solves the cost/capability trade-off for multi-step code work. A single powerful Brain (Anthropic Opus 4.7) orchestrates cheaper specialized tiers: a read-only Planner for structured reasoning, a write-capable Actor for implementation, and a read-only Reviewer for quality gates. The project name's `--non-Anthropic` suffix refers to the **worker tier** — Planner, Actor, and Actor-Heavy run on SoHoAI flat-rate; Reviewer runs on Anthropic Sonnet (per-token) for per-tier cost attribution; Brain itself runs on Anthropic Opus 4.7 because the orchestrator's job (interrogation, planning, dispatch, review judgment) benefits from Anthropic's strongest reasoning model. The key design choice: **Option B — native OpenCode subagents, not separate processes** — which keeps the architecture simple and preserves permission modes and plan-approval gates.
 
 ## Slash commands vs subagents
 
@@ -63,6 +63,8 @@ When NOT to use /brain: simple tasks with ≤5 steps, low blast radius. Use /duo
 
 ### Agents
 
+> Summary of `config/orchestra-tiers.yaml` (the SSOT). Run `scripts/check-tiers.py` to verify alignment.
+
 | Agent | Model | File | Tools | Role |
 |---|---|---|---|---|
 | **Brain** | Anthropic Opus 4.7 recommended (any model permitted; advisory only) | — (main session) | all | Orchestrates; surfaces plan for operator approval (G2). Strictly speaking Brain is not an "agent" — it's the parent session itself; included here as the top of the tier hierarchy. |
@@ -80,7 +82,7 @@ When NOT to use /brain: simple tasks with ≤5 steps, low blast radius. Use /duo
 
 The check happens at command startup before any Bash or setup runs. It is LLM-enforced (Brain reads "The exact model ID is…" injected by OpenCode into every session's system context) — same trust level as the model-advisory check.
 
-**Why Anthropic Opus 4.7 is recommended for `/brain`.** Brain's job is multi-turn interrogation, plan reasoning over a large session context, dispatch decisions, and review judgment across the cap-3 loop. These all reward strong reasoning, and the cost is small (Brain is one session per pipeline, not per step). The pipeline subagents — Planner, Actor, Actor-Heavy, Reviewer — deliberately use non-Anthropic models because their work is per-step, narrow-context, and benefits more from the SoHoAI flat-rate economics than from incremental reasoning quality.
+**Why Anthropic Opus 4.7 is recommended for `/brain`.** Brain's job is multi-turn interrogation, plan reasoning over a large session context, dispatch decisions, and review judgment across the cap-3 loop. These all reward strong reasoning, and the cost is small (Brain is one session per pipeline, not per step). The pipeline subagents — Planner, Actor, and Actor-Heavy — run on SoHoAI flat-rate models; Reviewer runs on Anthropic Sonnet (per-token) to enable per-tier cost tracking. Their work is per-step and narrow-context, benefiting more from cost efficiency than from incremental reasoning quality.
 
 **Deliberate deviation from `claude-orchestra`.** The upstream `claude-orchestra` project enforces this as a hard gate (STOPs on Haiku, older Sonnet, or non-Anthropic models). `oconona` deliberately downgrades the check to advisory only — the operator's model choice is final, and any model can drive `/brain`. The recommendation is preserved (notice emitted on non-Opus) but never blocks.
 

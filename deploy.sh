@@ -30,6 +30,18 @@ for arg in "$@"; do
     esac
 done
 
+# ── 0. Tier-config audit ─────────────────────────────────────────────────────
+# Hard-fail blocks deploy on agent/model-rates/context-windows drift.
+# Soft-warn lines are advisory only; deploy continues.
+echo "Tier audit:"
+PYTHON_BIN="${HOME}/Gin-AI/.Gin-AI-python-3.12/bin/python"
+if $DRY_RUN; then
+    info "would run: $PYTHON_BIN scripts/check-tiers.py --repo-root $REPO"
+else
+    "$PYTHON_BIN" "$REPO/scripts/check-tiers.py" --repo-root "$REPO" \
+        || die "Tier audit failed — fix drift before deploying"
+fi
+
 copy_file() {
     local src="$1" dst="$2"
     if $SHOW_DIFF && [ -f "$dst" ]; then
@@ -116,7 +128,7 @@ for s in \
 done
 # Python implementations — no chmod (always called through the .sh wrapper or
 # via importlib from another Python module).
-for p in telemetry-summarize.py session-report.py native-session-report.py oc-db.py verify-cost-rates.py; do
+for p in telemetry-summarize.py session-report.py native-session-report.py oc-db.py verify-cost-rates.py check-tiers.py; do
     if [ -f "$REPO/scripts/$p" ]; then
         copy_file "$REPO/scripts/$p" "$OC_HOME/scripts/$p"
     fi
@@ -362,21 +374,10 @@ else
     fi
 fi
 
-# ── 10. Global gitignore ──────────────────────────────────────────────────────
-echo "Gitignore:"
-GLOBAL_GI="${HOME}/.gitignore_global"
-GI_ENTRY=".opencode/orchestra/"
-if grep -qF "$GI_ENTRY" "$GLOBAL_GI" 2>/dev/null; then
-    ok "unchanged: ~/.gitignore_global"
-else
-    if $DRY_RUN; then
-        info "would add $GI_ENTRY to ~/.gitignore_global"
-    else
-        printf "\n# OpenCode Orchestra runtime state (auto-created in every project)\n%s\n" "$GI_ENTRY" >> "$GLOBAL_GI"
-        git config --global core.excludesFile "$GLOBAL_GI"
-        ok "updated: ~/.gitignore_global"
-    fi
-fi
+# ── 10. Global gitignore ─────────────────────────────────────────────────────
+# (removed v7.5beta) Sessions are now GLOBAL (~/.config/opencode/orchestra/);
+# project-local .opencode/orchestra/ is no longer auto-created, so the
+# .opencode/orchestra/ gitignore entry is dead. No action needed.
 
 # ── 11. Restart the OC server ─────────────────────────────────────────────────
 # OC reads its config (agents/, commands/, AGENTS.md, opencode.json) once at

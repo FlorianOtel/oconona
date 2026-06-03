@@ -11,6 +11,8 @@ A three-tier orchestration layer for [OpenCode](https://opencode.ai) that routes
 | **Actor** | `sohoai/qwen3-coder-next` | `sohoai/kimi-k2.6` for `[tier: heavy]` steps | Executes individual plan steps; scoped, fast, cheap |
 | **Reviewer** | `anthropic/claude-sonnet-4-6` | — | Reviews Actor's output; emits PASS / FIX / BLOCK verdicts |
 
+> Tier-to-model assignment is declared in `config/orchestra-tiers.yaml` (the SSOT). Run `scripts/check-tiers.py` to verify alignment.
+
 The project name's "non-Anthropic" refers to the **worker tier** (Planner / Actor / Reviewer / Actor-Heavy). Brain itself runs on Anthropic Opus 4.7 — the orchestrator's job (multi-turn interrogation, plan reasoning, dispatch decisions, review judgment) benefits from Anthropic's strongest reasoning model. The non-Anthropic workers are where the cost savings come from.
 
 ## Slash commands vs subagents
@@ -85,7 +87,7 @@ It copies `agents/`, `commands/`, `scripts/`, and `config/` to `~/.config/openco
 
 1. Merges orchestra hooks (`PreToolUse → Agent`, `SubagentStop`, `PreCompact`) into `~/.config/opencode/settings.json` without touching existing entries
 2. Patches `~/.config/opencode/scripts/status-line.sh` to add orchestra state indicators (if you have one; skipped otherwise)
-3. Adds `.opencode/orchestra/` to your global gitignore so per-project runtime state is never accidentally committed
+3. (v7.5beta) Sessions are stored globally at `~/.config/opencode/orchestra/`; no project-local gitignore entry is needed.
 
 ## Development workflow (dogfooding)
 
