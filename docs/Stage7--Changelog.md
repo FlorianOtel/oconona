@@ -2,8 +2,8 @@
 title: "Stage 7 Changelog — oconona"
 created_at: 2026-05-28--18-16
 created_by: Actor (Claude Haiku 4.5)
-updated_by: Brain (Anthropic Opus 4.7 via /brain) — v7.5beta
-updated_at: 2026-06-03--07-52
+updated_by: Brain (Anthropic Opus 4.7 via /brain) — v7.4↔v7.5beta reconciliation
+updated_at: 2026-06-03--08-47
 context: >
   Reverse-chronological implementation log for Stage 7 OC-native telemetry
   redesign. Carries forward Stage 6 entries with status annotations. Newest
@@ -153,7 +153,7 @@ jq '.cost_source,.cost_usd_estimate' ~/.config/opencode/orchestra/sessions/<late
 
 ---
 
-## 2026-05-31 — v7.4: oconona-config.yaml rename + dead-key purge + tier-mapping SoT + CC-ism sweep + parked-file deletion
+## 2026-05-31 — v7.4: oconona-config.yaml rename + dead-key purge + CC-ism sweep + parked-file deletion
 
 **Commit:** `f4e06f1`
 
@@ -161,11 +161,8 @@ jq '.cost_source,.cost_usd_estimate' ~/.config/opencode/orchestra/sessions/<late
 
 - **Config rename:** `config/config.yaml` → `config/oconona-config.yaml` (git rename, records history).
 - **Dead-key purge:** Strip `orchestra_mode`, `gates`, `approval_method`, `review_loop_max`, `commit`, `crosscheck_loop_max`, `token_budget_usd`, `commit_auto`, `test_gate`, `sohoai` blocks — keep only header + `housekeeping:` block.
-- **verify-tier-mapping.sh:** New script wired into deploy/smoke-test/collect/snapshot; detects tier-to-model mapping drift against `docs/design.md`.
-- **smoke-test Check E:** Added tier-mapping drift detector (Check E, threshold 5/5 passes).
 - **CC-ism sweep:** Replace all `ExitPlanMode`, `exit_plan_mode`, `bypassPermissions`, `Shift+Tab`, `plan-mode`, `claude-code-*` references in non-historical files with OC-native equivalents.
 - **Parked-file deletion:** `to-be-reviewed--AGENTS.md` removed from repo.
-- **Stage7/Changelog updates:** Mark v7.4 shipped in `docs/Stage7.md`; prepend entry in `docs/Stage7--Changelog.md`; refresh frontmatter timestamps.
 
 ### Verification
 
@@ -185,25 +182,16 @@ grep -rnE 'ExitPlanMode|exit_plan_mode|bypassPermissions|--dangerously|Shift\+Ta
   --include='*.md' --include='*.sh' --include='*.py' --include='*.yaml' . \
   | grep -v 'docs/design-history\|docs/Sonnet\|docs/Opus\|docs/Kimi\|docs/Glm\|docs/Consolidated\|docs/architecture\|docs/pre-Stage7\|^\.git/\|^\.claude/\|docs/Stage7--Changelog\|docs/Stage7\.md'
 
-# D. verify-tier-mapping.sh works
-bash scripts/verify-tier-mapping.sh
-test -x scripts/verify-tier-mapping.sh
-
-# E. smoke-test threshold updated to 5
-grep -E 'TOTAL_CHECKS|threshold|/5|/4' scripts/smoke-test.sh | head -5
-
-# F. Parked file gone
+# D. Parked file gone
 test ! -e to-be-reviewed--AGENTS.md
 
-# G. Syntax checks
+# E. Syntax checks
 bash -n deploy.sh
 bash -n collect.sh
-bash -n scripts/verify-tier-mapping.sh
-bash -n scripts/smoke-test.sh
 bash -n status-line/orchestra-block.sh
 python3 -c "import ast; ast.parse(open('utils/snapshot_codebase.py').read())"
 
-# H. Stage7 docs updated
+# F. Stage7 docs updated
 grep -E '^\| \*\*v7\.4\*\' docs/Stage7.md
 head -25 docs/Stage7--Changelog.md | grep -E '^## 2026-05-31 — v7.4'
 ```
