@@ -2,8 +2,8 @@
 title: "oconona TODO & open questions"
 created_at: 2026-05-30--00-30
 created_by: Claude Code (Claude Sonnet 4.6, 1M context)
-updated_by: Brain (Anthropic Opus 4.7 via /brain) — v7.5 per-segment attribution
-updated_at: 2026-06-03--14-30
+updated_by: Claude Code (Claude Sonnet 4.6)
+updated_at: 2026-06-03--22-00
 context: >
   Single-file ledger of open questions, deferred investigations, and follow-up
   items for the oconona project. Created during the v7.3 hotfix cycle to
@@ -18,6 +18,14 @@ context: >
 Append new entries at the top with a clear timestamp and topic header.
 Mark resolved items with their resolution date and outcome rather than
 deleting them — the rationale chain matters.
+
+---
+
+## 2026-06-03 — v7.5.1 delivered: SoHoAI tier-model remap
+
+**Commit:** `4184f4b`
+
+Configuration-only tier remap: Planner→minimax-m3, Actor→qwen3-4b-q6, Actor-heavy→glm-5.1. SSOT + agent frontmatter + rates/context configs + user-facing docs all synced via `check-tiers.py` audit (0 hard-fails, 0 soft-warns). Post-deploy systemd restart verified. No new mechanisms or telemetry shape changes.
 
 ---
 

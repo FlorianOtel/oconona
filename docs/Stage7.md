@@ -2,8 +2,8 @@
 title: "Stage 7 — OC-native telemetry redesign roadmap"
 created_at: 2026-05-28--18-16
 created_by: Actor (Claude Haiku 4.5)
-updated_by: Brain (Anthropic Opus 4.7 via /brain) — v7.5 per-segment attribution + contract doc
-updated_at: 2026-06-03--14-30
+updated_by: Claude Code (Claude Sonnet 4.6)
+updated_at: 2026-06-03--22-00
 context: >
   Stage 7 roadmap doc, produced by Brain/Planner session
   20260528T181605Z-2855594. Tracks the v7.0–v7.5 sub-stages replacing the
@@ -39,6 +39,7 @@ After Stage 7 ships, the T1/T2 hybrid and SoHoAI cost-attribution path (Surface 
 | **v7.4** | Config rename + dead-key purge + CC-ism sweep + parked-file deletion | shipped (commit `f4e06f1`) |
 | **v7.5beta** | SSOT tier config + deploy-time audit script + arch sweep | shipped (commit `4c1e292`) |
 | **v7.5** | per-OC-session-segment attribution + hierarchical badge + harness contract doc | shipped (commit `eb540aa`) |
+| **v7.5.1** | SoHoAI tier-model remap (Planner→minimax-m3, Actor→qwen3-4b-q6, Actor-heavy→glm-5.1) | shipped (commit `4184f4b`) |
 
 ## Dependencies and sequencing
 
@@ -56,7 +57,11 @@ v7.3 (status-line + reports + deletes + deploy.sh + design.md fold) — requires
  └──→ v7.5 (per-segment attribution + badge + harness contract)
 ```
 
-v7.4, v7.5beta, and v7.5 are independent of each other and can ship in any order once v7.3 has stabilised the telemetry.json contract. A future unnumbered octmux refactor `/brain` session will consume `docs/Stage7.5--implementation-details.md` to revise octmux's `docs/Stage8.md`.
+v7.4, v7.5beta, and v7.5 are independent of each other and can ship in any order once v7.3 has stabilised the telemetry.json contract. v7.5.1 is a config-only model remap; no new mechanisms or telemetry shape changes. A future unnumbered octmux refactor `/brain` session will consume `docs/Stage7.5--implementation-details.md` to revise octmux's `docs/Stage8.md`.
+
+## v7.5.1 — SoHoAI tier-model remap
+
+Configuration-only update: Planner, Actor, and Actor-Heavy tiers remapped to different SoHoAI models per operator-directed SoHoAI model rebalance (session 20260603T213230Z-814278). No new mechanisms. SSOT (`config/orchestra-tiers.yaml`) updated; agent frontmatter, model-rates.yaml, context-windows.yaml, and user-facing docs synced via `check-tiers.py` audit (0 hard-fails, 0 soft-warns). Verify systemd restart post-deploy.
 
 ## Architecture (post-Stage-7)
 

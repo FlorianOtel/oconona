@@ -2,8 +2,8 @@
 title: "Stage 7 Changelog — oconona"
 created_at: 2026-05-28--18-16
 created_by: Actor (Claude Haiku 4.5)
-updated_by: Brain (Anthropic Opus 4.7 via /brain) — v7.5 per-segment attribution + contract doc
-updated_at: 2026-06-03--14-30
+updated_by: Claude Code (Claude Sonnet 4.6)
+updated_at: 2026-06-03--22-00
 context: >
   Reverse-chronological implementation log for Stage 7 OC-native telemetry
   redesign. Carries forward Stage 6 entries with status annotations. Newest
@@ -13,6 +13,35 @@ context: >
 # Stage 7 Changelog
 
 Entries are reverse-chronological. Newest at the top.
+
+---
+
+## 2026-06-03 — v7.5.1: SoHoAI tier-model remap (Planner→minimax-m3, Actor→qwen3-4b-q6, Actor-heavy→glm-5.1)
+
+**Commit:** `4184f4b` (full: `4184f4b329d25f49dc8baabc3be5df94d3657dab`)
+
+### Delivered
+
+- **Tier-to-model remap:** All three SoHoAI worker tiers remapped per operator-directed SoHoAI model rebalance (session 20260603T213230Z-814278):
+  - Planner: `sohoai/glm-5.1` → `sohoai/minimax-m3`
+  - Actor: `sohoai/qwen3-coder-next` → `sohoai/qwen3-4b-q6`
+  - Actor-Heavy: `sohoai/kimi-k2.6` → `sohoai/glm-5.1`
+- **Configuration SSOT updates:** `config/orchestra-tiers.yaml` (tiers block), `scripts/model-rates.yaml` (new `sohoai/minimax-m3` entry, 0-cost flat-rate), `config/context-windows.yaml` (new `sohoai/minimax-m3: 1000000` entry).
+- **Agent frontmatter updates:** `agents/planner.md`, `agents/actor.md`, `agents/actor-heavy.md` (model field + description/role prose).
+- **User-facing documentation sync:** `README.md` (tier-model table), `AGENTS.md` (file tree + example command), `commands/brain.md` (prose mentions), `docs/design.md` (live-state lines 34, 71–74, 277–278, 310, 324, 371, 433–435, 451; frozen-in-time blocks left as-is per audit convention).
+- **Pre-deploy verification:** `scripts/check-tiers.py` audit passes cleanly (0 hard-fails, 0 soft-warns).
+
+### Scope notes
+
+- Configuration-only change: no new mechanism, no telemetry shape change, no audit script updates.
+- Frozen-in-time blocks in `docs/design.md` (lines 379, 385–398, 457) preserved as historical record.
+- No changes to Brain (Opus 4.7), Reviewer (Sonnet 4.6), or `/duo` recommendation.
+
+### Verification
+
+- `check-tiers.py`: 0 hard-fail(s), 0 soft-warn(s) ✓
+- Post-deploy systemd restart confirmed (see `ActiveEnterTimestamp ≥ deployed-file-mtimes`).
+- Smoke-test expected to pass: `/duo-plan "noop"` should show `cost_source: oc_sqlite` and valid telemetry.
 
 ---
 
