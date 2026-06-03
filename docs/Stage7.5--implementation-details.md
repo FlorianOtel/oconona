@@ -2,8 +2,8 @@
 title: "v7.5 — oconona harness contract: per-session sidecars, badge format, attribution mechanics"
 created_at: 2026-06-03--14-30
 created_by: Claude Code (Claude Opus 4.7 1M context)
-updated_by: Claude Code (Claude Opus 4.7 — octmux feedback: explicit multi-invocation invariant)
-updated_at: 2026-06-03--16-35
+updated_by: Claude Code (Claude Haiku 4.5 — Actor via /brain octmux Stage 8.1.1)
+updated_at: 2026-06-03--23-35
 context: >
   Authoritative reference for the v7.5 oconona contract exposed to OpenCode
   harnesses (octmux and future TUIs). Documents logical-part markers, all
@@ -76,38 +76,17 @@ All sidecar files live in `${SESSION_DIR}/` alongside `PLAN.md`, `TASKS.json`, `
 
 ---
 
-## `invocations.log` schema and lifecycle
+## Subagent role detection (SSE SubtaskPart)
 
-### Path and format
+Harness consumers detect live subagents via OpenCode SSE `message.part.updated` events where `part.type === "subtask"`. The `SubtaskPart` carries the fields `id`, `agent`, `description`, `sessionID`, and `messageID`.
 
-- **Path:** `~/.config/opencode/orchestra/invocations.log` (GLOBAL, not per-session)
-- **Format:** Newline-delimited JSON (NDJSON). One event per line.
+**Subagent lifecycle:**
+- **Start:** First `message.part.updated` event for a given `SubtaskPart.id` (discriminated by `part.type === "subtask"`).
+- **End:** `message.part.removed` event for the same `partID`, OR `session.idle` event (which flushes all in-flight subagents).
 
-### Fields
+**State tracking:** Harnesses maintain a set of active `SubtaskPart` IDs detected to date. On each `message.part.updated` with `part.type === "subtask"`, add the `part.id` to the set if not already present. On `message.part.removed`, remove the ID. On `session.idle`, clear the entire set.
 
-| Field | Type | Values | Purpose |
-|---|---|---|---|
-| `event` | string | `"start"` \| `"end"` \| `"stop"` | Event type: subagent dispatch start, subagent completion, or session stop |
-| `ts` | ISO 8601 string | e.g. `"2026-06-03T14:30:45.123Z"` | UTC timestamp. Lexicographically sortable. |
-| `stage` | string (deprecated) | `"plan"` \| `"implement"` \| `"review"` | **Deprecated label.** Use `subagent` field for role display. Both fields present for back-compat. |
-| `subagent` | string (canonical) | `"planner"` \| `"actor"` \| `"actor-heavy"` \| `"reviewer"` | **Canonical role label.** Source for badge fourth segment in v7.5+. Prefer this field over `stage` in new code. |
-| `session_id` | string | orchestra session-dir basename (e.g. `20260603T143045Z-12345`) | Orchestra session identifier for grouping events. |
-| `exit_code` | int (optional) | 0–255 | Present on `"end"` and `"stop"` events. Indicates subagent success (0) or failure. |
-
-### Writer
-
-`scripts/orchestra-hook.sh`:
-- **`start` mode** (PreToolUse(Agent)): appends `{"event":"start", "ts":"...", "subagent":"...", "session_id":"...", "stage":"..."}` (stage field mirrors subagent for back-compat).
-- **`end` mode** (SubagentStop): appends `{"event":"end", "ts":"...", "session_id":"...", "exit_code":0}`.
-- **`stop` mode** (Stop hook, per-turn): appends `{"event":"stop", "ts":"..."}` after orphan-finaliser scan.
-
-### Consumer recipe
-
-1. Open `~/.config/opencode/orchestra/invocations.log` (may not exist; open as empty if missing).
-2. Read all lines; parse each as JSON.
-3. Reverse-scan from end: find last line with `"event":"start"` (save as `last_start`), find last line with `"event":"end"` (save as `last_end`).
-4. Compare `last_start.ts` and `last_end.ts` lexicographically (ISO 8601 strings sort correctly as-is). If `last_start.ts > last_end.ts` or no `last_end` exists, a subagent is live.
-5. Extract badge role label from `last_start.subagent`.
+**Reference implementation:** See `octmux/src/events.ts` (module `detectedSubtaskPartIDs: Set<string>`), `octmux/src/orchestra-watch.ts` (notify API methods `notifySubtaskStarted`, `notifySubtaskEnded`, `notifyAllSubtasksEnded`), and `octmux/src/app.tsx` (wiring events into watcher via `applyReplEvents`).
 
 ---
 
@@ -311,7 +290,7 @@ The badge has **four canonical states**, with mode segment always present.
 
 ### Active `/duo` session with subagent dispatched
 
-- **Condition:** One matched session dir with `.duo-inflight` present, AND `invocations.log` shows `start.ts > end.ts` for a live subagent.
+- **Condition:** One matched session dir with `.duo-inflight` present, AND an active subagent is detected via OC SSE `SubtaskPart` events.
 - **Badge:** `♪ orchestra -> <title> -> duo -> <subagent>`
 - **Example:** `♪ orchestra -> add docstring -> duo -> actor`
 
@@ -329,7 +308,7 @@ The badge has **four canonical states**, with mode segment always present.
 
 ### Active `/brain` session with subagent dispatched
 
-- **Condition:** One matched session dir with `.brain-inflight` present, AND `invocations.log` shows `start.ts > end.ts`.
+- **Condition:** One matched session dir with `.brain-inflight` present, AND an active subagent is detected via OC SSE `SubtaskPart` events.
 - **Badge:** `♪ orchestra -> <title> -> brain -> <subagent>`
 - **Example:** `♪ orchestra -> refactor routing -> brain -> planner`
 
@@ -345,7 +324,7 @@ The badge has **four canonical states**, with mode segment always present.
   - For `/duo`: first 30 chars of `.duo-inflight` content.
   - For `/brain`: `ORCHESTRA_TITLE=` value from `~/.config/opencode/orchestra/state.env` (or first 30 chars of `.brain-inflight` content if state.env is unavailable).
 - **`<mode>`:** literal string `brain` or `duo` (inferred from which inflight marker is present).
-- **`<subagent>`:** `subagent` field from `invocations.log` last `start` event where `start.ts > end.ts` (or no matching end). Role values (canonical in v7.5+): `planner`, `actor`, `actor-heavy`, `reviewer`.
+- **`<subagent>`:** Detected via OC SSE `message.part.updated` with `part.type === "subtask"`; `agent` field carries the role name. Role values (canonical in v7.5+): `planner`, `actor`, `actor-heavy`, `reviewer`.
 
 ---
 
@@ -357,7 +336,6 @@ The badge has **four canonical states**, with mode segment always present.
 - `~/.config/opencode/orchestra/sessions/*/.brain-inflight`
 - `~/.config/opencode/orchestra/sessions/*/.duo-inflight`
 - `~/.config/opencode/orchestra/state.env`
-- `~/.config/opencode/orchestra/invocations.log`
 
 **Polling strategy:** Invoked by host status-line render tick (no internal loop; external caller polls).
 
@@ -370,7 +348,6 @@ The badge has **four canonical states**, with mode segment always present.
 - `~/.config/opencode/orchestra/sessions/*/.brain-inflight`
 - `~/.config/opencode/orchestra/sessions/*/.duo-inflight`
 - `~/.config/opencode/orchestra/state.env`
-- `~/.config/opencode/orchestra/invocations.log`
 
 **Polling strategy:** `fs.watch()` on `~/.config/opencode/orchestra/sessions/` + 5-second `setInterval` fallback poll. Handles NFS attribute cache lag and missed events.
 
@@ -422,6 +399,12 @@ mv -f "${TARGET}.tmp" "${TARGET}"
 - `telemetry.json` (especially critical — consumers should never encounter truncated JSON)
 
 **Rationale for same directory:** Move within same filesystem (e.g., `mv -f /tmp/X.tmp ~/.config/opencode/orchestra/sessions/ABC/X` may cross filesystems on NFS). Safe strategy: `mktemp` in the target directory itself, not `/tmp`.
+
+---
+
+## Hooks
+
+The hook script `scripts/orchestra-hook.sh` remains in scripts/ for forward-compat with hook-supporting platforms but is currently inert on OC (which does not support OC plugin hooks).
 
 ---
 
@@ -518,7 +501,7 @@ Step-by-step recipe for a brand-new OC harness implementing orchestra-aware badg
 
 6. **Determine badge mode.** literal string: `duo` (if `.duo-inflight` present) or `brain` (if `.brain-inflight` present).
 
-7. **Determine active subagent role.** Read `~/.config/opencode/orchestra/invocations.log`, reverse-scan for last `start` and last `end` events in the matched session context. If `start.ts > end.ts`, extract `start.subagent` (canonical role: `planner`, `actor`, `actor-heavy`, `reviewer`). Otherwise no active subagent.
+7. **Determine active subagent role.** Detect live subagents via OC SSE `SubtaskPart` events (`part.type === "subtask"`). Track `partID` set; clear on `message.part.removed` or `session.idle`. Extract `agent` field from detected parts (canonical role: `planner`, `actor`, `actor-heavy`, `reviewer`). See `octmux/src/events.ts` `detectedSubtaskPartIDs` for reference implementation.
 
 8. **Render badge.** Use template: `♪ orchestra -> <title> -> <mode> [-> <subagent>]`. Color `#d3869b`. Subagent segment is optional (only if role is live).
 
