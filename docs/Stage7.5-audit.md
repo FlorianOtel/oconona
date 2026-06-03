@@ -41,7 +41,7 @@ The v7.5 contract is broadly sound: atomic-rename writes, snapshot-delta attribu
 - **Session-tracking consistency (3 gaps):** Global `ORCHESTRA_TITLE` clobbering between concurrent `/brain` runs (G-10), NFS realpath divergence between oconona's bash `curl` and octmux's `safeRealpath()` (G-11), and `setOcSessionID()` cache staleness after OC session lifecycle edge cases (G-12).
 - **Documentation drift (2 gaps):** `stage` vs `subagent` field deprecation in `invocations.log` (G-13), and cross-doc pointer health for the `.oc-session-id` multi-invocation caveat (G-14).
 
-Ten of 14 gaps are **low** severity, reflecting the system's existing mitigations. Two are **medium** (G-01, G-02) because they involve ordering contradictions or race windows that could produce corrupt state under specific crash timing. Two are **medium** (G-04, G-06) because they cause visible operator confusion about cost correctness.
+Nine of 14 gaps are **low** severity, reflecting the system's existing mitigations. Five are **medium** (G-01, G-02, G-04, G-05, G-06) because they involve ordering contradictions, race windows, or cost confusion that could produce corrupt state or visible operator confusion.
 
 ---
 

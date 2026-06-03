@@ -63,7 +63,7 @@ This playbook operationalizes the 14 gaps identified in `Stage7.5-audit.md` as c
 ```bash
 #!/bin/bash
 set -e
-SESSION_DIR="/home/florian/Gin-AI/projects/oconona/.config/opencode/orchestra/sessions/$(ls -t . | head -1)"
+SESSION_DIR="$(ls -td ~/.config/opencode/orchestra/sessions/*/ 2>/dev/null | head -1)"
 if [ ! -f "${SESSION_DIR}/telemetry.json" ]; then
   echo "Setup: No telemetry.json found in ${SESSION_DIR}"
 fi
@@ -104,7 +104,7 @@ This test validates the ordering invariant from `Stage7.md:140` (telemetry befor
 ```bash
 #!/bin/bash
 set -e
-SESSION_DIR="/home/florian/Gin-AI/projects/oconona/.config/opencode/orchestra/sessions/$(ls -t . | head -1)"
+SESSION_DIR="$(ls -td ~/.config/opencode/orchestra/sessions/*/ 2>/dev/null | head -1)"
 if [ -z "${SESSION_DIR}" ]; then
   echo "Setup: No recent session dirs found"
   exit 1
@@ -155,7 +155,7 @@ This test is **Unverified — operator source-audit required**. The `/brain` cle
 ```bash
 #!/bin/bash
 set -e
-SESSION_DIR="/home/florian/Gin-AI/projects/oconona/.config/opencode/orchestra/sessions/$(ls -t . | head -1)"
+SESSION_DIR="$(ls -td ~/.config/opencode/orchestra/sessions/*/ 2>/dev/null | head -1)"
 echo "Session dir: ${SESSION_DIR}"
 echo "Snapshot-start: $(test -f ${SESSION_DIR}/.parent-snapshot-start && echo present || echo absent)"
 echo "Snapshot-end: $(test -f ${SESSION_DIR}/.parent-snapshot-end && echo present || echo absent)"
@@ -194,7 +194,7 @@ This test validates invariant 5 from `Stage7.5--implementation-details.md:375`. 
 ```bash
 #!/bin/bash
 set -e
-SESSION_DIR="/home/florian/Gin-AI/projects/oconona/.config/opencode/orchestra/sessions/$(ls -t . | head -1)"
+SESSION_DIR="$(ls -td ~/.config/opencode/orchestra/sessions/*/ 2>/dev/null | head -1)"
 if [ -z "${SESSION_DIR}" ]; then
   echo "Setup: No recent session dirs found"
   exit 1
@@ -234,7 +234,7 @@ This is a visible operator confusion gap. `telemetry.json` reports the hidden co
 ```bash
 #!/bin/bash
 set -e
-SESSION_DIR="/home/florian/Gin-AI/projects/oconona/.config/opencode/orchestra/sessions/$(ls -t . | head -1)"
+SESSION_DIR="$(ls -td ~/.config/opencode/orchestra/sessions/*/ 2>/dev/null | head -1)"
 echo "Session dir: ${SESSION_DIR}"
 ```
 **Trigger:**
@@ -268,7 +268,7 @@ This is a documented limitation in `Stage8--implementation-details.md:312`. The 
 ```bash
 #!/bin/bash
 set -e
-SESSION_DIR="/home/florian/Gin-AI/projects/oconona/.config/opencode/orchestra/sessions/$(ls -t . | head -1)"
+SESSION_DIR="$(ls -td ~/.config/opencode/orchestra/sessions/*/ 2>/dev/null | head -1)"
 echo "Session dir: ${SESSION_DIR}"
 ```
 **Trigger:**
@@ -304,7 +304,7 @@ Different denominators cause operator confusion. `Σ$` is cumulative within the 
 ```bash
 #!/bin/bash
 set -e
-SESSION_DIR="/home/florian/Gin-AI/projects/oconona/.config/opencode/orchestra/sessions/$(ls -t . | head -1)"
+SESSION_DIR="$(ls -td ~/.config/opencode/orchestra/sessions/*/ 2>/dev/null | head -1)"
 echo "Session dir: ${SESSION_DIR}"
 echo "Inflight marker: $(test -f ${SESSION_DIR}/.brain-inflight && echo present || echo absent)"
 ```
@@ -347,7 +347,7 @@ Recovery is "operator-dependent". The Stop-hook orphan-finalizer fires on every 
 ```bash
 #!/bin/bash
 set -e
-SESSION_DIR="/home/florian/Gin-AI/projects/oconona/.config/opencode/orchestra/sessions/$(ls -t . | head -1)"
+SESSION_DIR="$(ls -td ~/.config/opencode/orchestra/sessions/*/ 2>/dev/null | head -1)"
 if [ -z "${SESSION_DIR}" ]; then
   echo "Setup: No recent session dirs found"
   exit 1
@@ -387,7 +387,7 @@ This is "not a practical concern" per `Stage8--implementation-details.md:306` gi
 ```bash
 #!/bin/bash
 set -e
-SESSION_DIR="/home/florian/Gin-AI/projects/oconona/.config/opencode/orchestra/sessions/$(ls -t . | head -1)"
+SESSION_DIR="$(ls -td ~/.config/opencode/orchestra/sessions/*/ 2>/dev/null | head -1)"
 echo "Session dir: ${SESSION_DIR}"
 ```
 **Trigger:**
@@ -522,7 +522,7 @@ echo "Testing cache staleness scenario..."
 Command: Check octmux cache implementation
 ```bash
 # Would need to inspect octmux source code
-grep -n "harnessOcSessionID" octmux/src/orchestra-watch.ts
+grep -n "harnessOcSessionID" /home/florian/Gin-AI/projects/octmux/src/orchestra-watch.ts
 ```
 
 **Notes:**
@@ -537,7 +537,7 @@ This is an "Edge case unlikely in practice" — OC session IDs are time-encoded 
 ```bash
 #!/bin/bash
 set -e
-SESSION_DIR="/home/florian/Gin-AI/projects/oconona/.config/opencode/orchestra/sessions/$(ls -t . | head -1)"
+SESSION_DIR="$(ls -td ~/.config/opencode/orchestra/sessions/*/ 2>/dev/null | head -1)"
 echo "Session dir: ${SESSION_DIR}"
 ```
 **Trigger:**
@@ -571,8 +571,8 @@ The `stage` field uses orchestration phase labels; `subagent` uses role labels. 
 ```bash
 #!/bin/bash
 set -e
-SESSION_DIR1="/home/florian/Gin-AI/projects/oconona/.config/opencode/orchestra/sessions/$(ls -t . | head -1)"
-SESSION_DIR2="/home/florian/Gin-AI/projects/oconona/.config/opencode/orchestra/sessions/$(ls -t . | head -2 | tail -1)"
+SESSION_DIR1="$(ls -td ~/.config/opencode/orchestra/sessions/*/ 2>/dev/null | head -1)"
+SESSION_DIR2="$(ls -td ~/.config/opencode/orchestra/sessions/*/ 2>/dev/null | head -2 | tail -1)"
 echo "Session dir 1: ${SESSION_DIR1}"
 echo "Session dir 2: ${SESSION_DIR2}"
 ```
@@ -593,7 +593,7 @@ echo "Session dir 2: ${SESSION_DIR2}"
 **Fail-debug:**
 Command: Check octmux matchedSessionCount implementation
 ```bash
-grep -A5 "matchedSessionCount" octmux/src/orchestra-watch.ts
+grep -A5 "matchedSessionCount" /home/florian/Gin-AI/projects/octmux/src/orchestra-watch.ts
 ```
 
 **Notes:**
@@ -644,7 +644,7 @@ These commands are useful across multiple tests to inspect session state and deb
 
 8. **Inspect snapshot sidecars:**
    ```bash
-   $ cat ~/.config/opencode/orchestra/sessions/<SESSION_DIR>/telemetry.json | jq '.parent_snapshot_start, .parent_snapshot_end, parser_warnings'
+   $ cat ~/.config/opencode/orchestra/sessions/<SESSION_DIR>/telemetry.json | jq '.parent_snapshot_start, .parent_snapshot_end, .parser_warnings'
    ```
 
 ---
