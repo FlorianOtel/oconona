@@ -275,12 +275,6 @@ def get_child_sessions(parent_id: str) -> list:
         conn.close()
 
 
-_SNAPSHOT_FIELDS = (
-    "cost", "tokens_input", "tokens_output", "tokens_reasoning",
-    "tokens_cache_read", "tokens_cache_write"
-)
-
-
 def get_session_snapshot(session_id: str) -> Optional[dict]:
     """
     Fetch a lightweight point-in-time snapshot of OC parent cost+tokens.

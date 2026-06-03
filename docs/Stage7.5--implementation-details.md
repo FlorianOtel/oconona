@@ -2,6 +2,8 @@
 title: "v7.5 — oconona harness contract: per-session sidecars, badge format, attribution mechanics"
 created_at: 2026-06-03--14-30
 created_by: Claude Code (Claude Opus 4.7 1M context)
+updated_by: Claude Code (Claude Haiku 4.5)
+updated_at: 2026-06-03--11-11
 context: >
   Authoritative reference for the v7.5 oconona contract exposed to OpenCode
   harnesses (octmux and future TUIs). Documents logical-part markers, all
@@ -377,7 +379,7 @@ All writers **must preserve these invariants** to ensure crash-safe recovery and
 
 5. **`.parent-snapshot-end` written AFTER `.outcome`, BEFORE `telemetry-summarize.sh` (NEW v7.5).** Captures the OC parent state at cleanup. Atomic rename. Invariant: every cleanup path must write this, AFTER outcome.
 
-6. **`telemetry.json` (final) written via atomic tmp+rename BEFORE inflight marker is removed (existing invariant).** Guarantees consumers never see "no telemetry, no inflight" except for legitimately-abandoned sessions.
+6. **The inflight marker is removed BEFORE `telemetry-summarize.sh` is invoked.** The brief window where a session_dir has neither an inflight marker nor a `telemetry.json` is handled by the Stop-hook orphan finalizer (see §11 Crash-recovery behaviour).
 
 7. **All snapshot sidecar writes are atomic.** `mktemp` + `mv -f`.
 
