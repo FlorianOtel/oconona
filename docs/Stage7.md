@@ -2,8 +2,8 @@
 title: "Stage 7 — OC-native telemetry redesign roadmap"
 created_at: 2026-05-28--18-16
 created_by: Actor (Claude Haiku 4.5)
-updated_by: Brain (Anthropic Opus 4.7 via /brain) — v7.3.5 hotfix 3
-updated_at: 2026-06-02--20-04
+updated_by: Brain (Anthropic Opus 4.7 via /brain) — v7.5beta
+updated_at: 2026-06-03--07-52
 context: >
   Stage 7 roadmap doc, produced by Brain/Planner session
   20260528T181605Z-2855594. Tracks the v7.0–v7.5 sub-stages replacing the
@@ -37,7 +37,8 @@ After Stage 7 ships, the T1/T2 hybrid and SoHoAI cost-attribution path (Surface 
 | **v7.3** | Status-line rewrite + `session-report.py` rewrite + dead file deletion (`sohoai-live-cost.sh`, `otel-headers-helper.sh`, `bash-session-init.sh`, `native-session-finalize.py`, `native-subagent-cost.sh`) + `deploy.sh`/`collect.sh` updates + fold `docs/pre-Stage7--opencode-redesign.md` into `docs/design.md` | shipped (commit `76b9800`) |
 | **v7.3.5** | Token accounting for hybrid orchestra — Reviewer revert to Sonnet 4.6 + `scripts/model-rates.yaml` (TTL-parameterised) + `_compute_hybrid_attribution()` in oc-db.py + per-agent cost delineation in session-report.py + `verify-cost-rates.py` rate-drift detector (Check D) | shipped (commit `ba998ee`) (hotfix 1) (hotfix 2) (hotfix 3) |
 | **v7.4** | Config rename + dead-key purge + tier-mapping SoT (Shape A) + CC-ism sweep + parked-file deletion | shipped (commit `f4e06f1`) |
-| **v7.5** | octmux integration — replace glob+sum cost aggregator with OC SQLite reader via `telemetry.json` shape; carry-forward of original Stage 6.4 | not started |
+| **v7.5** | SSOT tier config + deploy-time audit script + arch sweep + design.md prose corrections | shipped (commit `4c1e292`) |
+| **v7.6** | octmux integration (deferred from v7.5) | not started |
 
 ## Dependencies and sequencing
 

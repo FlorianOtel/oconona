@@ -2,8 +2,8 @@
 title: "oconona TODO & open questions"
 created_at: 2026-05-30--00-30
 created_by: Claude Code (Claude Sonnet 4.6, 1M context)
-updated_by: Brain (Anthropic Opus 4.7 via /brain) — v7.3.5 hotfix 2
-updated_at: 2026-06-02--14-45
+updated_by: Brain (Anthropic Opus 4.7 via /brain) — v7.5beta
+updated_at: 2026-06-03--07-52
 context: >
   Single-file ledger of open questions, deferred investigations, and follow-up
   items for the oconona project. Created during the v7.3 hotfix cycle to
@@ -18,6 +18,14 @@ context: >
 Append new entries at the top with a clear timestamp and topic header.
 Mark resolved items with their resolution date and outcome rather than
 deleting them — the rationale chain matters.
+
+---
+
+## 2026-06-03 — v7.5beta delivered: SSOT tier config mechanism + deploy-time audit + arch sweep
+
+**Commit:** `4c1e292`
+
+v7.5beta introduces the single source of truth (SSOT) mechanism for tier→model mapping. The new `config/orchestra-tiers.yaml` centralizes the four worker-tier model assignments with per-tier documentation and recommendations for brain/duo roles. Deploy-time audit script (`scripts/check-tiers.py`) runs hard-fail checks on agent frontmatter, model-rates.yaml, and context-windows.yaml, plus soft-warn checks on documentation sync. Supporting prose corrections in `docs/design.md` (model-string literals removed, Reviewer non-Anthropic claim corrected, tier table annotated), `README.md` (SSOT pointer added), and `AGENTS.md` (brain model id inlined). Legacy fallback in `scripts/session-report.py` removed. Octmux integration (original v7.5 scope) deferred to v7.6.
 
 ---
 

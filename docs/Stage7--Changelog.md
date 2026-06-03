@@ -2,8 +2,8 @@
 title: "Stage 7 Changelog — oconona"
 created_at: 2026-05-28--18-16
 created_by: Actor (Claude Haiku 4.5)
-updated_by: Brain (Anthropic Opus 4.7 via /brain) — v7.3.5 hotfix 3
-updated_at: 2026-06-02--20-04
+updated_by: Brain (Anthropic Opus 4.7 via /brain) — v7.5beta
+updated_at: 2026-06-03--07-52
 context: >
   Reverse-chronological implementation log for Stage 7 OC-native telemetry
   redesign. Carries forward Stage 6 entries with status annotations. Newest
@@ -13,6 +13,37 @@ context: >
 # Stage 7 Changelog
 
 Entries are reverse-chronological. Newest at the top.
+
+---
+
+## 2026-06-03 — v7.5beta: SSOT tier config + audit script + arch sweep
+
+**Commit:** `4c1e292` (full: `4c1e2923743fa1f190680ffb58066922239abfa6`)
+
+### Delivered
+
+- **New `config/orchestra-tiers.yaml`** — declarative tier→model SSOT for planner / actor / actor-heavy / reviewer + recommendations for brain / duo.
+- **New `scripts/check-tiers.py`** — deploy-time audit:
+  - Hard-fail on drift in `agents/*.md` frontmatter, `scripts/model-rates.yaml`, `config/context-windows.yaml`.
+  - Soft-warn on drift in `README.md`, `AGENTS.md`, `commands/brain.md`, `docs/design.md`.
+  - Self-verifies green at land: 25/25 [OK], 0 fails, 0 warns.
+- **`deploy.sh`** — new section 0 (Tier-config audit) runs `check-tiers.py` before any file operations; refuses to deploy on hard-fail. Dead `.opencode/orchestra/` gitignore block (section 10) replaced with a removed-comment marker.
+- **`scripts/session-report.py`** — legacy fallback path-inference block (10 lines) removed; docstring updated to reflect the global SESSIONS_ROOT.
+- **`docs/design.md`** — first paragraph rewritten to strip all literal model strings (now references the SSOT yaml); line-83 paragraph corrected so Reviewer is no longer claimed as "non-Anthropic"; tier table annotated as a summary of the SSOT.
+- **`AGENTS.md`** — SSOT pointer bullet added under the layout section; Brain model id (`anthropic/claude-opus-4-7`) inlined in the recommendation paragraph.
+- **`README.md`** — SSOT pointer blockquote added under the model-tiers table; line-88 stale gitignore narrative replaced.
+
+### Scope notes
+
+- This release is the SSOT *mechanism*, not new model assignments. The yaml mirrors current state byte-for-byte; no tier model changes.
+- Generated agent frontmatter (Alt B) — deferred.
+- Archival porting plans — left as historical record.
+- Octmux integration (originally slotted for v7.5) — deferred to v7.6.
+
+### Out of scope (flagged for future)
+
+- `/duo-abandon` status-line badge persistence — separate.
+- Adding `config/orchestra-tiers.yaml` to `collect.sh` — separate.
 
 ---
 
