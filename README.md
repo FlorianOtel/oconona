@@ -7,8 +7,8 @@ A three-tier orchestration layer for [OpenCode](https://opencode.ai) that routes
 | Tier | Model | Fallback | Role |
 |---|---|---|---|
 | **Brain** | Your main session, **Anthropic Opus 4.7 recommended** (any model permitted) | — (main session) | Orchestrates, delegates, approves |
-| **Planner** | `sohoai/glm-5.1` | — | Decomposes tasks into numbered, reviewable plans |
-| **Actor** | `sohoai/qwen3-coder-next` | `sohoai/kimi-k2.6` for `[tier: heavy]` steps | Executes individual plan steps; scoped, fast, cheap |
+| **Planner** | `sohoai/minimax-m3` | — | Decomposes tasks into numbered, reviewable plans |
+| **Actor** | `sohoai/qwen3-4b-q6` | `sohoai/glm-5.1` for `[tier: heavy]` steps | Executes individual plan steps; scoped, fast, cheap |
 | **Reviewer** | `anthropic/claude-sonnet-4-6` | — | Reviews Actor's output; emits PASS / FIX / BLOCK verdicts |
 
 > Tier-to-model assignment is declared in `config/orchestra-tiers.yaml` (the SSOT). Run `scripts/check-tiers.py` to verify alignment.

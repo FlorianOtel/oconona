@@ -147,6 +147,14 @@ provider_models:
       "5m": 0
       "1h": 0
 
+  "sohoai/minimax-m3":
+    input: 0
+    output: 0
+    cache_read: 0
+    cache_write:
+      "5m": 0
+      "1h": 0
+
   "sohoai/qwen3-4b-q6":
     input: 0
     output: 0

@@ -15,9 +15,9 @@
 # without also updating the relevant agents/*.md frontmatter.
 
 tiers:
-  planner:     { model: sohoai/glm-5.1 }
-  actor:       { model: sohoai/qwen3-coder-next }
-  actor-heavy: { model: sohoai/kimi-k2.6 }
+  planner:     { model: sohoai/minimax-m3 }
+  actor:       { model: sohoai/qwen3-4b-q6 }
+  actor-heavy: { model: sohoai/glm-5.1 }
   reviewer:    { model: anthropic/claude-sonnet-4-6 }
 
 recommendations:

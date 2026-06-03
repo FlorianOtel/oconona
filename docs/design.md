@@ -31,7 +31,7 @@ Two distinct kinds of `.md` file in this repo, deployed to two different OpenCod
 
 **Slash commands (`commands/*.md`):** `brain.md`, `brain-abandon.md`, `duo-plan.md`, `duo-act.md`, `duo-abandon.md`. These are pipeline orchestrators — operator-facing entry points whose body becomes Brain's instructions. They are not "workers"; they coordinate work by dispatching subagents via the `Task` tool.
 
-**Subagents (`agents/*.md`):** `planner.md` (model: `sohoai/glm-5.1`, read-only tools), `actor.md` (model: `sohoai/qwen3-coder-next`, Edit/Write/Bash), `actor-heavy.md` (model: `sohoai/kimi-k2.6`, Edit/Write/Bash), `reviewer.md` (model: `anthropic/claude-sonnet-4-6`, read-only tools). Each has frontmatter that declares its model and tool permissions; OpenCode enforces both at dispatch time.
+**Subagents (`agents/*.md`):** `planner.md` (model: `sohoai/minimax-m3`, read-only tools), `actor.md` (model: `sohoai/qwen3-4b-q6`, Edit/Write/Bash), `actor-heavy.md` (model: `sohoai/glm-5.1`, Edit/Write/Bash), `reviewer.md` (model: `anthropic/claude-sonnet-4-6`, read-only tools). Each has frontmatter that declares its model and tool permissions; OpenCode enforces both at dispatch time.
 
 **Brain is neither.** Brain *is* the parent OpenCode session that executes `/brain` (or `/duo-act`). It runs on Anthropic Opus 4.7. Brain cannot be implemented as a subagent because Phase 0 of `/brain` is multi-turn interactive interrogation with the operator, and OpenCode subagents are single-dispatch units (they cannot have multi-turn dialog with the operator). The orchestration logic in `commands/brain.md` is therefore intentionally in `commands/`, not `agents/`.
 
@@ -68,9 +68,9 @@ When NOT to use /brain: simple tasks with ≤5 steps, low blast radius. Use /duo
 | Agent | Model | File | Tools | Role |
 |---|---|---|---|---|
 | **Brain** | Anthropic Opus 4.7 recommended (any model permitted; advisory only) | — (main session) | all | Orchestrates; surfaces plan for operator approval (G2). Strictly speaking Brain is not an "agent" — it's the parent session itself; included here as the top of the tier hierarchy. |
-| **Planner** | `sohoai/glm-5.1` | `~/.config/opencode/agents/planner.md` | Read, Grep, Glob, WebFetch, TodoWrite (read-only) | Decomposes task into numbered plan; Brain persists to PLAN.md |
-| **Actor** | `sohoai/qwen3-coder-next` | `~/.config/opencode/agents/actor.md` | Read, Edit, Write, Bash, Grep, Glob (+ denies on rm -rf, git push) | Executes one step per invocation; self-persists TASKS.json via atomic-rename |
-| **Actor** (heavy) | `sohoai/kimi-k2.6` | `~/.config/opencode/agents/actor-heavy.md` | Read, Edit, Write, Bash, Grep, Glob (+ denies on rm -rf, git push) | Complex multi-file refactors; triggered by `[tier: heavy]` step annotations |
+| **Planner** | `sohoai/minimax-m3` | `~/.config/opencode/agents/planner.md` | Read, Grep, Glob, WebFetch, TodoWrite (read-only) | Decomposes task into numbered plan; Brain persists to PLAN.md |
+| **Actor** | `sohoai/qwen3-4b-q6` | `~/.config/opencode/agents/actor.md` | Read, Edit, Write, Bash, Grep, Glob (+ denies on rm -rf, git push) | Executes one step per invocation; self-persists TASKS.json via atomic-rename |
+| **Actor** (heavy) | `sohoai/glm-5.1` | `~/.config/opencode/agents/actor-heavy.md` | Read, Edit, Write, Bash, Grep, Glob (+ denies on rm -rf, git push) | Complex multi-file refactors; triggered by `[tier: heavy]` step annotations |
 | **Reviewer** | `anthropic/claude-sonnet-4-6` (v7.3.5+) | `~/.config/opencode/agents/reviewer.md` | Read, Grep, Glob, TodoWrite (read-only) | Reviews diff against PLAN.md; returns PASS / FIX / BLOCK. Model changed from `sohoai/kimi-k2.6` in v7.3.5 to enable per-tier cost tracking and marginal-attribution. |
 
 ### Model requirements
@@ -274,8 +274,8 @@ brain-state.md     (pre-compact snapshot)
 Costs vary by tier:
 
 - **Brain** (Anthropic Opus 4.7): most expensive; receives every subagent's return. Per-token Anthropic pricing. Mitigated by prompt caching + `PreCompact` hook saving state. Cost dominates a typical session.
-- **Planner** (sohoai/glm-5.1): called once per plan. $0 marginal cost (flat-rate SoHoAI).
-- **Actor** (sohoai/qwen3-coder-next or sohoai/kimi-k2.6 if heavy): called once per step. $0 marginal cost (flat-rate SoHoAI).
+- **Planner** (sohoai/minimax-m3): called once per plan. $0 marginal cost (flat-rate SoHoAI).
+- **Actor** (sohoai/qwen3-4b-q6 or sohoai/glm-5.1 if heavy): called once per step. $0 marginal cost (flat-rate SoHoAI).
 - **Reviewer** (anthropic/claude-sonnet-4-6): called once per review (up to 3 per step). Per-token Anthropic pricing (enables per-tier cost tracking).
 
 Rule of thumb: use `/brain` for tasks where the review loop actually earns the Brain overhead (architecture, multi-file refactors). Use `/duo` for simple, low-risk tasks. The zero-marginal-cost subagents make both pipelines economically viable even with repeated review iterations.
@@ -307,7 +307,7 @@ Deliberate deviations:
 - **Custom state dir `.opencode/orchestra/`** — pragmatic co-location with other OpenCode config.
 - **Per-invocation subdirs** — isolation and lazy cleanup (30-day retention).
 - **Atomic-rename pattern** — POSIX standard, documented in prompts, not enforced at hook level.
-- **SoHoAI-routed worker models** — `sohoai/glm-5.1`, `sohoai/qwen3-coder-next`, `sohoai/kimi-k2.6` (routing stability governed by §Multi-model routing).
+- **SoHoAI-routed worker models** — `sohoai/minimax-m3`, `sohoai/qwen3-4b-q6`, `sohoai/glm-5.1` (routing stability governed by §Multi-model routing).
 
 ### Live feed limitations
 
@@ -368,7 +368,7 @@ These are historical examples from the Anthropic-only era. For current non-Anthr
 | `/brain` | variable | ~13% | ~8% | ~13% |
 | `/duo` | ~60% | — | ~40% | — |
 
-Models: Brain (Anthropic Opus 4.7), Planner (sohoai/glm-5.1), Actor (sohoai/qwen3-coder-next, or sohoai/kimi-k2.6 for heavy steps), Reviewer (anthropic/claude-sonnet-4-6). SoHoAI subagents operate under flat-rate pricing (marginal cost = $0); Anthropic tiers (Brain, Reviewer) are per-token pricing.
+Models: Brain (Anthropic Opus 4.7), Planner (sohoai/minimax-m3), Actor (sohoai/qwen3-4b-q6, or sohoai/glm-5.1 for heavy steps), Reviewer (anthropic/claude-sonnet-4-6). SoHoAI subagents operate under flat-rate pricing (marginal cost = $0); Anthropic tiers (Brain, Reviewer) are per-token pricing.
 
 Brain's tier dominance is what remains **after** prompt caching has already taken ~86% off Brain's bill — the proportions in the table are post-cache. Three multipliers stack to keep Brain on top: **model rate** (Brain pays per-token Anthropic pricing; subagents run on SoHoAI flat-rate), **context size** (Brain re-sends the whole session every turn; subagents get a fresh, scoped prompt), and **turn count** (Brain runs every user message + every dispatch round-trip; subagents are one-shot). Caching only attacks the first multiplier. To shift the proportions further: trim context (`/compact`, smaller inlined artifacts) or downgrade the Brain model.
 
@@ -430,9 +430,9 @@ Reference: [Design history & amendments](design-history.md) §Amendment 2026-05-
 
 | Role | Model | Trigger |
 |---|---|---|
-| Planner (normal) | `sohoai/glm-5.1` | all inputs |
-| Actor (default) | `sohoai/qwen3-coder-next` | all steps unless marked heavy |
-| Actor (heavy) | `sohoai/kimi-k2.6` | `[tier: heavy]` annotation in PLAN.md step |
+| Planner (normal) | `sohoai/minimax-m3` | all inputs |
+| Actor (default) | `sohoai/qwen3-4b-q6` | all steps unless marked heavy |
+| Actor (heavy) | `sohoai/glm-5.1` | `[tier: heavy]` annotation in PLAN.md step |
 | Reviewer | `anthropic/claude-sonnet-4-6` | all reviews (v7.3.5+; enables per-tier cost tracking) |
 
 **Brain** is recommended on Anthropic Opus 4.7 (advisory only — any model permitted; see §Model requirements above). `/duo` is unconstrained and recommends `anthropic/claude-sonnet-4-6` (advisory only); any model works for `/duo`.
@@ -448,7 +448,7 @@ Format: annotation appears on the same line as the step heading (e.g., `### 5. R
 
 ### Alias stability contract
 
-OpenCode's SoHoAI provider exposes models as `sohoai/<key>` (e.g. `sohoai/glm-5.1`, `sohoai/qwen3-coder-next`, `sohoai/kimi-k2.6`) per the `provider.sohoai.models` block in `~/.config/opencode/opencode.json`. These keys are **stable across deployments** within the SoHoAI domain (as of 2026-05-11, per handoff §1). If the upstream routing changes (e.g., DeepSeek → Claude 3.7), SoHoAI commits to rotating the proxy entry, not swapping backends silently. Updates will be documented in the design-history.md amendment chain.
+OpenCode's SoHoAI provider exposes models as `sohoai/<key>` (e.g. `sohoai/minimax-m3`, `sohoai/qwen3-4b-q6`, `sohoai/glm-5.1`) per the `provider.sohoai.models` block in `~/.config/opencode/opencode.json`. These keys are **stable across deployments** within the SoHoAI domain (as of 2026-05-11, per handoff §1). If the upstream routing changes (e.g., DeepSeek → Claude 3.7), SoHoAI commits to rotating the proxy entry, not swapping backends silently. Updates will be documented in the design-history.md amendment chain.
 
 Without this contract, cost + quality tracking would drift silently between deployments.
 
