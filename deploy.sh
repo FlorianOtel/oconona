@@ -120,7 +120,7 @@ echo "Scripts:"
 for s in \
     orchestra-hook.sh telemetry-summarize.sh telemetry-report.sh \
     session-report.sh native-session-report.sh smoke-test.sh \
-    ctx-segment.sh verify-tier-mapping.sh; do
+    ctx-segment.sh; do
     if [ -f "$REPO/scripts/$s" ]; then
         copy_file "$REPO/scripts/$s" "$OC_HOME/scripts/$s"
         $DRY_RUN || chmod +x "$OC_HOME/scripts/$s"

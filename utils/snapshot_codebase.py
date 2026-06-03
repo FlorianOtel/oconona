@@ -54,7 +54,6 @@ _SNAPSHOT_FILES_FALLBACK: list[str] = [
     "config/settings-hooks.json",
     # Scripts
     "scripts/orchestra-hook.sh",
-    "scripts/verify-tier-mapping.sh",
     "scripts/bash-session-init.sh",
     "scripts/otel-headers-helper.sh",
     "scripts/ctx-segment.sh",

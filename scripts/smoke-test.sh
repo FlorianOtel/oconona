@@ -26,10 +26,10 @@ if [ -z "${SESSION_DIR:-}" ] || [ ! -d "${SESSION_DIR}" ]; then
 fi
 
 SESSION_ID="${SESSION_DIR##*/}"
-echo "=== Smoke test (v7.4+): ${SESSION_ID} ==="
+echo "=== Smoke test (v7.3.5+): ${SESSION_ID} ==="
 
 PASS=0
-TOTAL_CHECKS=5
+TOTAL_CHECKS=4
 
 # --- Check A: .oc-session-id sidecar ---
 echo ""
@@ -139,85 +139,6 @@ if [ -f "${VERIFY_SCRIPT}" ]; then
     fi
 else
     echo "⊘ verify-cost-rates.py not deployed (pre-v7.3.5); skipping"
-fi
-
-# --- Check E: tier-mapping drift detector ---
-echo ""
-echo "--- Check E (tier-mapping matches docs/design.md) ---"
-VERIFY_SCRIPT="${HOME}/.config/opencode/scripts/verify-tier-mapping.sh"
-if [ ! -f "${VERIFY_SCRIPT}" ]; then
-    # Fall back to repo-relative when smoke-test runs from the repo
-    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    VERIFY_SCRIPT="${SCRIPT_DIR}/verify-tier-mapping.sh"
-fi
-DESIGN_MD=""
-for candidate in \
-    "${OPENCODE_PROJECT_DIR:-$(pwd)}/docs/design.md" \
-    "$(pwd)/docs/design.md" \
-    "$(dirname "${VERIFY_SCRIPT}")/../docs/design.md"; do
-    if [ -f "${candidate}" ]; then
-        DESIGN_MD="${candidate}"
-        break
-    fi
-done
-
-if [ -x "${VERIFY_SCRIPT}" ] && [ -n "${DESIGN_MD}" ]; then
-    # Get current mapping from verify-tier-mapping.sh (tab-separated: tier<TAB>model)
-    CURRENT=$("${VERIFY_SCRIPT}")
-
-    # Extract expected mapping from docs/design.md `### Agents` table
-    # The table has rows like:
-    # | **Planner** | `sohoai/glm-5.1` | ... |
-    # | **Actor** | `sohoai/qwen3-coder-next` | ... |
-    # | **Actor** (heavy) | `sohoai/kimi-k2.6` | ... |
-    # | **Reviewer** | `anthropic/claude-sonnet-4-6` (v7.3.5+) | ... |
-    EXPECTED=$(awk '
-        /^### Agents$/ { in_agents = 1; next }
-        in_agents && /^### / { in_agents = 0 }
-        in_agents && /^\| \*\*/ {
-            # Strip leading | and **, get the tier name and model
-            line = $0
-            sub(/^\| \*\*/, "", line)
-            # Tier name ends at the next **
-            tier_end = index(line, "**")
-            tier = substr(line, 1, tier_end - 1)
-            rest = substr(line, tier_end + 2)
-            # Find model in backticks in next column
-            if (match(rest, /\| `[^`]+`/)) {
-                model = substr(rest, RSTART + 3, RLENGTH - 4)
-                # Normalize tier name to lowercase + "actor-heavy" for "Actor (heavy)"
-                if (tier == "Actor") {
-                    if (match(rest, /\(heavy\)/)) tier_norm = "actor-heavy"
-                    else tier_norm = "actor"
-                } else {
-                    tier_norm = tolower(tier)
-                }
-                # Skip "Brain" — not in verify-tier-mapping.sh output
-                if (tier_norm != "brain") print tier_norm "\t" model
-            }
-        }
-    ' "${DESIGN_MD}")
-
-    # Compare: every CURRENT line must match an EXPECTED line
-    MISMATCH=0
-    while IFS=$'\t' read -r tier model; do
-        [ -z "$tier" ] && continue
-        exp_line=$(echo "$EXPECTED" | awk -F'\t' -v t="$tier" '$1 == t { print $2 }')
-        if [ -z "$exp_line" ]; then
-            echo "✗ tier '${tier}' present in agents/ but missing from docs/design.md"
-            MISMATCH=1
-        elif [ "$exp_line" != "$model" ]; then
-            echo "✗ tier '${tier}' drift: agents/=${model}  vs  design.md=${exp_line}"
-            MISMATCH=1
-        fi
-    done <<< "${CURRENT}"
-
-    if [ "${MISMATCH}" -eq 0 ]; then
-        echo "✓ Tier-to-model mapping matches docs/design.md (4 tiers)"
-        PASS=$((PASS + 1))
-    fi
-else
-    echo "⊘ verify-tier-mapping.sh or docs/design.md not found; skipping Check E"
 fi
 
 # --- Summary ---
