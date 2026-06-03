@@ -2,8 +2,8 @@
 title: "Stage 7 Changelog — oconona"
 created_at: 2026-05-28--18-16
 created_by: Actor (Claude Haiku 4.5)
-updated_by: Brain (Anthropic Opus 4.7 via /brain) — v7.4↔v7.5beta reconciliation
-updated_at: 2026-06-03--08-47
+updated_by: Brain (Anthropic Opus 4.7 via /brain) — v7.5 per-segment attribution + contract doc
+updated_at: 2026-06-03--14-30
 context: >
   Reverse-chronological implementation log for Stage 7 OC-native telemetry
   redesign. Carries forward Stage 6 entries with status annotations. Newest
@@ -13,6 +13,35 @@ context: >
 # Stage 7 Changelog
 
 Entries are reverse-chronological. Newest at the top.
+
+---
+
+## 2026-06-03 — v7.5: per-OC-session-segment attribution + hierarchical badge + harness contract doc
+
+**Commit:** `eb540aa` (full: `eb540aa...`)
+
+### Delivered
+
+- **Snapshot sidecars (v7.5 attribution mechanism):** `.parent-snapshot-start` (setup) + `.parent-snapshot-end` (every cleanup path: brain.md, duo-act.md, duo-abandon.md, brain-abandon.md, orchestra-hook.sh stop mode). Captures OC parent cumulative cost/tokens at session start and cleanup time. Atomic writes. Enables per-segment attribution via delta (end - start).
+- **`scripts/oc-db.py` enhancements:** New public functions `get_session_snapshot()` (lightweight point-in-time snapshot; six fields: cost, tokens_*) and `get_child_sessions_in_window()` (time-window filter for child sessions, with -1000 ms tolerance for s/ms precision skew).
+- **`scripts/telemetry-summarize.py` rewrite:** Segment-attribution path. Reads `.parent-snapshot-start` and `.parent-snapshot-end`; computes `parent_delta = end - start` (floored at 0); filters children by time window if both snapshots present; falls back to whole-parent cumulative if snapshots are missing (`{}` sentinel). New top-level `telemetry.json` fields: `parent_delta`, `parent_total`, `started_at_oc_ms`, `ended_at_oc_ms`, `parent_snapshot_start`, `parent_snapshot_end`, `parser_warnings` (list of `{code, message}` dicts; includes `snapshot_missing` warning when sidecars are absent/invalid). Semantic change: `parent.cost` and `parent.tokens_*` now hold **segment-delta values** (was cumulative pre-v7.5); `parent_total` carries the cumulative parent row for forensics. `cost_usd_estimate = parent_delta.cost + sum(child costs)`.
+- **`status-line/orchestra-block.sh` symmetric badge.** New format: `♪ orchestra -> <title> -> <mode> [-> <subagent>]`. Mode segment always present (symmetry: both brain and duo include it). Old `▶ stage` indicator merged into the chain as `-> <subagent>` (role from `invocations.log` `subagent` field, canonical values: planner, actor, actor-heavy, reviewer). Removed: `ACTIVE_COLOR` variable, stage label display logic. Updated active-subagent extraction to use `subagent` field (not deprecated `stage`).
+- **`scripts/session-report.py` enhancements:** `--hybrid-detail` flag (or integrated into `--hybrid-detail`) surfaces `parent_delta.cost`, `parent_total.cost`, and `parser_warnings`. Backward-compat: gracefully handles pre-v7.5 telemetry.json (missing new fields default to 0 / `[]`).
+- **`scripts/telemetry-report.sh --tier` latent bug fix:** Was referencing non-existent nested `t["parent"]["tokens"]` sub-dict; now correctly reads flat `tokens_input`, `tokens_output`, `tokens_cache_read`, `tokens_cache_write` fields. Bundled with v7.5 shape update.
+- **`scripts/smoke-test.sh` Check E:** Verifies `.parent-snapshot-start` and `.parent-snapshot-end` exist in session_dir, both parse as valid JSON, both contain `cost` field (or `{}` fallback). Sanity: if both non-empty, `snap_end.cost >= snap_start.cost`. Pre-v7.5 sessions skipped (⊘ output). Banner updated from `(v7.3.5+)` to `(v7.5+)`. `TOTAL_CHECKS=5`.
+- **NEW `docs/Stage7.5--implementation-details.md`.** 14-section authoritative reference for OC harness consumers (octmux + future TUIs). Documents logical-part markers (`.brain-inflight` / `.duo-inflight`), per-session sidecar files (`.oc-session-id`, `.project-dir` [deprecated], `.parent-snapshot-start`, `.parent-snapshot-end`, `.outcome`, `.last-logfile`, `.transcript-uuid`, `state.env`), `invocations.log` schema + consumer recipe, `telemetry.json` v7.5 shape (full schema, new fields, semantic changes, fallback behaviour), sidecar match key (`.oc-session-id` authoritative; `.project-dir` deprecated), symmetric badge format spec (four canonical states), what each consumer reads (standalone orchestra-block.sh vs harness renderer), write-order invariants (7 items including v7.5 additions), atomic-rename pattern, crash-recovery behaviour, deprecation notices (`.project-dir` discovery, `ORCHESTRA_MODE` prefix matching, Z2c, C-γ, `stage` field), harness implementation checklist (step-by-step recipe), cross-references. Supersedes octmux Stage8.md §C-α contract and §Stage indicator. Companion to code commit eb540aa.
+
+### Scope notes
+
+- This release is the **v7.5 formal delivery**: per-segment cost/tokens attribution, hierarchical badge, harness contract.
+- **Octmux refactor deferred to separate /brain cycle (unnumbered).** A future octmux-repo `/brain` session will consume `docs/Stage7.5--implementation-details.md` and revise/replace/refactor octmux's stale `docs/Stage8.md`. No octmux files touched in this `/brain`.
+
+### Verification
+
+- Deploy verified (ActiveEnterTimestamp ≥ deployed-file mtimes).
+- Smoke-test 5/5 PASS.
+- `/duo-plan` + `/duo-act` smoke shows segment-correct `telemetry.json` with new fields (`parent_delta`, `parent_total`, `started_at_oc_ms`, `ended_at_oc_ms`, `parent_snapshot_*`, `parser_warnings`).
+- Badge renders symmetric format during `/duo-plan` (`♪ orchestra -> noop -> duo`) and Actor dispatch (`♪ orchestra -> noop -> duo -> actor`).
 
 ---
 
@@ -38,7 +67,7 @@ Entries are reverse-chronological. Newest at the top.
 - This release is the SSOT *mechanism*, not new model assignments. The yaml mirrors current state byte-for-byte; no tier model changes.
 - Generated agent frontmatter (Alt B) — deferred.
 - Archival porting plans — left as historical record.
-- Octmux integration (originally slotted for v7.5) — deferred to v7.6.
+- Octmux integration (originally slotted for v7.5) — deferred to a separate /brain cycle (unnumbered).
 
 ### Out of scope (flagged for future)
 

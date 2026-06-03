@@ -2,8 +2,8 @@
 title: "oconona TODO & open questions"
 created_at: 2026-05-30--00-30
 created_by: Claude Code (Claude Sonnet 4.6, 1M context)
-updated_by: Brain (Anthropic Opus 4.7 via /brain) — v7.5beta
-updated_at: 2026-06-03--07-52
+updated_by: Brain (Anthropic Opus 4.7 via /brain) — v7.5 per-segment attribution
+updated_at: 2026-06-03--14-30
 context: >
   Single-file ledger of open questions, deferred investigations, and follow-up
   items for the oconona project. Created during the v7.3 hotfix cycle to
@@ -21,11 +21,23 @@ deleting them — the rationale chain matters.
 
 ---
 
+## 2026-06-03 — v7.5 delivered: per-OC-session-segment attribution + hierarchical badge + harness contract doc
+
+**Commit:** `eb540aa`
+
+oconona now attributes cost/tokens per OC-session-segment via snapshot-delta sidecars (`.parent-snapshot-start` / `.parent-snapshot-end`); the status-line badge follows the symmetric format `♪ orchestra -> <title> -> <mode> [-> <subagent>]`; reporting scripts surface per-segment breakdowns; a new `docs/Stage7.5--implementation-details.md` documents the contract for OC harness consumers.
+
+**Octmux refactor carried forward (separate /brain cycle, unnumbered).** A separate octmux /brain session will consume `docs/Stage7.5--implementation-details.md` and revise/replace/refactor octmux's `docs/Stage8.md` against the current oconona contract.
+
+**C-γ (OC session.title mutation) deferred.** UX-acceptable per operator (2026-06-03) but deprioritised under simplicity+robustness principle. Future-revisitable if a non-octmux harness later requires an idiomatic OC-API surface. Not planned.
+
+---
+
 ## 2026-06-03 — v7.5beta delivered: SSOT tier config mechanism + deploy-time audit + arch sweep
 
 **Commit:** `4c1e292`
 
-v7.5beta introduces the single source of truth (SSOT) mechanism for tier→model mapping. The new `config/orchestra-tiers.yaml` centralizes the four worker-tier model assignments with per-tier documentation and recommendations for brain/duo roles. Deploy-time audit script (`scripts/check-tiers.py`) runs hard-fail checks on agent frontmatter, model-rates.yaml, and context-windows.yaml, plus soft-warn checks on documentation sync. Supporting prose corrections in `docs/design.md` (model-string literals removed, Reviewer non-Anthropic claim corrected, tier table annotated), `README.md` (SSOT pointer added), and `AGENTS.md` (brain model id inlined). Legacy fallback in `scripts/session-report.py` removed. Octmux integration (original v7.5 scope) deferred to v7.6.
+v7.5beta introduces the single source of truth (SSOT) mechanism for tier→model mapping. The new `config/orchestra-tiers.yaml` centralizes the four worker-tier model assignments with per-tier documentation and recommendations for brain/duo roles. Deploy-time audit script (`scripts/check-tiers.py`) runs hard-fail checks on agent frontmatter, model-rates.yaml, and context-windows.yaml, plus soft-warn checks on documentation sync. Supporting prose corrections in `docs/design.md` (model-string literals removed, Reviewer non-Anthropic claim corrected, tier table annotated), `README.md` (SSOT pointer added), and `AGENTS.md` (brain model id inlined). Legacy fallback in `scripts/session-report.py` removed. Octmux integration (original v7.5 scope) deferred to a separate /brain cycle (unnumbered).
 
 ---
 

@@ -2,8 +2,8 @@
 title: "OpenCode Orchestra — three-tier Brain/Planner/Actor pattern over OpenCode"
 created_at: 20260424-000000
 created_by: OpenCode (Claude Opus 4.7, 1M context)
-updated_by: Brain (Anthropic Opus 4.7 via /brain) — v7.5beta
-updated_at: 2026-06-03--07-52
+updated_by: Brain (Anthropic Opus 4.7 via /brain) — v7.5 per-segment attribution
+updated_at: 2026-06-03--14-30
 context: >
   Reference architecture for OpenCode Orchestra — a three-tier orchestration
   pattern layered on OpenCode using native subagents. The design supports
@@ -145,14 +145,16 @@ The utilization denominator is looked up from `context-windows.yaml` per model I
 **`Σ$X.YZ`** — accumulated running cost (always shown, including `Σ$0.00` from the very first render so the display is visibly live from session start). The `Σ` prefix marks the value as a cumulative total across the session (orchestra subagents + native residual). Source:
 - **All sessions**: OC SQLite `session.cost` for the captured `OC_SESSION_ID`. See `docs/pre-Stage7--opencode-redesign.md` for the redesign rationale; v7.1–v7.3 will implement this path.
 
-**`♪ badge`** — orchestra session badge (shown only during active /duo or /brain sessions, or when a subagent is running). Badge formats in descending priority:
+**`♪ badge`** — orchestra session badge (shown only during active /duo or /brain sessions, or when a subagent is running). Symmetric format (v7.5+): `♪ orchestra -> <title> -> <mode> [-> <subagent>]`. Mode segment always present.
 
 | Condition | Badge |
 |---|---|
-| `/duo` session active (one) | `♪ orchestra -> plan <title>  [▶ stage]` |
-| `/duo` sessions active (many) | `♪ orchestra -> plan #N` |
-| `/brain` session active | `♪ orchestra -> brain <title>  [▶ stage]` |
-| Subagent running (no /brain or /duo context) | `♪ orchestra  ▶ stage` |
+| `/duo` session active (one) | `♪ orchestra -> <title> -> duo` |
+| `/duo` session active (one) + subagent running | `♪ orchestra -> <title> -> duo -> <subagent>` |
+| `/duo` sessions active (many, rare) | `♪ orchestra -> #N -> duo` |
+| `/brain` session active | `♪ orchestra -> <title> -> brain` |
+| `/brain` session active + subagent running | `♪ orchestra -> <title> -> brain -> <subagent>` |
+| Subagent running (no /brain or /duo context) | `♪ orchestra -> <subagent>` |
 | No orchestra activity | *(nothing — orchestra block is silent for badge)* |
 
 #### When it updates
@@ -166,7 +168,7 @@ The status line script is called by OpenCode on each render tick — after every
 | `/duo` title and inflight state | `${SESSION_DIR}/.duo-inflight` | `/duo-plan` command setup |
 | `/brain` title and mode | `~/.config/opencode/orchestra/state.env` (`ORCHESTRA_MODE=brain`, `ORCHESTRA_TITLE=…`) | `/brain` command setup |
 | `/brain` inflight marker (session-discovery for `/brain-abandon` and explicit CMD-classification by Stop-hook) | `${SESSION_DIR}/.brain-inflight` | `/brain` command setup |
-| Active subagent stage | `~/.config/opencode/orchestra/invocations.log` (last `start` event with no matching `end`) | `orchestra-hook.sh start` (PreToolUse) |
+| Active subagent role | `~/.config/opencode/orchestra/invocations.log` (`subagent` field from last `start` event with no matching `end`) | `orchestra-hook.sh start` (PreToolUse) |
 | Live cost | OC SQLite `session.cost` (via `scripts/oc-db.py`, v7.1) | OpenCode runtime |
 
 #### Amendment 2026-05-29--07-54 — octmux status-line cost source (from octmux /brain session)
@@ -201,6 +203,8 @@ Implementation details:
   convention and the `state.env` schema (for the orchestra badge, also in Stage 8).
 
 **Cross-references:** `docs/Stage7.md` v7.5 amendment (2026-05-29--07-54) · octmux `docs/Stage8.md`.
+
+**Note (v7.5, 2026-06-03):** The C-α contract is now fully documented in `docs/Stage7.5--implementation-details.md` (commit eb540aa). That document supersedes octmux Stage8.md §C-α and §Stage indicator. The octmux refactor — revising octmux's `docs/Stage8.md` against this contract — is a future, unnumbered, separate `/brain` cycle.
 
 #### ctx segment implementation details
 
@@ -253,6 +257,8 @@ sessions/
     .brain-inflight        (present throughout /brain Phase 0/1/2/3; removed by cleanup block or /brain-abandon)
     .project-dir           (sidecar: project_dir for attribution; written by commands at session start)
     .oc-session-id         (sidecar: OC session ID from ${OC_SESSION_ID} env var; enables telemetry.json generation at cleanup)
+    .parent-snapshot-start (sidecar: OC parent cost+tokens snapshot at session start; v7.5+)
+    .parent-snapshot-end   (sidecar: OC parent cost+tokens snapshot at session end; v7.5+)
     .last-logfile          (sidecar: hook start writes logfile path; end reads+deletes)
     .outcome               (pass | block | partial | abandoned)
     telemetry.json         (per-session OC-SQLite record, written at cleanup; full shape in `docs/Stage7.md` §Cross-repo contract)

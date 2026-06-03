@@ -2,8 +2,8 @@
 title: "Stage 7 — OC-native telemetry redesign roadmap"
 created_at: 2026-05-28--18-16
 created_by: Actor (Claude Haiku 4.5)
-updated_by: Brain (Anthropic Opus 4.7 via /brain) — v7.4↔v7.5beta reconciliation
-updated_at: 2026-06-03--08-47
+updated_by: Brain (Anthropic Opus 4.7 via /brain) — v7.5 per-segment attribution + contract doc
+updated_at: 2026-06-03--14-30
 context: >
   Stage 7 roadmap doc, produced by Brain/Planner session
   20260528T181605Z-2855594. Tracks the v7.0–v7.5 sub-stages replacing the
@@ -37,8 +37,8 @@ After Stage 7 ships, the T1/T2 hybrid and SoHoAI cost-attribution path (Surface 
 | **v7.3** | Status-line rewrite + `session-report.py` rewrite + dead file deletion (`sohoai-live-cost.sh`, `otel-headers-helper.sh`, `bash-session-init.sh`, `native-session-finalize.py`, `native-subagent-cost.sh`) + `deploy.sh`/`collect.sh` updates + fold `docs/pre-Stage7--opencode-redesign.md` into `docs/design.md` | shipped (commit `76b9800`) |
 | **v7.3.5** | Token accounting for hybrid orchestra — Reviewer revert to Sonnet 4.6 + `scripts/model-rates.yaml` (TTL-parameterised) + `_compute_hybrid_attribution()` in oc-db.py + per-agent cost delineation in session-report.py + `verify-cost-rates.py` rate-drift detector (Check D) | shipped (commit `ba998ee`) (hotfix 1) (hotfix 2) (hotfix 3) |
 | **v7.4** | Config rename + dead-key purge + CC-ism sweep + parked-file deletion | shipped (commit `f4e06f1`) |
-| **v7.5** | SSOT tier config + deploy-time audit script + arch sweep + design.md prose corrections | shipped (commit `4c1e292`) |
-| **v7.6** | octmux integration (deferred from v7.5) | not started |
+| **v7.5beta** | SSOT tier config + deploy-time audit script + arch sweep | shipped (commit `4c1e292`) |
+| **v7.5** | per-OC-session-segment attribution + hierarchical badge + harness contract doc | shipped (commit `eb540aa`) |
 
 ## Dependencies and sequencing
 
@@ -51,11 +51,12 @@ v7.2 (orchestra-hook.sh strip + command updates) — requires oc-db.py
  ↓
 v7.3 (status-line + reports + deletes + deploy.sh + design.md fold) — requires all v7.1+v7.2 call-sites updated
  ↓
- ├──→ v7.4 (config rename + CC-ism sweep) — independent of v7.5
- └──→ v7.5 (octmux integration)          — requires final telemetry.json shape from v7.3
+ ├──→ v7.4 (config rename + CC-ism sweep)
+ ├──→ v7.5beta (SSOT tier config + audit)
+ └──→ v7.5 (per-segment attribution + badge + harness contract)
 ```
 
-v7.4 and v7.5 are independent of each other and can ship in either order (or in parallel) once v7.3 has stabilised the telemetry.json contract.
+v7.4, v7.5beta, and v7.5 are independent of each other and can ship in any order once v7.3 has stabilised the telemetry.json contract. A future unnumbered octmux refactor `/brain` session will consume `docs/Stage7.5--implementation-details.md` to revise octmux's `docs/Stage8.md`.
 
 ## Architecture (post-Stage-7)
 
@@ -344,7 +345,58 @@ The global config file is renamed `config/config.yaml` → `config/oconona-confi
 
 ---
 
-## Stage v7.5 — octmux integration (carry-forward of Stage 6.4)
+## Stage v7.5 — per-OC-session-segment attribution + hierarchical badge + harness contract doc
+
+### Scope
+
+Each `/brain` and `/duo` orchestration run now attributes cost and tokens only to itself (no double-counting across multiple runs in the same OC session) via snapshot-delta mechanics. The status-line badge follows the symmetric format `♪ orchestra -> <title> -> <mode> [-> <subagent>]` with mode segment always present. Reporting scripts surface per-segment breakdowns. A new authoritative contract document `docs/Stage7.5--implementation-details.md` documents the filesystem sidecar layout, badge rendering, and telemetry shape for any OC harness consumer (octmux + future TUIs).
+
+### Numbered steps summary
+
+1. `oc-db.py`: add `get_session_snapshot()` + `get_child_sessions_in_window()` (lightweight point-in-time snapshots + time-window child filtering).
+2. `commands/brain.md` + `commands/duo-plan.md`: add `.parent-snapshot-start` capture at setup (NEW).
+3. All cleanup paths (brain.md, duo-act.md, duo-abandon.md, brain-abandon.md, orchestra-hook.sh): add `.parent-snapshot-end` capture AFTER outcome + BEFORE telemetry-summarize.sh (NEW).
+4. `telemetry-summarize.py`: rewrite for per-segment attribution; new fields `parent_delta`, `parent_total`, `started_at_oc_ms`, `ended_at_oc_ms`, `parent_snapshot_*`, `parser_warnings`.
+5. `orchestra-block.sh`: symmetric badge format `♪ orchestra -> <title> -> <mode> [-> <subagent>]`; subagent role from `invocations.log` `subagent` field.
+6. `session-report.py`: surfaces `parent_delta.cost`, `parent_total.cost`, `parser_warnings` in `--hybrid-detail` mode.
+7. `telemetry-report.sh`: fix latent `--tier` bug (flat `tokens_*` fields, not nested dict) + new shape compat.
+8. `smoke-test.sh`: Check E verifies snapshot sidecars exist + valid JSON. `TOTAL_CHECKS=5`; pre-v7.5 sessions skipped.
+9. NEW `docs/Stage7.5--implementation-details.md`: 14-section authoritative contract for harnesses (sidecars, badge, invocations.log, telemetry.json v7.5 shape, match key, write-order invariants, crash recovery, deprecations, harness checklist).
+10. Update `docs/Stage7.md`: relabel v7.5→v7.5beta; add new v7.5 section; remove legacy octmux row.
+11. Update `docs/Stage7--Changelog.md`: prepend v7.5 entry referencing code commit.
+12. Update `docs/design.md`: new per-segment-attribution subsection; symmetric badge table; data sources update; Amendment 2026-05-29--07-54 forward-pointer; sidecar inventory.
+13. Update `docs/TODO.md`: prepend v7.5-delivered entry; note octmux refactor as separate future /brain cycle; C-γ deferred.
+
+### Deliverables
+
+**Code files (steps 1–8):**
+- `scripts/oc-db.py` — two new public functions
+- `commands/brain.md`, `commands/duo-plan.md` — snapshot-start capture
+- `commands/brain.md`, `commands/duo-act.md`, `commands/duo-abandon.md`, `commands/brain-abandon.md`, `scripts/orchestra-hook.sh` — snapshot-end capture
+- `scripts/telemetry-summarize.py` — per-segment rewrite
+- `status-line/orchestra-block.sh` — symmetric badge
+- `scripts/session-report.py` — hybrid-detail flag + new fields
+- `scripts/telemetry-report.sh` — latent bug fix + shape compat
+- `scripts/smoke-test.sh` — Check E snapshot validation
+
+**Documentation files (steps 9–13):**
+- `docs/Stage7.5--implementation-details.md` (NEW; 14 sections; authoritative harness contract)
+- `docs/Stage7.md` — relabel, new section, remove legacy octmux row
+- `docs/Stage7--Changelog.md` — v7.5 entry
+- `docs/design.md` — attribution subsection, badge table, Amendment forward-pointer
+- `docs/TODO.md` — v7.5 closed entry
+
+### Handover notes
+
+Detailed mechanics are documented in the new `docs/Stage7.5--implementation-details.md` — required reading for any OC harness consuming the snapshot sidecars, badge format, and telemetry shape. The contract supersedes octmux `docs/Stage8.md` §C-α and §Stage indicator.
+
+A **future, unnumbered, separate `/brain` cycle** (octmux refactor) will consume `docs/Stage7.5--implementation-details.md` to revise/replace/refactor octmux's stale `docs/Stage8.md`. That session will update octmux's badge renderer to use `.oc-session-id` match key instead of `.project-dir` + `process.cwd()`, and will adopt the symmetric badge format. **This `/brain` does NOT touch any octmux files.**
+
+---
+
+## (Deprecated section below — Stage v7.5 old plan for octmux integration)
+
+### Stage v7.5 — octmux integration (carry-forward of Stage 6.4) [SUPERSEDED]
 
 ### Scope
 
@@ -376,7 +428,7 @@ This stage is in the **octmux repo**, not oconona. It is included in Stage 7's r
 
 - After v7.5, the operator sees a live `Σ$X.XX` in the octmux status bar that updates within ~5 seconds of a paid response turn.
 - The aggregator reads only `telemetry.json` files written by oconona. octmux does NOT query OC's SQLite DB directly — that coupling stays in oconona. If oconona's `telemetry.json` shape changes in a future stage, octmux's aggregator needs updating; the contract is documented in `docs/design.md` §Telemetry.
-- Stage 6.3 (octmux orchestra inflight badge) was originally a separate sub-stage. If not yet shipped, it can fold into v7.5 or remain as a follow-on v7.6.
+- Stage 6.3 (octmux orchestra inflight badge) was originally a separate sub-stage. If not yet shipped, it can fold into v7.5 or remain as a follow-on octmux refactor cycle.
 
 ### Amendment 2026-05-29--07-54 — octmux uses OC SDK direct (from octmux /brain session)
 
@@ -419,7 +471,7 @@ Reasons:
 | **No `oc-db.py` coupling** | octmux does NOT invoke or link any oconona Python scripts |
 | **No Bun SQLite** | No direct SQLite reads in octmux |
 
-In addition, the badge feature originally scoped as a possible v7.6 (Stage 6.3 — orchestra
+In addition, the badge feature originally scoped as a possible follow-on cycle (Stage 6.3 — orchestra
 inflight badge, referenced in the Handover notes above) has been **folded into Stage 8**.
 Both the cost aggregator and the orchestra badge ship together in a single octmux rebuild and
 commit as Stage 8. The badge reads `~/.config/opencode/orchestra/sessions/*/[.brain-inflight|.duo-inflight]`,
