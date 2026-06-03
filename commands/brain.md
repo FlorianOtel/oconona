@@ -118,6 +118,28 @@ _OC_SESSION_ID=$(curl -sS -H "x-opencode-directory: ${_OC_DIR}" "http://localhos
         | sort_by(.time.updated) | last | .id // ""' 2>/dev/null)
 printf '%s\n' "${_OC_SESSION_ID:-}" > "${SESSION_DIR}/.oc-session-id"
 [ -z "$_OC_SESSION_ID" ] && echo "WARN: telemetry-summarize: .oc-session-id will be empty — check /session endpoint or header" >&2
+# Snapshot OC parent cost+tokens at session start (A1 attribution).
+# Written AFTER .oc-session-id so the ID is available.
+# Fallback: if snapshot fails (DB miss, session not yet in DB),
+# write an empty sentinel so cleanup knows setup ran but snapshot failed.
+if [ -n "${_OC_SESSION_ID:-}" ]; then
+    _SNAP_JSON=$(OC_SID="$_OC_SESSION_ID" "${HOME}/Gin-AI/.Gin-AI-python-3.12/bin/python3" - 2>/dev/null <<'SNAPEOF'
+import os, json, importlib.util
+from pathlib import Path
+spec = importlib.util.spec_from_file_location("oc_db", Path.home()/".config/opencode/scripts/oc-db.py")
+oc_db = importlib.util.module_from_spec(spec); spec.loader.exec_module(oc_db)
+snap = oc_db.get_session_snapshot(os.environ["OC_SID"])
+if snap: print(json.dumps(snap))
+SNAPEOF
+)
+    if [ -n "${_SNAP_JSON:-}" ]; then
+        printf '%s\n' "$_SNAP_JSON" > "${SESSION_DIR}/.parent-snapshot-start.tmp"
+        mv -f "${SESSION_DIR}/.parent-snapshot-start.tmp" "${SESSION_DIR}/.parent-snapshot-start"
+    else
+        printf '{}' > "${SESSION_DIR}/.parent-snapshot-start.tmp"
+        mv -f "${SESSION_DIR}/.parent-snapshot-start.tmp" "${SESSION_DIR}/.parent-snapshot-start"
+    fi
+fi
 echo "session_dir=${SESSION_DIR}"
 echo "retention_days=${RETENTION_DAYS}"
 ```
@@ -391,6 +413,30 @@ Order matters: write `.outcome` **before** removing `.brain-inflight` and
 ```bash
 printf '%s' "<outcome: pass | fix-loop | block | abandoned>" > "<SESSION_DIR>/.outcome.tmp"
 mv -f "<SESSION_DIR>/.outcome.tmp" "<SESSION_DIR>/.outcome"
+# Snapshot OC parent cost+tokens at session end (A1 attribution).
+# Runs AFTER .outcome, BEFORE telemetry-summarize.sh.
+_OC_SID_FOR_SNAP=""
+if [ -f "<SESSION_DIR>/.oc-session-id" ]; then
+    _OC_SID_FOR_SNAP=$(cat "<SESSION_DIR>/.oc-session-id" 2>/dev/null | tr -d ' \n')
+fi
+if [ -n "${_OC_SID_FOR_SNAP:-}" ]; then
+    _SNAP_END_JSON=$(OC_SID="$_OC_SID_FOR_SNAP" "${HOME}/Gin-AI/.Gin-AI-python-3.12/bin/python3" - 2>/dev/null <<'SNAPEOF'
+import os, json, importlib.util
+from pathlib import Path
+spec = importlib.util.spec_from_file_location("oc_db", Path.home()/".config/opencode/scripts/oc-db.py")
+oc_db = importlib.util.module_from_spec(spec); spec.loader.exec_module(oc_db)
+snap = oc_db.get_session_snapshot(os.environ["OC_SID"])
+if snap: print(json.dumps(snap))
+SNAPEOF
+)
+    if [ -n "${_SNAP_END_JSON:-}" ]; then
+        printf '%s\n' "$_SNAP_END_JSON" > "<SESSION_DIR>/.parent-snapshot-end.tmp"
+        mv -f "<SESSION_DIR>/.parent-snapshot-end.tmp" "<SESSION_DIR>/.parent-snapshot-end"
+    else
+        printf '{}' > "<SESSION_DIR>/.parent-snapshot-end.tmp"
+        mv -f "<SESSION_DIR>/.parent-snapshot-end.tmp" "<SESSION_DIR>/.parent-snapshot-end"
+    fi
+fi
 rm -f "<SESSION_DIR>/.brain-inflight"
 ~/.config/opencode/scripts/telemetry-summarize.sh \
     "<SESSION_DIR>" brain "<outcome>" "" 2>&1 \

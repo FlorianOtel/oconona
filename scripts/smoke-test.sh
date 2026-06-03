@@ -26,10 +26,10 @@ if [ -z "${SESSION_DIR:-}" ] || [ ! -d "${SESSION_DIR}" ]; then
 fi
 
 SESSION_ID="${SESSION_DIR##*/}"
-echo "=== Smoke test (v7.3.5+): ${SESSION_ID} ==="
+echo "=== Smoke test (v7.5+): ${SESSION_ID} ==="
 
 PASS=0
-TOTAL_CHECKS=4
+TOTAL_CHECKS=5
 
 # --- Check A: .oc-session-id sidecar ---
 echo ""
@@ -139,6 +139,83 @@ if [ -f "${VERIFY_SCRIPT}" ]; then
     fi
 else
     echo "⊘ verify-cost-rates.py not deployed (pre-v7.3.5); skipping"
+fi
+
+# --- Check E: parent snapshot sidecars (v7.5+) ---
+echo ""
+echo "--- Check E (parent snapshot sidecars) ---"
+SNAP_START="${SESSION_DIR}/.parent-snapshot-start"
+SNAP_END="${SESSION_DIR}/.parent-snapshot-end"
+
+# Pre-v7.5 sessions may not have snapshots; gracefully skip
+if [ ! -f "${SNAP_START}" ] && [ ! -f "${SNAP_END}" ]; then
+    echo "⊘ (pre-v7.5 session; snapshot sidecars absent — skipping)"
+    PASS=$((PASS + 1))
+else
+    exit_code=0
+
+    # Check both files exist
+    if [ ! -f "${SNAP_START}" ]; then
+        echo "✗ .parent-snapshot-start missing"
+        exit_code=1
+    fi
+    if [ ! -f "${SNAP_END}" ]; then
+        echo "✗ .parent-snapshot-end missing"
+        exit_code=1
+    fi
+
+    # Validate both are valid JSON
+    if [ $exit_code -eq 0 ]; then
+        "${PYTHON3}" - <<PYEOF
+import json, sys
+snap_start_valid = True
+snap_end_valid = True
+snap_start_cost = 0
+snap_end_cost = 0
+
+try:
+    with open("${SNAP_START}") as f:
+        snap_start = json.load(f)
+        snap_start_cost = snap_start.get("cost", 0)
+except Exception as e:
+    print(f"✗ .parent-snapshot-start invalid JSON: {e}")
+    snap_start_valid = False
+
+try:
+    with open("${SNAP_END}") as f:
+        snap_end = json.load(f)
+        snap_end_cost = snap_end.get("cost", 0)
+except Exception as e:
+    print(f"✗ .parent-snapshot-end invalid JSON: {e}")
+    snap_end_valid = False
+
+if snap_start_valid and snap_end_valid:
+    # Both snapshots must have cost field or be {}
+    has_start_cost = "cost" in snap_start or snap_start == {}
+    has_end_cost = "cost" in snap_end or snap_end == {}
+
+    if not has_start_cost:
+        print("✗ .parent-snapshot-start missing 'cost' field")
+        sys.exit(1)
+    if not has_end_cost:
+        print("✗ .parent-snapshot-end missing 'cost' field")
+        sys.exit(1)
+
+    # Sanity check: end cost >= start cost (if both non-empty)
+    if snap_start and snap_end and snap_end_cost < snap_start_cost:
+        print(f"⚠ end cost (\${snap_end_cost:.4f}) < start cost (\${snap_start_cost:.4f}) — unusual but not fatal")
+
+    print("✓ .parent-snapshot-start and .parent-snapshot-end valid JSON")
+    sys.exit(0)
+else:
+    sys.exit(1)
+PYEOF
+        exit_code=$?
+    fi
+
+    if [ $exit_code -eq 0 ]; then
+        PASS=$((PASS + 1))
+    fi
 fi
 
 # --- Summary ---

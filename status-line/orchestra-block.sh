@@ -18,7 +18,6 @@
 if [ -n "$cwd" ] && [ -f "$HOME/.config/opencode/orchestra/oconona-config.yaml" ]; then
     # Gruvbox Dark palette additions
     ORCHESTRA_COLOR="\033[38;2;211;134;155m"  # bright_purple #D3869B
-    ACTIVE_COLOR="\033[38;2;215;153;33m"      # dark yellow   #D79921
     WARNING_COLOR="\033[38;2;254;128;25m"     # bright_orange #FE8019
 
     # Strip OC-native fields 2 (20-seg bar+%) and 3 (↯ token count) — replaced by ctx+cost below.
@@ -57,18 +56,17 @@ if [ -n "$cwd" ] && [ -f "$HOME/.config/opencode/orchestra/oconona-config.yaml" 
 
     # --- active-subagent indicator ---
     invlog="$HOME/.config/opencode/orchestra/invocations.log"
-    active_indicator=""
+    active_subagent=""
+    last_start_ts=""
+    last_end_ts=""
     if [ -f "$invlog" ]; then
         last_start_line=$(grep '"event":"start"' "$invlog" 2>/dev/null | tail -n 1)
         last_end_line=$(grep   '"event":"end"'   "$invlog" 2>/dev/null | tail -n 1)
         if [ -n "$last_start_line" ]; then
-            IFS=$'\t' read -r last_start_ts active_stage active_subagent < <(
+            IFS=$'\t' read -r last_start_ts _ active_subagent < <(
                 echo "$last_start_line" | jq -r '[.ts // "", .stage // "", .subagent // ""] | @tsv'
             )
             last_end_ts=$(echo "$last_end_line" | jq -r '.ts // ""')
-            if [ -n "$last_start_ts" ] && [ "$last_start_ts" \> "${last_end_ts:-}" ]; then
-                active_indicator=$(printf "${ACTIVE_COLOR}▶ %s${RESET}" "$active_stage")
-            fi
         fi
     fi
 
@@ -120,27 +118,32 @@ PYEOF
     [ -n "$live_cost" ] && { [ -n "$_insert" ] && _insert+=" | ${live_cost}" || _insert="${live_cost}"; }
     [ -n "$_insert"   ] && status_line="${status_line/ | / | ${_insert} | }"
 
-    # --- badge rendering (priority: duo > brain > plain subagent) ---
+    # --- badge rendering (symmetric: orchestra -> <title> -> <mode> [-> <subagent>]) ---
+    # Priority: duo > brain > plain-subagent-only.
+    # Mode segment always present. Subagent role label from invocations.log subagent field.
     if [ "$duo_count" -gt 0 ]; then
         if [ "$duo_count" -eq 1 ]; then
-            duo_badge="orchestra -> plan ${duo_title}"
+            _badge_title="$duo_title"
         else
-            duo_badge="orchestra -> plan #${duo_count}"
+            _badge_title="#${duo_count}"
         fi
-        if [ -n "$active_indicator" ]; then
-            status_line+=$(printf " | ${ORCHESTRA_COLOR}♪ %s${RESET} %s" "$duo_badge" "$active_indicator")
+        _badge_mode="duo"
+        if [ -n "$active_subagent" ] && [ "$last_start_ts" \> "${last_end_ts:-}" ]; then
+            badge_text="orchestra -> ${_badge_title} -> ${_badge_mode} -> ${active_subagent}"
         else
-            status_line+=$(printf " | ${ORCHESTRA_COLOR}♪ %s${RESET}" "$duo_badge")
+            badge_text="orchestra -> ${_badge_title} -> ${_badge_mode}"
         fi
+        status_line+=$(printf " | ${ORCHESTRA_COLOR}♪ %s${RESET}" "$badge_text")
     elif [ -n "$orch_title" ]; then
-        badge="orchestra -> brain ${orch_title}"
-        if [ -n "$active_indicator" ]; then
-            status_line+=$(printf " | ${ORCHESTRA_COLOR}♪ %s${RESET} %s" "$badge" "$active_indicator")
+        _badge_mode="${orch_mode:-brain}"
+        if [ -n "$active_subagent" ] && [ "$last_start_ts" \> "${last_end_ts:-}" ]; then
+            badge_text="orchestra -> ${orch_title} -> ${_badge_mode} -> ${active_subagent}"
         else
-            status_line+=$(printf " | ${ORCHESTRA_COLOR}♪ %s${RESET}" "$badge")
+            badge_text="orchestra -> ${orch_title} -> ${_badge_mode}"
         fi
-    elif [ -n "$active_indicator" ]; then
-        status_line+=$(printf " | ${ORCHESTRA_COLOR}♪ orchestra${RESET} %s" "$active_indicator")
+        status_line+=$(printf " | ${ORCHESTRA_COLOR}♪ %s${RESET}" "$badge_text")
+    elif [ -n "$active_subagent" ] && [ "$last_start_ts" \> "${last_end_ts:-}" ]; then
+        status_line+=$(printf " | ${ORCHESTRA_COLOR}♪ orchestra -> ${active_subagent}${RESET}")
     fi
 fi
 

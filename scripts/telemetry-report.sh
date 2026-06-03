@@ -61,9 +61,21 @@ def norm(m): return re.sub(r"-\d{8}$", "", m or "")
 
 # Extract cost from totals (cost pre-computed in v7.1+)
 ORDER = {"brain": 0, "planner": 1, "actor": 2, "reviewer": 3}
-tiers = [("brain", t["parent"]["model"], t["parent"]["tokens"], t["parent"].get("cost", 0))]
+parent_toks = {
+    "input": t["parent"].get("tokens_input", 0),
+    "output": t["parent"].get("tokens_output", 0),
+    "cache_read": t["parent"].get("tokens_cache_read", 0),
+    "cache_write": t["parent"].get("tokens_cache_write", 0),
+}
+tiers = [("brain", t["parent"]["model"], parent_toks, t["parent"].get("cost", 0))]
 for s in t.get("subagents", []):
-    tiers.append((s["type"], s.get("model", "?"), s["tokens"], s.get("cost", 0)))
+    sub_toks = {
+        "input": s.get("tokens_input", 0),
+        "output": s.get("tokens_output", 0),
+        "cache_read": s.get("tokens_cache_read", 0),
+        "cache_write": s.get("tokens_cache_write", 0),
+    }
+    tiers.append((s.get("agent", "unknown"), s.get("model", "?"), sub_toks, s.get("cost", 0)))
 tiers.sort(key=lambda x: ORDER.get(x[0], 4))
 
 grand_tok  = sum(sum(tok.values()) for _, _, tok, _ in tiers)
@@ -107,13 +119,13 @@ for tf_path in tf_paths:
         continue
     n += 1
     key = ("brain", norm(t["parent"]["model"]))
-    for k, v in t["parent"]["tokens"].items():
-        accum[key]["tokens"][k] += v
+    for tok_field in ["tokens_input", "tokens_output", "tokens_cache_read", "tokens_cache_write"]:
+        accum[key]["tokens"][tok_field] += t["parent"].get(tok_field, 0)
     accum[key]["cost"] += t["parent"].get("cost", 0)
     for s in t.get("subagents", []):
-        key = (s["type"], norm(s.get("model", "?")))
-        for k, v in s["tokens"].items():
-            accum[key]["tokens"][k] += v
+        key = (s.get("agent", "unknown"), norm(s.get("model", "?")))
+        for tok_field in ["tokens_input", "tokens_output", "tokens_cache_read", "tokens_cache_write"]:
+            accum[key]["tokens"][tok_field] += s.get(tok_field, 0)
         accum[key]["cost"] += s.get("cost", 0)
 
 if n == 0:

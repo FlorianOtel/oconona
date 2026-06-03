@@ -275,6 +275,71 @@ def get_child_sessions(parent_id: str) -> list:
         conn.close()
 
 
+_SNAPSHOT_FIELDS = (
+    "cost", "tokens_input", "tokens_output", "tokens_reasoning",
+    "tokens_cache_read", "tokens_cache_write"
+)
+
+
+def get_session_snapshot(session_id: str) -> Optional[dict]:
+    """
+    Fetch a lightweight point-in-time snapshot of OC parent cost+tokens.
+
+    Returns dict with fields: cost, tokens_input, tokens_output, tokens_reasoning,
+    tokens_cache_read, tokens_cache_write, time_updated. All values coerced to
+    float/int (never None). Returns None if session not found.
+
+    This is a lightweight snapshot operation; does NOT call get_session_telemetry().
+    """
+    conn = open_db()
+    try:
+        row = conn.execute("SELECT * FROM session WHERE id = ?", (session_id,)).fetchone()
+        if row is None:
+            return None
+
+        row_dict = dict(row)
+        return {
+            "cost": float(row_dict.get("cost") or 0),
+            "tokens_input": int(row_dict.get("tokens_input") or 0),
+            "tokens_output": int(row_dict.get("tokens_output") or 0),
+            "tokens_reasoning": int(row_dict.get("tokens_reasoning") or 0),
+            "tokens_cache_read": int(row_dict.get("tokens_cache_read") or 0),
+            "tokens_cache_write": int(row_dict.get("tokens_cache_write") or 0),
+            "time_updated": int(row_dict.get("time_updated") or 0),
+        }
+    finally:
+        conn.close()
+
+
+def get_child_sessions_in_window(
+    parent_id: str, started_at_ms: int, ended_at_ms: int
+) -> list:
+    """
+    Fetch child sessions within a time window.
+
+    Queries SELECT * FROM session WHERE parent_id = ? AND time_created >= ? AND time_created <= ?
+    ordered by time_created. Applies a -1000 ms tolerance to started_at_ms (lower bound).
+
+    Args:
+        parent_id: parent session ID
+        started_at_ms: window start (epoch ms); query uses (started_at_ms - 1000) as lower bound
+        ended_at_ms: window end (epoch ms, inclusive)
+
+    Returns list of dicts identical to get_child_sessions().
+    """
+    conn = open_db()
+    try:
+        # Apply -1000 ms tolerance to lower bound for s/ms precision skew
+        lower_bound = started_at_ms - 1000
+        rows = conn.execute(
+            "SELECT * FROM session WHERE parent_id = ? AND time_created >= ? AND time_created <= ? ORDER BY time_created",
+            (parent_id, lower_bound, ended_at_ms)
+        ).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+
 def is_session_over(session_id: str) -> bool:
     """
     Check if an orchestra session is complete.

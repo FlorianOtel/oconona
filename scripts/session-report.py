@@ -163,8 +163,11 @@ def main():
             session_id = rec.get("session_id", "unknown")
             print(f"Session: {session_id}")
             parent = rec.get("parent", {})
+            parent_delta = rec.get("parent_delta", {})
+            parent_total = rec.get("parent_total", {})
             subagents = rec.get("subagents", [])
             hybrid = rec.get("hybrid_attribution", {})
+            parser_warnings = rec.get("parser_warnings", [])
 
             # Print parent (Brain)
             parent_agent = parent.get("agent", "brain") or "brain"
@@ -184,6 +187,23 @@ def main():
             print(f"  {parent_agent:6} | {parent_model:23} | {cost_str:15} | {parent_tokens_out}")
             if ttl_marker:
                 print(f"  {ttl_marker}")
+
+            # Print segment cost breakdown if available (v7.5+)
+            if parent_delta and parent_total:
+                parent_delta_cost = parent_delta.get("cost", 0)
+                parent_total_cost = parent_total.get("cost", 0)
+                if parent_delta_cost > 0 or parent_total_cost > 0:
+                    print(f"\n  Segment Attribution (v7.5+):")
+                    print(f"    Segment delta : ${parent_delta_cost:.4f}")
+                    print(f"    Cumulative total : ${parent_total_cost:.4f}")
+
+            # Print parser warnings if any
+            if parser_warnings:
+                print(f"\n  Parser Warnings:")
+                for warning in parser_warnings:
+                    code = warning.get("code", "unknown")
+                    message = warning.get("message", "")
+                    print(f"    [{code}] {message}")
 
             # Print subagents
             if subagents:
