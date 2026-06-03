@@ -2,8 +2,8 @@
 title: "v7.5 — oconona harness contract: per-session sidecars, badge format, attribution mechanics"
 created_at: 2026-06-03--14-30
 created_by: Claude Code (Claude Opus 4.7 1M context)
-updated_by: Claude Code (Claude Haiku 4.5)
-updated_at: 2026-06-03--11-11
+updated_by: Claude Code (Claude Opus 4.7 — octmux feedback: explicit multi-invocation invariant)
+updated_at: 2026-06-03--16-35
 context: >
   Authoritative reference for the v7.5 oconona contract exposed to OpenCode
   harnesses (octmux and future TUIs). Documents logical-part markers, all
@@ -264,6 +264,24 @@ If **both snapshots are `{}` or missing**:
 4. Filter to directories whose `.oc-session-id` matches the harness's OC session ID.
 5. Among matches: filter by inflight marker (`.brain-inflight` or `.duo-inflight`) presence for **live segments**; filter by `telemetry.json` presence for **completed segments**.
 6. Proceed with the matched session(s).
+
+### Multi-invocation invariant (octmux feedback, 2026-06-03)
+
+`.oc-session-id` carries the **parent OC session ID**. That ID is constant for the lifetime of the OC session, so all orchestra session dirs created during the same OC session share the same `.oc-session-id` value. Sequential `/brain` or `/duo` runs in the same OC session therefore produce multiple session dirs that ALL pass the `.oc-session-id` match key — including completed runs whose dirs have not yet been cleaned up by the 30-day reaper.
+
+**Implication:** the `.oc-session-id` match key alone is **not sufficient** to identify "live" session dirs — it identifies any dir created during this OC session, whether the orchestra run is in-flight or has completed. Harnesses MUST intersect the `.oc-session-id` match with inflight marker presence (`.brain-inflight` / `.duo-inflight`) for live-segment detection, and with `telemetry.json` presence (and absence of marker) for completed-segment detection.
+
+Concretely, to detect "currently active" sessions, intersect:
+
+- `.oc-session-id` matches harness OC session ID, AND
+- inflight marker (`.brain-inflight` or `.duo-inflight`) is present, AND
+- marker mtime < 24h (stale-after-crash guard).
+
+Step 5 of the recipe above already prescribes this intersection, but the multi-invocation case is the load-bearing reason — without it, the recipe still works but the rationale isn't obvious. Harness concurrency counts (e.g., a "#N" multi-concurrent badge) must be computed against the inflight-bearing subset only, not the raw `.oc-session-id` match set.
+
+**Origin:** octmux Stage 8.2.1 (commit `e28973e`, 2026-06-03) fixed a latent bug where `matchedSessionCount` was incremented on `.oc-session-id` match alone. Once one `/brain` completed, every subsequent live `/brain` in the same octmux session was mislabeled as multi-concurrent (`♪ orchestra -> #2 -> brain` instead of the actual title). The fix tracks `dirHasInflight` per loop iteration and only increments the count when an inflight marker is found. The contract itself was correct as designed; this section documents the invariant explicitly so future harnesses don't repeat the implementation gap.
+
+**No oconona-side code change required.** Optional deeper mitigations (per-invocation `.orchestra-run-id` UUID sidecar; tiered retention reducing dwell time for completed dirs) were considered and rejected as overkill — the documentation clarification suffices because the intersect-with-marker pattern is straightforward to implement on the harness side.
 
 ### Why not `.project-dir`
 
