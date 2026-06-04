@@ -3,7 +3,7 @@ title: "Stage 7 Changelog — oconona"
 created_at: 2026-05-28--18-16
 created_by: Actor (Claude Haiku 4.5)
 updated_by: Claude Code (Claude Opus 4.7 — 1M context)
-updated_at: 2026-06-04--17-15
+updated_at: 2026-06-04--21-22
 context: >
   Reverse-chronological implementation log for Stage 7 OC-native telemetry
   redesign. Carries forward Stage 6 entries with status annotations. Newest
@@ -13,6 +13,19 @@ context: >
 # Stage 7 Changelog
 
 Entries are reverse-chronological. Newest at the top.
+
+---
+
+## 2026-06-04--21-21 — v8.1.4 /brain model-advisory live source
+
+**Implemented by:** Claude Code (Claude Opus 4.7 — 1M context) — 2026-06-04--21-21
+**Commit(s):** `a4e63d4`
+
+`/brain` Prerequisites #1 (model-recommendation advisory) was reading the model id from Brain's system context — specifically the `The exact model ID is …` line OpenCode injects at session-prompt assembly time. That line is a **snapshot**, not a live value: OC's `/model` slash command re-routes subsequent API calls but does **not** re-render the system prompt, so after a mid-session model swap the advisory reported the model active at session creation, not the current routing. Reported live by operator in octmux session `ses_16bf7d846ffe7zFzlCAPjnpqxd`: `/model claude-sonnet-4-6` → `/model claude-opus-4-7` → `/brain` falsely warned "you are on claude-sonnet-4-6" while OC was correctly routing to Opus 4.7.
+
+Fix: Setup Bash now pulls `.model.providerID` + `.model.id` from the same `/session` query that already resolves `.oc-session-id`, and writes `<providerID>/<model.id>` to `${SESSION_DIR}/.oc-current-model`. Prerequisites #1 reads that file and decides on the live value. Empty file (HTTP unreachable) falls back to the legacy system-context read so the check is never silently dropped. Decision logic now matches `providerID == "anthropic"` + `model.id` starts with `claude-opus-4-7` (clearer than the prior raw-string match) and emits the advisory with the real `<provider>/<model>` substituted for `[MODEL-ID]`. Advisory remains advisory-only — wording, posture, and "operator's choice is final" rationale unchanged.
+
+Scope: single-file source change (`commands/brain.md`). `/duo-plan`, `/duo-act`, `/duo-abandon`, `/brain-abandon` carry no equivalent check (grep-verified). Cross-project authorisation: operator-approved one-time exception (reported from octmux, fixed in oconona).
 
 ---
 

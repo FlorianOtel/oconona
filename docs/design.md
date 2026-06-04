@@ -3,7 +3,7 @@ title: "OpenCode Orchestra — three-tier Brain/Planner/Actor pattern over OpenC
 created_at: 20260424-000000
 created_by: OpenCode (Claude Opus 4.7, 1M context)
 updated_by: Claude Code (Claude Opus 4.7 — 1M context)
-updated_at: 2026-06-04--17-15
+updated_at: 2026-06-04--21-22
 context: >
   Reference architecture for OpenCode Orchestra — a three-tier orchestration
   pattern layered on OpenCode using native subagents. The design supports
@@ -80,7 +80,7 @@ When NOT to use /brain: simple tasks with ≤5 steps, low blast radius. Use /duo
 | `/brain` | none | Anthropic Opus 4.7 | **Advisory only** — Brain emits a one-line notice on non-Opus models and continues. Any model is permitted. |
 | `/duo` | none | anthropic/claude-sonnet-4-6 | Advisory only — Brain warns and continues |
 
-The check happens at command startup before any Bash or setup runs. It is LLM-enforced (Brain reads "The exact model ID is…" injected by OpenCode into every session's system context) — same trust level as the model-advisory check.
+The check happens immediately after Phase 0 Setup runs. It is LLM-enforced: Brain reads `${OPENCODE_ORCHESTRA_SESSION_DIR}/.oc-current-model`, a `<providerID>/<model.id>` sidecar Setup Bash writes from OC's live `/session.model` field. This is the authoritative current model — OC updates it on `/model` swap, so the advisory is immune to mid-session model-swap staleness. Fallback: if `.oc-current-model` is empty (OC HTTP unreachable at Setup time), Brain falls back to reading "The exact model ID is…" from its system context (legacy mechanism, retained for resilience). That fallback path may report a stale model after a mid-session `/model` swap, since OC does not re-render the system prompt on swap — it is the best signal available when the live source is missing.
 
 **Why Anthropic Opus 4.7 is recommended for `/brain`.** Brain's job is multi-turn interrogation, plan reasoning over a large session context, dispatch decisions, and review judgment across the cap-3 loop. These all reward strong reasoning, and the cost is small (Brain is one session per pipeline, not per step). The pipeline subagents — Planner, Actor, and Actor-Heavy — run on SoHoAI flat-rate models; Reviewer runs on Anthropic Sonnet (per-token) to enable per-tier cost tracking. Their work is per-step and narrow-context, benefiting more from cost efficiency than from incremental reasoning quality.
 
