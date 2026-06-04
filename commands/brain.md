@@ -256,14 +256,6 @@ The session subdirectory is preserved (PLAN.md may not exist; RESEARCH.md is int
 
 **Phase 1 begins with this exact `Task` tool call.** Do NOT write `PLAN.md` yourself. Do NOT use the `Write` tool on any `~/.config/opencode/plans/` path. Planner is the only path to `PLAN.md`.
 
-Run via Bash BEFORE the Task tool call:
-
-```bash
-# Append to subagents.jsonl for v8.1.2 attribution fallback (see scripts/telemetry-summarize.py)
-printf '%s\n' '{"agent":"planner","model":"sohoai/minimax-m3","dispatched_at_ms":'"$(date +%s%3N)"'}' \
-  >> "${OPENCODE_ORCHESTRA_SESSION_DIR}/subagents.jsonl"
-```
-
 ```
 Task tool invocation:
   subagent_type: planner
@@ -313,14 +305,6 @@ After operator approval, Actor's tool calls (`filesystem` edit/write, `bash`) su
 
 **Each step (or tight group of steps) of Phase 2 begins with this exact `Task` tool call.** Do NOT use `Edit/Write/Bash` on project code yourself — Actor owns the code changes. Do NOT skip ahead to Phase 3 by inspecting the diff yourself — Reviewer owns the audit.
 
-Run via Bash BEFORE the Task tool call (default tier):
-
-```bash
-# Append to subagents.jsonl for v8.1.2 attribution fallback (see scripts/telemetry-summarize.py)
-printf '%s\n' '{"agent":"actor","model":"sohoai/qwen3-4b-q6","dispatched_at_ms":'"$(date +%s%3N)"'}' \
-  >> "${OPENCODE_ORCHESTRA_SESSION_DIR}/subagents.jsonl"
-```
-
 ```
 Task tool invocation (default tier):
   subagent_type: actor
@@ -342,14 +326,6 @@ Task tool invocation (default tier):
 
 > **NOTE:** For `[tier: heavy]` steps, use `subagent_type: actor-heavy` instead of `actor`. The prompt body is identical; only the subagent type changes.
 
-> When dispatching actor-heavy, first run the Bash block with the actor-heavy model and agent name:
-> ```bash
-> # Append to subagents.jsonl for v8.1.2 attribution fallback (see scripts/telemetry-summarize.py)
-> printf '%s\n' '{"agent":"actor-heavy","model":"sohoai/glm-5.1","dispatched_at_ms":'"$(date +%s%3N)"'}' \
->   >> "${OPENCODE_ORCHESTRA_SESSION_DIR}/subagents.jsonl"
-> ```
-> Then dispatch the Task tool invocation with `subagent_type: actor-heavy`.
-
 For each step (or tight group of steps) in `PLAN.md`:
 
 1. Dispatch Actor via the template above.
@@ -366,14 +342,6 @@ Actor returns a diff summary in its final message. Show that to the operator at 
 ## Phase 3 — Review (Task → Reviewer subagent)
 
 **Phase 3 begins with this exact `Task` tool call** once all PLAN.md steps are `ready_for_review`. Do NOT skip Phase 3 because Actor's diff "looks fine" — Reviewer is read-only, bounded (cap 3 FIX iterations), and exists specifically to catch what you'd miss inspecting the diff yourself.
-
-Run via Bash BEFORE the Task tool call:
-
-```bash
-# Append to subagents.jsonl for v8.1.2 attribution fallback (see scripts/telemetry-summarize.py)
-printf '%s\n' '{"agent":"reviewer","model":"anthropic/claude-sonnet-4-6","dispatched_at_ms":'"$(date +%s%3N)"'}' \
-  >> "${OPENCODE_ORCHESTRA_SESSION_DIR}/subagents.jsonl"
-```
 
 ```
 Task tool invocation:

@@ -235,41 +235,6 @@ def main():
                     )
                     subagents = [oc_db._row_to_tier(r) for r in children_rows]
 
-                    # v8.1.2: subagents.jsonl sidecar fallback for OC daemon agent/model regression.
-                    # When OC daemon fails to populate agent/model on child sessions (regression in
-                    # 0.0.0-fix/subagent-session-directory-inheritance-202606012118), read the
-                    # orchestra-dir sidecar that commands/brain.md wrote at dispatch time and patch
-                    # empty fields. Match by chronological order (both DB rows and sidecar lines are
-                    # ordered by dispatch time within a pipeline).
-                    sidecar_path = Path(session_dir) / "subagents.jsonl"
-                    if sidecar_path.exists():
-                        try:
-                            sidecar_entries = []
-                            for line in sidecar_path.read_text().splitlines():
-                                line = line.strip()
-                                if not line:
-                                    continue
-                                try:
-                                    sidecar_entries.append(json.loads(line))
-                                except json.JSONDecodeError:
-                                    continue  # skip malformed lines silently
-                            # Patch empty agent/model in subagents list, matched by index
-                            for i, sub in enumerate(subagents):
-                                if i >= len(sidecar_entries):
-                                    break
-                                if not sub.get("agent"):
-                                    sub["agent"] = sidecar_entries[i].get("agent", "")
-                                if not sub.get("model"):
-                                    sub["model"] = sidecar_entries[i].get("model", "")
-                                    # provider_model_key may be left empty; the merge below would need
-                                    # to mirror it if downstream consumers depend on it.
-                                    # For now, set it from the sidecar's model value:
-                                    if sub["model"] and not sub.get("provider_model_key"):
-                                        sub["provider_model_key"] = sub["model"]
-                        except Exception as e:
-                            # Record but do not fail the pipeline
-                            parser_warnings.append({"code": "sidecar_read_failed", "message": str(e)})
-
                     # Build parent dict with delta semantics (for compatibility with session-report.py)
                     parent = parent_total.copy()
                     parent["cost"] = parent_delta["cost"]
@@ -332,34 +297,6 @@ def main():
                         f"telemetry-summarize.py: OC session {oc_session_id!r} not found in DB; cost=0",
                         file=sys.stderr,
                     )
-
-                # v8.1.2: subagents.jsonl sidecar fallback for OC daemon agent/model regression (fallback path).
-                subagents = db_data.get("subagents", [])
-                sidecar_path = Path(session_dir) / "subagents.jsonl"
-                if sidecar_path.exists():
-                    try:
-                        sidecar_entries = []
-                        for line in sidecar_path.read_text().splitlines():
-                            line = line.strip()
-                            if not line:
-                                continue
-                            try:
-                                sidecar_entries.append(json.loads(line))
-                            except json.JSONDecodeError:
-                                continue  # skip malformed lines silently
-                        # Patch empty agent/model in subagents list, matched by index
-                        for i, sub in enumerate(subagents):
-                            if i >= len(sidecar_entries):
-                                break
-                            if not sub.get("agent"):
-                                sub["agent"] = sidecar_entries[i].get("agent", "")
-                            if not sub.get("model"):
-                                sub["model"] = sidecar_entries[i].get("model", "")
-                                if sub["model"] and not sub.get("provider_model_key"):
-                                    sub["provider_model_key"] = sub["model"]
-                    except Exception as e:
-                        # Record but do not fail the pipeline
-                        parser_warnings.append({"code": "sidecar_read_failed", "message": str(e)})
 
                 # Inject new fields into fallback data
                 db_data["parent_delta"] = db_data["parent"].copy()
