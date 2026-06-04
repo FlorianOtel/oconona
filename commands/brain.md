@@ -44,11 +44,14 @@ Each of these means a `Task`-tool dispatch was skipped. If you catch yourself ab
 
 ## Prerequisites
 
-1. **Model recommendation (ADVISORY only — never blocks):** Brain runs best on Anthropic Opus 4.7. The pipeline subagents use non-Anthropic models by design; Brain itself benefits from stronger reasoning. This is a **soft recommendation, not a gate** — any model is permitted. Read "The exact model ID is…" from your system context and emit the appropriate one-line notice, then proceed:
+1. **Model recommendation (ADVISORY only — never blocks):** Brain runs best on Anthropic Opus 4.7. The pipeline subagents use non-Anthropic models by design; Brain itself benefits from stronger reasoning. This is a **soft recommendation, not a gate** — any model is permitted. After the Setup Bash block writes `${OPENCODE_ORCHESTRA_SESSION_DIR}/.oc-current-model` (sourced from OC's live `/session.model` — the authoritative current model, immune to `/model`-swap staleness), read it and emit the appropriate one-line notice, then proceed:
 
-   - Model ID is `claude-opus-4-7*` or any newer/higher-capability Anthropic version → proceed silently (no notice).
-   - Any other model (Sonnet 4.6 / Sonnet 4.5 / Haiku / non-Anthropic / unknown) → emit a single-line advisory and proceed:
+   - File contains `anthropic/claude-opus-4-7` (or a newer/higher-capability Anthropic model id under `anthropic/`) → proceed silently (no notice).
+   - File contains any other value (Sonnet 4.6 / Sonnet 4.5 / Haiku / non-Anthropic / unknown) → emit a single-line advisory and proceed, substituting the live `<providerID>/<model.id>` for `[MODEL-ID]`:
      > "ℹ️ /brain recommends Anthropic Opus 4.7 for best orchestration quality. You are on [MODEL-ID] — proceeding anyway (deliberate non-enforcement; `/model claude-opus-4-7` to switch if desired)."
+   - File is empty or missing (OC HTTP unreachable at Setup time) → fall back to reading "The exact model ID is…" from your system context and apply the same rules. This preserves the legacy check when OC is unavailable; in that path the advisory may be stale after a mid-session `/model` swap, but it is the best signal available.
+
+   **Why not just read system context (legacy mechanism, retained as fallback):** the "The exact model ID is…" line is a session-prompt snapshot frozen at session creation. OC's `/model` slash command does not re-render the system prompt — it only re-routes subsequent API calls — so after a mid-session model swap the snapshot is stale. OC's `/session.model` is updated on swap, so it is the live source of truth.
 
    This is a deliberate deviation from `claude-orchestra`, where the same check is a hard gate (STOP on Haiku/older Sonnet/non-Anthropic). In `oconona` the operator's choice is final.
 
@@ -106,18 +109,35 @@ if [ "$(realpath "${OPENCODE_PROJECT_DIR:-$(pwd)}")" = "$(realpath "$HOME")" ] &
     echo "WARN: resolve against \$HOME, not octmux's launch directory. Use absolute paths,"
     echo "WARN: or restart OC from a project root (systemctl --user restart opencode-server)."
 fi
-# Resolve the current OC session ID via OC's HTTP API. OC 1.15.11 does not export
-# OC_SESSION_ID into bash subprocesses; the env var is unreliable. The HTTP API
-# is the authoritative source. Pick the most-recently-updated top-level
-# (parentID null) session in this directory — that's the one running our setup.
+# Resolve the current OC session ID + live model via OC's HTTP API. OC 1.15.11
+# does not export OC_SESSION_ID into bash subprocesses; the env var is unreliable.
+# The HTTP API is the authoritative source. Pick the most-recently-updated
+# top-level (parentID null) session in this directory — that's the one running
+# our setup. Also pull `.model.providerID` and `.model.id`: these reflect the
+# *live* current model (OC updates them on /model swap), unlike the
+# "The exact model ID is…" line in Brain's system context which is a
+# session-prompt snapshot frozen at session creation.
 _OC_PORT="${OPENCODE_PORT:-4096}"
 _OC_DIR="$(realpath "${OPENCODE_PROJECT_DIR:-$(pwd)}" 2>/dev/null || pwd)"
-_OC_SESSION_ID=$(curl -sS -H "x-opencode-directory: ${_OC_DIR}" "http://localhost:${_OC_PORT}/session" 2>/dev/null \
+_OC_SESSION_TSV=$(curl -sS -H "x-opencode-directory: ${_OC_DIR}" "http://localhost:${_OC_PORT}/session" 2>/dev/null \
     | jq -r --arg dir "$_OC_DIR" '
         [.[] | select(.parentID == null and .directory == $dir)]
-        | sort_by(.time.updated) | last | .id // ""' 2>/dev/null)
+        | sort_by(.time.updated) | last
+        | [.id // "", .model.providerID // "", .model.id // ""] | @tsv' 2>/dev/null)
+_OC_SESSION_ID="$(printf '%s' "${_OC_SESSION_TSV}" | cut -f1)"
+_OC_MODEL_PROVIDER="$(printf '%s' "${_OC_SESSION_TSV}" | cut -f2)"
+_OC_MODEL_ID="$(printf '%s' "${_OC_SESSION_TSV}" | cut -f3)"
 printf '%s\n' "${_OC_SESSION_ID:-}" > "${SESSION_DIR}/.oc-session-id"
 [ -z "$_OC_SESSION_ID" ] && echo "WARN: telemetry-summarize: .oc-session-id will be empty — check /session endpoint or header" >&2
+# Live model for the Prerequisites #1 advisory. Atomic write; empty file signals
+# HTTP failure → advisory falls back to reading system context (legacy path).
+if [ -n "${_OC_MODEL_PROVIDER:-}" ] && [ -n "${_OC_MODEL_ID:-}" ]; then
+    printf '%s/%s\n' "${_OC_MODEL_PROVIDER}" "${_OC_MODEL_ID}" \
+        > "${SESSION_DIR}/.oc-current-model.tmp"
+    mv -f "${SESSION_DIR}/.oc-current-model.tmp" "${SESSION_DIR}/.oc-current-model"
+else
+    : > "${SESSION_DIR}/.oc-current-model"
+fi
 # Snapshot OC parent cost+tokens at session start (A1 attribution).
 # Written AFTER .oc-session-id so the ID is available.
 # Fallback: if snapshot fails (DB miss, session not yet in DB),
