@@ -2,8 +2,8 @@
 title: "Stage 7 — OC-native telemetry redesign roadmap"
 created_at: 2026-05-28--18-16
 created_by: Actor (Claude Haiku 4.5)
-updated_by: Actor (Claude Haiku 4.5) via /brain pipeline
-updated_at: 2026-06-04--10-04
+updated_by: Claude Code (Claude Opus 4.7 — 1M context)
+updated_at: 2026-06-04--17-15
 context: >
   Stage 7 roadmap doc, produced by Brain/Planner session
   20260528T181605Z-2855594. Tracks the v7.0–v7.5 sub-stages replacing the
@@ -75,9 +75,7 @@ for NULL or non-JSON values.
 
 ### Per-tier breakdown via `parent_id`
 
-**Fix from octmux** (Stage 8.1.2, ref octmux commit `c73e354`)
-
-OC creates child sessions for every `Task`-tool dispatch. Querying `WHERE parent_id = <brain_session_id>` returns one row per subagent dispatch. As of v8.1.2, the OC DB `agent` and `model` columns may be empty (NULL) for subagent child sessions due to OC internals. When these columns are empty, `telemetry-summarize.py` falls back to reading the `subagents.jsonl` sidecar in the orchestra session directory (written by `commands/brain.md` during Task dispatch). The `telemetry.json` output fields `subagents[].agent` and `subagents[].model` are reliably populated regardless of the DB column state, via this fallback merge. Each row carries its own `cost` and `tokens_*` fields. No SoHoAI session-ID tagging is required.
+OC creates child sessions for every `Task`-tool dispatch. Querying `WHERE parent_id = <brain_session_id>` returns one row per subagent dispatch, each with its own `agent` (`planner`, `actor`, `actor-heavy`, `reviewer`, etc.), `model` (the resolved provider/model JSON), `cost`, and `tokens_*`. The OC daemon populates `agent` and `model` at session-create time from the Task-tool `subagent_type` parameter and the resolved agent frontmatter. No SoHoAI session-ID tagging is required.
 
 ### The `.oc-session-id` sidecar
 

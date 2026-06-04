@@ -2,8 +2,8 @@
 title: "Stage 7 Changelog — oconona"
 created_at: 2026-05-28--18-16
 created_by: Actor (Claude Haiku 4.5)
-updated_by: Actor (Claude Haiku 4.5) via /brain pipeline
-updated_at: 2026-06-04--10-04
+updated_by: Claude Code (Claude Opus 4.7 — 1M context)
+updated_at: 2026-06-04--17-15
 context: >
   Reverse-chronological implementation log for Stage 7 OC-native telemetry
   redesign. Carries forward Stage 6 entries with status annotations. Newest
@@ -13,6 +13,15 @@ context: >
 # Stage 7 Changelog
 
 Entries are reverse-chronological. Newest at the top.
+
+---
+
+## 2026-06-04--17-15 — v8.1.3 revert v8.1.2 subagents.jsonl sidecar
+
+**Implemented by:** Claude Code (Claude Opus 4.7 — 1M context) — 2026-06-04--17-15
+**Commit(s):** `3b4511c`
+
+Upstream OpenCode fix (fork `FlorianOtel/opencode` commit `98a4907c9`) restores OC-native `agent`/`model` column population on Task-tool child sessions, so the v8.1.2 oconona sidecar layer is no longer needed. Reverted: four `subagents.jsonl` write blocks in `commands/brain.md` (Planner / Actor / Actor-heavy / Reviewer phases) and the two sidecar-merge blocks in `scripts/telemetry-summarize.py`. Kept (unrelated correctness): `scripts/oc-db.py` line 378 default `or ""` (still distinguishes NULL DB column from a real "brain" agent). Verified before commit: deployed daemon `0.0.0-dev-202606041432` populates `agent`/`model` natively on post-deploy child sessions in `opencode.db`. **If the daemon is ever rebuilt from canonical `sst/opencode` without the upstream fix, attribution will return to NULL — see the v8.1.2 entry for the workaround pattern**, which can be restored from git history at this commit.
 
 ---
 
