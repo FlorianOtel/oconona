@@ -375,7 +375,7 @@ def _zero_tier() -> dict:
 def _row_to_tier(row: dict) -> dict:
     """Convert a session row to a tier dict (parent or subagent)."""
     return {
-        "agent": row["agent"] or "brain",
+        "agent": row["agent"] or "",
         "model": _parse_model(row["model"]),
         "provider_model_key": _parse_model_full(row["model"]),
         "cost": float(row["cost"] or 0),
