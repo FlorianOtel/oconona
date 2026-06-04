@@ -2,8 +2,8 @@
 title: "OpenCode Orchestra — three-tier Brain/Planner/Actor pattern over OpenCode"
 created_at: 20260424-000000
 created_by: OpenCode (Claude Opus 4.7, 1M context)
-updated_by: Brain (Anthropic Opus 4.7 via /brain) — v7.5 per-segment attribution
-updated_at: 2026-06-03--14-30
+updated_by: Actor (Claude Haiku 4.5) via /brain pipeline
+updated_at: 2026-06-04--10-04
 context: >
   Reference architecture for OpenCode Orchestra — a three-tier orchestration
   pattern layered on OpenCode using native subagents. The design supports
@@ -346,6 +346,8 @@ OpenCode's native SQLite database (`~/.local/share/opencode/opencode.db`) stores
 - `time_archived` — session completion timestamp (NULL observed for all sessions tested; present in schema)
 
 **Per-tier breakdown:** A query `WHERE parent_id = <brain_session_id>` returns one row per subagent dispatch (Planner, Actor, Reviewer, Actor-Heavy), with cost pre-summed. Brain session itself has `parent_id = NULL`.
+
+**Fix from octmux** (Stage 8.1.2, ref octmux commit `c73e354`): The `agent` and `model` column population in OC's DB depends on OC version; in recent versions these columns may be empty (NULL) for subagent child sessions. `oc-db.py` and `telemetry-summarize.py` handle empty columns via `subagents.jsonl` sidecar fallback, ensuring telemetry output is reliably attributed.
 
 **Sidecar glue point:** `.oc-session-id` file written by `/brain` and `/duo-plan` setup contains the OC session ID string. At cleanup, telemetry generation and status-line cost reading both use this sidecar to query the correct OC session row, ensuring attribution stays aligned across the session lifecycle.
 

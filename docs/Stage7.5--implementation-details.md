@@ -2,8 +2,8 @@
 title: "v7.5 — oconona harness contract: per-session sidecars, badge format, attribution mechanics"
 created_at: 2026-06-03--14-30
 created_by: Claude Code (Claude Opus 4.7 1M context)
-updated_by: Claude Code (Claude Haiku 4.5 — Actor via /brain octmux Stage 8.1.1)
-updated_at: 2026-06-03--23-35
+updated_by: Actor (Claude Haiku 4.5) via /brain pipeline
+updated_at: 2026-06-04--10-04
 context: >
   Authoritative reference for the v7.5 oconona contract exposed to OpenCode
   harnesses (octmux and future TUIs). Documents logical-part markers, all
@@ -222,6 +222,12 @@ If **both snapshots are `{}` or missing**:
 - `parent_delta` and `parent_total` are present but `parent_total` carries the cumulative values (same as pre-v7.5).
 - Consumers **must check `parser_warnings`** to distinguish segment-correct from fallback records.
 
+### Attribution fallback via `subagents.jsonl` sidecar (v8.1.2+)
+
+**Fix from octmux** (Stage 8.1.2, ref octmux commit `c73e354`)
+
+The `subagents[].agent` and `subagents[].model` fields in `telemetry.json` may be sourced from the `subagents.jsonl` sidecar in the orchestra session directory rather than the OC DB columns when the DB `agent` and `model` columns are empty (NULL) for child sessions. `telemetry-summarize.py` merges `agent` and `model` values from `subagents.jsonl` (if present) into the `subagents[]` array entries by chronological index when DB columns are unpopulated. This ensures that `telemetry.json` output fields are reliably populated regardless of OC's DB column state.
+
 ### Write invariant
 
 - Always atomic via `mktemp` + `mv -f` (POSIX `rename(2)`). Consumers never see partial writes.
@@ -357,6 +363,21 @@ The badge has **four canonical states**, with mode segment always present.
 3. Retain only dirs whose `.oc-session-id` matches the OC session ID.
 4. Apply 24h mtime stale-marker guard on inflight files (skip if > 24h old).
 5. Render badge for matched live and completed segments.
+
+### Telemetry summarizer (`telemetry-summarize.py`)
+
+**Fix from octmux** (Stage 8.1.2, ref octmux commit `c73e354`)
+
+**Files read:**
+- `${SESSION_DIR}/.oc-session-id` (OC session ID match key)
+- `${SESSION_DIR}/.parent-snapshot-start` (segment-delta start)
+- `${SESSION_DIR}/.parent-snapshot-end` (segment-delta end)
+- `~/.local/share/opencode/opencode.db` (OC SQLite session table)
+- `${SESSION_DIR}/subagents.jsonl` (v8.1.2+, sidecar fallback for DB `agent`/`model` columns)
+
+**Behaviour:** Queries OC's DB to fetch parent session and subagent child sessions. When OC DB `agent` and `model` columns are empty for child sessions, reads `subagents.jsonl` (if present) and merges `agent` and `model` fields into the subagents array by chronological dispatch order. Computes segment-delta costs (end snapshot - start snapshot) if both snapshots are non-empty.
+
+**Sidecar format:** `subagents.jsonl` is NDJSON (one JSON object per line), written by `commands/brain.md` during Task dispatch. Each line contains: `{"agent": "<subagent_type>", "model": "<provider/model>", "dispatched_at_ms": <ms_since_epoch>}`. Stability: stable since v8.1.2 oconona attribution fix.
 
 ---
 

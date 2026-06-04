@@ -2,8 +2,8 @@
 title: "Stage 7 Changelog — oconona"
 created_at: 2026-05-28--18-16
 created_by: Actor (Claude Haiku 4.5)
-updated_by: Claude Code (Claude Sonnet 4.6)
-updated_at: 2026-06-03--22-00
+updated_by: Actor (Claude Haiku 4.5) via /brain pipeline
+updated_at: 2026-06-04--10-04
 context: >
   Reverse-chronological implementation log for Stage 7 OC-native telemetry
   redesign. Carries forward Stage 6 entries with status annotations. Newest
@@ -13,6 +13,15 @@ context: >
 # Stage 7 Changelog
 
 Entries are reverse-chronological. Newest at the top.
+
+---
+
+## 2026-06-04--10-04 — v8.1.2 attribution fixes
+
+**Implemented by:** Actor (Claude Haiku 4.5) via /brain pipeline — 2026-06-04--10-04
+**Commit(s):** `382dd4f`
+
+Summary: misleading `agent: "brain"` default removed from oc-db.py (NULL agent column now surfaces as `""`); attribution fix (Branch B — sidecar fallback) implemented. Cross-project: fix triggered from octmux Stage 8.1.2 telemetry investigation (ref `c73e354`).
 
 ---
 
