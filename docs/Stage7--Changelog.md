@@ -3,7 +3,7 @@ title: "Stage 7 Changelog — oconona"
 created_at: 2026-05-28--18-16
 created_by: Actor (Claude Haiku 4.5)
 updated_by: Claude Code (Claude Sonnet 4.6 — 1M context)
-updated_at: 2026-06-05--09-39
+updated_at: 2026-06-05--10-15
 context: >
   Reverse-chronological implementation log for Stage 7 OC-native telemetry
   redesign. Carries forward Stage 6 entries with status annotations. Newest
@@ -13,6 +13,17 @@ context: >
 # Stage 7 Changelog
 
 Entries are reverse-chronological. Newest at the top.
+
+---
+
+## 2026-06-05--10-15 — v8.1.6 remove state.env badge title — brain reads .brain-inflight content
+
+**Implemented by:** Claude Code (Claude Sonnet 4.6 — 1M context) — 2026-06-05--10-15
+**Commit(s):** `9a17fbe` (code); doc commit follows; octmux committed separately
+
+`state.env` (`ORCHESTRA_TITLE=`, `ORCHESTRA_MODE=`) is no longer written or read for badge purposes. Both `/brain` and `/duo` now embed the full badge string in their inflight marker file content; `orchestra-block.sh` and `octmux/src/orchestra-watch.ts` read `.brain-inflight` content for brain (same pattern as the existing `.duo-inflight` read). The global C6 fragility (concurrent `/brain` sessions on different projects clobbering the shared `state.env` title) is resolved. Cleanup blocks in `brain.md`, `brain-abandon.md`, `duo-abandon.md`, `duo-act.md` no longer reset `state.env`. Multi-concurrent brain case now renders `orchestra full - #N` (previously unhandled).
+
+Scope: `commands/brain.md`, `commands/brain-abandon.md`, `commands/duo-abandon.md`, `commands/duo-act.md`, `status-line/orchestra-block.sh` (code commit `9a17fbe`); `docs/Stage7.5--implementation-details.md` (this doc commit); octmux `src/orchestra-watch.ts` + `docs/Stage8--implementation-details.md` committed separately.
 
 ---
 

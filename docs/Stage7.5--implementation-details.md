@@ -3,7 +3,7 @@ title: "v7.5 — oconona harness contract: per-session sidecars, badge format, a
 created_at: 2026-06-03--14-30
 created_by: Claude Code (Claude Opus 4.7 1M context)
 updated_by: Claude Code (Claude Sonnet 4.6 — 1M context)
-updated_at: 2026-06-05--09-32
+updated_at: 2026-06-05--10-15
 context: >
   Authoritative reference for the v7.5 oconona contract exposed to OpenCode
   harnesses (octmux and future TUIs). Documents logical-part markers, all
@@ -72,7 +72,7 @@ All sidecar files live in `${SESSION_DIR}/` alongside `PLAN.md`, `TASKS.json`, `
 | `.outcome` | cleanup bash BEFORE `telemetry-summarize.sh` | status-line, reporters, harness consumers | stable since v6.1 | Values: `pass`, `block`, `partial`, `abandoned`, `fix-loop`. Written first in cleanup to bound the telemetry window (mtime guards the Stop-hook finalizer). |
 | `.last-logfile` | orchestr-hook.sh start event | orchestra-hook.sh end event | stable since v6.1 | Sidecar from start→end link. Contains the logfile path for the session. Auto-cleaned after 120 min at hook startup if not claimed by matching end event. |
 | `.transcript-uuid` | none (v7.2+ removed writes; field preserved v7.1 for back-compat) | none (legacy consumers removed v7.3) | deprecated | Forensic only; present on pre-v7.2 sessions. Absence is normal v7.2+. |
-| `state.env` | `/brain` setup; reset at cleanup | Brain prompt context injection, badge title sourcing | stable (content appended by each phase) | Global path `~/.config/opencode/orchestra/state.env` (not per-session). Format: `KEY=VALUE` lines, append-only. Reset to `ORCHESTRA_MODE=default\nORCHESTRA_TITLE=\n` at cleanup. Keys: `ORCHESTRA_MODE` (brain\|duo\|default), `ORCHESTRA_TITLE` (title string). |
+| `state.env` | — (deprecated as of v8.1.6) | none | **deprecated** | Was used by `/brain` to source badge title (`ORCHESTRA_TITLE=`) and pipeline mode (`ORCHESTRA_MODE=`). Removed in v8.1.6: both `/brain` and `/duo` now embed the full badge text in their respective inflight marker file content. No consumer reads `state.env` for badge purposes. File may still exist on disk from pre-v8.1.6 sessions; safe to ignore or delete. |
 
 ---
 
@@ -316,7 +316,7 @@ Removed in v8.1.5. Subagent dispatch no longer appears in the badge; the mode pr
 
 ### Source of fields
 
-- **`<title>`:** The stored value (`.duo-inflight` content or `ORCHESTRA_TITLE=` in `state.env`) embeds the full badge text including mode prefix. Renderers pass it through verbatim. No separate mode or subagent field is extracted.
+- **`<title>`:** The stored value embedded directly in the inflight marker file content (`.brain-inflight` for brain, `.duo-inflight` for duo) — `"orchestra full - <title>"` or `"orchestra light - <title>"`. Renderers read the file content and pass it through verbatim. `state.env` is no longer used for this purpose (deprecated v8.1.6).
 
 ---
 
@@ -325,9 +325,8 @@ Removed in v8.1.5. Subagent dispatch no longer appears in the badge; the mode pr
 ### Standalone `orchestra-block.sh` (oconona's host status-line block)
 
 **Files read:**
-- `~/.config/opencode/orchestra/sessions/*/.brain-inflight`
-- `~/.config/opencode/orchestra/sessions/*/.duo-inflight`
-- `~/.config/opencode/orchestra/state.env`
+- `~/.config/opencode/orchestra/sessions/*/.brain-inflight` (content = full badge text)
+- `~/.config/opencode/orchestra/sessions/*/.duo-inflight` (content = full badge text)
 
 **Polling strategy:** Invoked by host status-line render tick (no internal loop; external caller polls).
 
@@ -337,9 +336,8 @@ Removed in v8.1.5. Subagent dispatch no longer appears in the badge; the mode pr
 
 **Files read:**
 - `~/.config/opencode/orchestra/sessions/*/.oc-session-id`
-- `~/.config/opencode/orchestra/sessions/*/.brain-inflight`
-- `~/.config/opencode/orchestra/sessions/*/.duo-inflight`
-- `~/.config/opencode/orchestra/state.env`
+- `~/.config/opencode/orchestra/sessions/*/.brain-inflight` (content = full badge text)
+- `~/.config/opencode/orchestra/sessions/*/.duo-inflight` (content = full badge text)
 
 **Polling strategy:** `fs.watch()` on `~/.config/opencode/orchestra/sessions/` + 5-second `setInterval` fallback poll. Handles NFS attribute cache lag and missed events.
 
@@ -497,15 +495,16 @@ Step-by-step recipe for a brand-new OC harness implementing orchestra-aware badg
 
 4. **Identify completed segments.** For each matched session_dir: if `telemetry.json` exists (and no inflight marker), it's a completed segment. Read the file.
 
-5. **Extract badge title for live segments.** 
-   - For `.duo-inflight`: read marker content (first 30 chars).
-   - For `.brain-inflight`: read `ORCHESTRA_TITLE=` line from `~/.config/opencode/orchestra/state.env` (fallback to first 30 chars of `.brain-inflight` if state.env unavailable).
+5. **Extract badge title for live segments.** Both inflight files carry the full badge text as content (v8.1.5+):
+   - For `.duo-inflight`: read marker content (first 48 chars). Example: `orchestra light - my task`.
+   - For `.brain-inflight`: read marker content (first 48 chars). Example: `orchestra full - my task`.
+   - `state.env` is no longer used for badge title sourcing (deprecated v8.1.6).
 
-6. **Determine badge mode.** literal string: `duo` (if `.duo-inflight` present) or `brain` (if `.brain-inflight` present).
+6. **Determine badge mode.** Inferred from marker filename: `.duo-inflight` → duo, `.brain-inflight` → brain. Mode is also encoded in the inflight content prefix (`orchestra light - ` / `orchestra full - `).
 
 7. **Determine active subagent role.** Detect live subagents via OC SSE `SubtaskPart` events (`part.type === "subtask"`). Track `partID` set; clear on `message.part.removed` or `session.idle`. Extract `agent` field from detected parts (canonical role: `planner`, `actor`, `actor-heavy`, `reviewer`). See `octmux/src/events.ts` `detectedSubtaskPartIDs` for reference implementation.
 
-8. **Render badge.** Use template: `♪ orchestra -> <title> -> <mode> [-> <subagent>]`. Color `#d3869b`. Subagent segment is optional (only if role is live).
+8. **Render badge.** Pass inflight content through verbatim with `♪` prepended: `♪ <inflight-content>`. Color `#d3869b`. No mode/subagent suffix in badge text (dropped in v8.1.5).
 
 9. **Extract per-segment cost for completed sessions.** Read `telemetry.json` and extract `totals.cost_usd_estimate` (or use `cost_usd_estimate` top-level field for back-compat with pre-v7.5 shape). Check `parser_warnings` — if `snapshot_missing` is present, cost is cumulative (not segment-delta).
 
