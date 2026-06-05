@@ -60,6 +60,8 @@ calls, so session dir creation and inflight write must share the same shell.)
 
 Replace `<task title, ≤30 chars, no single-quotes>` with the first 30 printable
 characters of the operator's task description, stripping any single-quote characters.
+The stored value embeds the mode prefix: `orchestra light - <title>`. The renderer
+passes this value through; the `♪` is prepended at render time.
 
 Run via `Bash`:
 
@@ -89,8 +91,9 @@ SESSION_ID="$(date -u +%Y%m%dT%H%M%SZ)-$$"
 SESSION_DIR="${SESSIONS_ROOT}/${SESSION_ID}"
 mkdir -p "${SESSION_DIR}"
 # Write inflight marker in the same shell so SESSION_DIR is available.
+# Content is the full badge string (prefix + title) stored verbatim.
 # Stays live through refinement and actor execution; removed by /duo-act or /duo-abandon.
-printf '%s' "<task title, ≤30 chars, no single-quotes>" \
+printf '%s' "orchestra light - <task title, ≤30 chars, no single-quotes>" \
   > "${SESSION_DIR}/.duo-inflight.tmp"
 mv -f "${SESSION_DIR}/.duo-inflight.tmp" "${SESSION_DIR}/.duo-inflight"
 printf '%s\n' "${OPENCODE_PROJECT_DIR:-$(pwd)}" > "${SESSION_DIR}/.project-dir"

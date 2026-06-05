@@ -94,9 +94,10 @@ SESSION_DIR="${SESSIONS_ROOT}/${SESSION_ID}"
 mkdir -p "${SESSION_DIR}"
 export OPENCODE_ORCHESTRA_SESSION_DIR="${SESSION_DIR}"
 # Write .brain-inflight marker in the same shell so SESSION_DIR is available.
+# Content is the full badge string (prefix + title) stored verbatim.
 # Stays live through Phase 0/1/2/3; removed by the cleanup block (PASS / abandon /
 # block branches) or by /brain-abandon.
-printf '%s' "<task title, ≤30 chars, no single-quotes>" \
+printf '%s' "orchestra full - <task title, ≤30 chars, no single-quotes>" \
   > "${SESSION_DIR}/.brain-inflight.tmp"
 mv -f "${SESSION_DIR}/.brain-inflight.tmp" "${SESSION_DIR}/.brain-inflight"
 printf '%s\n' "${OPENCODE_PROJECT_DIR:-$(pwd)}" > "${SESSION_DIR}/.project-dir"
@@ -164,16 +165,16 @@ echo "session_dir=${SESSION_DIR}"
 echo "retention_days=${RETENTION_DAYS}"
 ```
 
-After creating the session directory, write the pipeline mode and task title to the orchestra badge. The title is the operator's invocation text (the args after `/brain`), truncated to 30 printable characters, with single-quotes replaced by spaces. Run via `Bash`:
+After creating the session directory, write the pipeline mode and task title to the orchestra badge. The stored value embeds the mode prefix directly: `orchestra full - <title>`. The title portion is the operator's invocation text (the args after `/brain`), truncated to 30 printable characters, with single-quotes replaced by spaces. Run via `Bash`:
 
 ```bash
 ORCH_DIR="${HOME}/.config/opencode/orchestra"
 mkdir -p "$ORCH_DIR"
 printf 'ORCHESTRA_MODE=brain\nORCHESTRA_TITLE=%s\n' \
-  "<task title, ≤30 chars, no single-quotes>" >> "${ORCH_DIR}/state.env"
+  "orchestra full - <task title, ≤30 chars, no single-quotes>" >> "${ORCH_DIR}/state.env"
 ```
 
-Replace `<task title, ≤30 chars, no single-quotes>` with the first 30 printable characters of the operator's task description, stripping any single-quote characters.
+Replace `<task title, ≤30 chars, no single-quotes>` with the first 30 printable characters of the operator's task description, stripping any single-quote characters. The renderer passes the full stored value through; the `♪` is prepended at render time.
 
 Print the session_dir to the operator so they can locate artifacts later.
 

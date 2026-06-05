@@ -50,7 +50,7 @@ if [ -n "$cwd" ] && [ -f "$HOME/.config/opencode/orchestra/oconona-config.yaml" 
         duo_count=$(find "$sessions_root" -maxdepth 2 -name ".duo-inflight" 2>/dev/null | wc -l | tr -d ' ')
         if [ "$duo_count" -eq 1 ]; then
             duo_title=$(find "$sessions_root" -maxdepth 2 -name ".duo-inflight" 2>/dev/null \
-                        -exec cat {} \; 2>/dev/null | head -c 30)
+                        -exec cat {} \; 2>/dev/null | head -c 48)
         fi
     fi
 
@@ -118,32 +118,19 @@ PYEOF
     [ -n "$live_cost" ] && { [ -n "$_insert" ] && _insert+=" | ${live_cost}" || _insert="${live_cost}"; }
     [ -n "$_insert"   ] && status_line="${status_line/ | / | ${_insert} | }"
 
-    # --- badge rendering (symmetric: orchestra -> <title> -> <mode> [-> <subagent>]) ---
-    # Priority: duo > brain > plain-subagent-only.
-    # Mode segment always present. Subagent role label from invocations.log subagent field.
+    # --- badge rendering (passthrough: stored value contains full badge text) ---
+    # inflight content (duo) or ORCHESTRA_TITLE state.env value (brain) already
+    # embeds the mode prefix ("orchestra full - " / "orchestra light - ").
+    # Priority: duo > brain.
     if [ "$duo_count" -gt 0 ]; then
         if [ "$duo_count" -eq 1 ]; then
-            _badge_title="$duo_title"
+            _badge_text="$duo_title"
         else
-            _badge_title="#${duo_count}"
+            _badge_text="orchestra light - #${duo_count}"
         fi
-        _badge_mode="duo"
-        if [ -n "$active_subagent" ] && [ "$last_start_ts" \> "${last_end_ts:-}" ]; then
-            badge_text="orchestra -> ${_badge_title} -> ${_badge_mode} -> ${active_subagent}"
-        else
-            badge_text="orchestra -> ${_badge_title} -> ${_badge_mode}"
-        fi
-        status_line+=$(printf " | ${ORCHESTRA_COLOR}♪ %s${RESET}" "$badge_text")
+        status_line+=$(printf " | ${ORCHESTRA_COLOR}♪ %s${RESET}" "$_badge_text")
     elif [ -n "$orch_title" ]; then
-        _badge_mode="${orch_mode:-brain}"
-        if [ -n "$active_subagent" ] && [ "$last_start_ts" \> "${last_end_ts:-}" ]; then
-            badge_text="orchestra -> ${orch_title} -> ${_badge_mode} -> ${active_subagent}"
-        else
-            badge_text="orchestra -> ${orch_title} -> ${_badge_mode}"
-        fi
-        status_line+=$(printf " | ${ORCHESTRA_COLOR}♪ %s${RESET}" "$badge_text")
-    elif [ -n "$active_subagent" ] && [ "$last_start_ts" \> "${last_end_ts:-}" ]; then
-        status_line+=$(printf " | ${ORCHESTRA_COLOR}♪ orchestra -> ${active_subagent}${RESET}")
+        status_line+=$(printf " | ${ORCHESTRA_COLOR}♪ %s${RESET}" "$orch_title")
     fi
 fi
 
