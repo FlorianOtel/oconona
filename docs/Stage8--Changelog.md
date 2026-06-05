@@ -2,6 +2,8 @@
 title: "Stage 8 — Changelog"
 created_at: 2026-06-05--13-00
 created_by: Actor (Claude Haiku 4.5 — via oconona /brain Stage 8 dispatch)
+updated_by: Claude Code (Claude Sonnet 4.6)
+updated_at: 2026-06-05--16-38
 context: >
   Per-version changelog for Stage 8 of the oconona orchestra
   (Researcher tier + Brain Phase 0 hardening + telemetry counter).
@@ -11,6 +13,34 @@ context: >
 ---
 
 # Stage 8 — Changelog
+
+## v8.2.1 — orchestra-cleanup.sh — non-shortcuttable end-of-session cleanup
+
+**Shipped:** 2026-06-05
+**Code commit:** `fdbd2ebac25e30700f99b0e2b4e79e11f2621013` (short: `fdbd2eb`)
+
+### What shipped
+
+- **New script:** `scripts/orchestra-cleanup.sh` — single-entry shell script that owns the complete end-of-session cleanup sequence: `.outcome` (atomic write) → `.parent-snapshot-end` (oc-db.py snapshot with `{}` fallback) → inflight marker removal (badge-clear) → `telemetry-summarize.sh` → post-verify retry loop. Always exits 0 (best-effort; never blocks pipeline). Final stdout: `cleanup ok: outcome=<outcome> telemetry=<exists|MISSING>`.
+
+- **Simplified command cleanup blocks:** `commands/brain.md`, `commands/brain-abandon.md`, `commands/duo-act.md`, `commands/duo-abandon.md` — each had a 30-line multi-step bash block replaced by a single `orchestra-cleanup.sh` call. The multi-step surface is gone; the LLM can no longer satisfy the visible state transition by running a subset.
+
+- **Deploy wired:** `deploy.sh` script list extended with `orchestra-cleanup.sh` (auto chmod +x on deploy) and matching comment entry.
+
+### Why
+
+Brain (Opus 4.7) in session `20260605T133246Z-1909420` (v8.2.0) shortcut the cleanup block: ran 8 of 30 lines, clearing the badge but skipping `.parent-snapshot-end` capture and `telemetry-summarize.sh`. Result: `telemetry.json` absent, global `telemetry.jsonl` missing entry, A1-attribution snapshot pair gone. The multi-step inline block is the mechanism the model exploits — replacing it with a single opaque script call removes that surface. Investigated and planned in `~/Gin-AI/tmp/brain-telemetry-cleanup.md`.
+
+### Files changed
+
+- `scripts/orchestra-cleanup.sh` (new, +x)
+- `commands/brain.md`
+- `commands/brain-abandon.md`
+- `commands/duo-act.md`
+- `commands/duo-abandon.md`
+- `deploy.sh`
+
+---
 
 ## v8.2.0 — Researcher tier + Brain Phase 0 hardening + telemetry counter
 
