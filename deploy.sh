@@ -116,11 +116,12 @@ done
 #   native-session-report.sh  — non-orchestra OC session report wrapper (calls .py)
 #   smoke-test.sh             — 4-check end-of-/brain validation (shell-only)
 #   ctx-segment.sh            — status-line context-window bar renderer
+#   orchestra-cleanup.sh      — end-of-session cleanup: .outcome + snapshot + inflight removal + telemetry
 echo "Scripts:"
 for s in \
     orchestra-hook.sh telemetry-summarize.sh telemetry-report.sh \
     session-report.sh native-session-report.sh smoke-test.sh \
-    ctx-segment.sh; do
+    ctx-segment.sh orchestra-cleanup.sh; do
     if [ -f "$REPO/scripts/$s" ]; then
         copy_file "$REPO/scripts/$s" "$OC_HOME/scripts/$s"
         $DRY_RUN || chmod +x "$OC_HOME/scripts/$s"

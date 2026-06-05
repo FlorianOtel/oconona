@@ -87,42 +87,12 @@ Map Actor's return to a cleanup `outcome`:
 
 ## Phase 4 — Cleanup + telemetry
 
-Use the literal session dir path captured above (substitute `<SESSION_DIR>`). Order matters: write `.outcome` **before** removing `.duo-inflight` and **before** invoking the summariser, so its mtime bounds the T2 time window.
+Run the cleanup script — it owns the full sequence in the correct order:
+`.outcome` → end-snapshot → inflight removal → telemetry-summarise → post-verify.
 
 ```bash
-printf '%s' "<outcome: pass | block | partial>" > "<SESSION_DIR>/.outcome.tmp"
-mv -f "<SESSION_DIR>/.outcome.tmp" "<SESSION_DIR>/.outcome"
-# Snapshot OC parent cost+tokens at session end (A1 attribution).
-# Runs AFTER .outcome, BEFORE telemetry-summarize.sh.
-_OC_SID_FOR_SNAP=""
-if [ -f "<SESSION_DIR>/.oc-session-id" ]; then
-    _OC_SID_FOR_SNAP=$(cat "<SESSION_DIR>/.oc-session-id" 2>/dev/null | tr -d ' \n')
-fi
-if [ -n "${_OC_SID_FOR_SNAP:-}" ]; then
-    _SNAP_END_JSON=$(OC_SID="$_OC_SID_FOR_SNAP" "${HOME}/Gin-AI/.Gin-AI-python-3.12/bin/python3" - 2>/dev/null <<'SNAPEOF'
-import os, json, importlib.util
-from pathlib import Path
-spec = importlib.util.spec_from_file_location("oc_db", Path.home()/".config/opencode/scripts/oc-db.py")
-oc_db = importlib.util.module_from_spec(spec); spec.loader.exec_module(oc_db)
-snap = oc_db.get_session_snapshot(os.environ["OC_SID"])
-if snap: print(json.dumps(snap))
-SNAPEOF
-)
-    if [ -n "${_SNAP_END_JSON:-}" ]; then
-        printf '%s\n' "$_SNAP_END_JSON" > "<SESSION_DIR>/.parent-snapshot-end.tmp"
-        mv -f "<SESSION_DIR>/.parent-snapshot-end.tmp" "<SESSION_DIR>/.parent-snapshot-end"
-    else
-        printf '{}' > "<SESSION_DIR>/.parent-snapshot-end.tmp"
-        mv -f "<SESSION_DIR>/.parent-snapshot-end.tmp" "<SESSION_DIR>/.parent-snapshot-end"
-    fi
-fi
-rm -f "<SESSION_DIR>/.duo-inflight"
-~/.config/opencode/scripts/telemetry-summarize.sh \
-    "<SESSION_DIR>" duo "<outcome>" "" 2>&1 \
-    | tail -n 1
+~/.config/opencode/scripts/orchestra-cleanup.sh "<SESSION_DIR>" duo "<outcome: pass | block | partial>"
 ```
-
-The summariser writes `<SESSION_DIR>/telemetry.json` (full record) and appends one line to `~/.config/opencode/orchestra/telemetry.jsonl` (global trend log). Errors are logged to `parser_warnings[]` in the JSON; the script never fails the pipeline.
 
 ---
 
