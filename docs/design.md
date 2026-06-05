@@ -2,8 +2,8 @@
 title: "OpenCode Orchestra — three-tier Brain/Planner/Actor pattern over OpenCode"
 created_at: 20260424-000000
 created_by: OpenCode (Claude Opus 4.7, 1M context)
-updated_by: Claude Code (Claude Opus 4.7 — 1M context)
-updated_at: 2026-06-04--21-22
+updated_by: Actor (Claude Haiku 4.5 — via /brain Stage 8 dispatch)
+updated_at: 2026-06-05--12-51
 context: >
   Reference architecture for OpenCode Orchestra — a three-tier orchestration
   pattern layered on OpenCode using native subagents. The design supports
@@ -72,6 +72,8 @@ When NOT to use /brain: simple tasks with ≤5 steps, low blast radius. Use /duo
 | **Actor** | `sohoai/qwen3-4b-q6` | `~/.config/opencode/agents/actor.md` | Read, Edit, Write, Bash, Grep, Glob (+ denies on rm -rf, git push) | Executes one step per invocation; self-persists TASKS.json via atomic-rename |
 | **Actor** (heavy) | `sohoai/glm-5.1` | `~/.config/opencode/agents/actor-heavy.md` | Read, Edit, Write, Bash, Grep, Glob (+ denies on rm -rf, git push) | Complex multi-file refactors; triggered by `[tier: heavy]` step annotations |
 | **Reviewer** | `anthropic/claude-sonnet-4-6` (v7.3.5+) | `~/.config/opencode/agents/reviewer.md` | Read, Grep, Glob, TodoWrite (read-only) | Reviews diff against PLAN.md; returns PASS / FIX / BLOCK. Model changed from `sohoai/kimi-k2.6` in v7.3.5 to enable per-tier cost tracking and marginal-attribution. |
+| **Researcher** | `anthropic/claude-haiku-4-5` | `~/.config/opencode/agents/researcher.md` | Read, Grep, Glob, Bash, WebFetch, TodoWrite (read-only + Bash for probes) | Phase 0 factual verification; returns VERDICT/EVIDENCE/CAVEATS with file:line citations |
+| **Researcher** (deep) | `anthropic/claude-sonnet-4-6` | `~/.config/opencode/agents/researcher-deep.md` | Read, Grep, Glob, Bash, WebFetch, TodoWrite (read-only + Bash for probes) | Escalation tier for multi-file reasoning, subtle event interleaving, or runtime probes; triggered by Brain's escalation policy |
 
 ### Model requirements
 
@@ -95,7 +97,7 @@ The check happens immediately after Phase 0 Setup runs. It is LLM-enforced: Brai
 | 2 IMPLEMENT | REVIEW | follow permission mode | Standard OpenCode approval UX per tool |
 | 3 REVIEW | LOOP/DONE | **auto-loop, cap 3** | Brain counts; surfaces PASS/FIX/BLOCK verdict |
 
-RESEARCH is served by Brain itself (with user input) or by built-in `Explore` subagent. No dedicated Researcher agent in v1.
+RESEARCH is led by Brain (operator dialogue) and verified by Phase 0 `researcher` / `researcher-deep` dispatches that confirm load-bearing factual claims with file:line evidence. The previous v1 design (no dedicated Researcher; Brain + built-in `Explore`) was superseded in Stage 8 (v8.2.0) — see `docs/Stage8.md`.
 
 ### Autonomy presets
 
@@ -277,6 +279,8 @@ Costs vary by tier:
 - **Planner** (sohoai/minimax-m3): called once per plan. $0 marginal cost (flat-rate SoHoAI).
 - **Actor** (sohoai/qwen3-4b-q6 or sohoai/glm-5.1 if heavy): called once per step. $0 marginal cost (flat-rate SoHoAI).
 - **Reviewer** (anthropic/claude-sonnet-4-6): called once per review (up to 3 per step). Per-token Anthropic pricing (enables per-tier cost tracking).
+- **Researcher** (anthropic/claude-haiku-4-5): called 0–N times during Phase 0 for factual verification. Per-token Anthropic Haiku pricing (cheap; Haiku is the lowest-cost Anthropic tier). Counter exposed as `researcher_dispatches` in `telemetry.json` (Stage 8).
+- **Researcher-deep** (anthropic/claude-sonnet-4-6): escalation tier for hard verifications; rare. Per-token Anthropic Sonnet pricing (same as Reviewer).
 
 Rule of thumb: use `/brain` for tasks where the review loop actually earns the Brain overhead (architecture, multi-file refactors). Use `/duo` for simple, low-risk tasks. The zero-marginal-cost subagents make both pipelines economically viable even with repeated review iterations.
 

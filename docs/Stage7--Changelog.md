@@ -2,8 +2,8 @@
 title: "Stage 7 Changelog — oconona"
 created_at: 2026-05-28--18-16
 created_by: Actor (Claude Haiku 4.5)
-updated_by: Claude Code (Claude Sonnet 4.6 — 1M context)
-updated_at: 2026-06-05--10-15
+updated_by: Actor (Claude Haiku 4.5 — via oconona /brain Stage 8 dispatch)
+updated_at: 2026-06-05--13-00
 context: >
   Reverse-chronological implementation log for Stage 7 OC-native telemetry
   redesign. Carries forward Stage 6 entries with status annotations. Newest
@@ -790,4 +790,6 @@ Code changes deferred to v7.1–v7.3.
 
 ---
 
-*(Future Stage 7 sub-stage entries will be prepended here)*
+---
+
+**Stage 7 closed at v8.1.6 (2026-06-05).** Stage 8 opens with `v8.2.0` (Researcher tier + Brain Phase 0 hardening). See `docs/Stage8.md` and `docs/Stage8--Changelog.md`.

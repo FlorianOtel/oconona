@@ -2,8 +2,8 @@
 title: "v7.5 — oconona harness contract: per-session sidecars, badge format, attribution mechanics"
 created_at: 2026-06-03--14-30
 created_by: Claude Code (Claude Opus 4.7 1M context)
-updated_by: Claude Code (Claude Sonnet 4.6 — 1M context)
-updated_at: 2026-06-05--10-15
+updated_by: Actor (Claude Haiku 4.5 — via /brain Stage 8 dispatch)
+updated_at: 2026-06-05--12-51
 context: >
   Authoritative reference for the v7.5 oconona contract exposed to OpenCode
   harnesses (octmux and future TUIs). Documents logical-part markers, all
@@ -14,7 +14,9 @@ context: >
   badge + attribution from scratch, and (b) the future octmux refactor /brain
   session that will revise octmux's docs/Stage8.md against this contract.
   Supersedes octmux Stage8.md §C-α contract and §Stage indicator. Companion
-  to oconona v7.5 code commit eb540aa.
+  to oconona v7.5 code commit eb540aa. Extended v8.2.0 (Stage 8) with
+  `researcher_dispatches` field and `researcher`/`researcher-deep` as valid
+  subagent values.
 ---
 
 # v7.5 — oconona harness contract: per-session sidecars, badge format, attribution mechanics
@@ -197,7 +199,8 @@ Harness consumers detect live subagents via OpenCode SSE `message.part.updated` 
       "code": "snapshot_missing",
       "message": "parent snapshot sidecar(s) absent or invalid JSON; parent.cost is cumulative (not segment-delta)"
     }
-  ]
+  ],
+  "researcher_dispatches": 0
 }
 ```
 
@@ -208,6 +211,11 @@ Harness consumers detect live subagents via OpenCode SSE `message.part.updated` 
 - **`started_at_oc_ms`** / **`ended_at_oc_ms`**: epoch milliseconds extracted from snapshot `time_updated` fields. Bounds the session window in OC's time scale.
 - **`parent_snapshot_start`** / **`parent_snapshot_end`**: raw snapshot dicts (six fields each: cost, tokens_*). May be `{}` on DB miss.
 - **`parser_warnings`**: list of `{code, message}` dicts. Populated when sidecars are missing/invalid; consumers should check this before trusting segment-delta attribution.
+
+### New fields (v8.2.0)
+
+- **`researcher_dispatches`**: integer count of `researcher` + `researcher-deep` subagent invocations during this session. Computed by `telemetry-summarize.py` from the `subagents` list as `sum(1 for s in subagents if s.get("agent") in ("researcher", "researcher-deep"))`. Surfaced in `telemetry-report.sh` default view (as `r=<N>` annotation when non-zero) and aggregate block (summed across the report window). Always present (including in fallback `_zero_struct()` path) — value `0` indicates no Phase 0 verification dispatched.
+- **Valid agent values** in the `subagents` list now include: `planner`, `actor`, `actor-heavy`, `reviewer`, `researcher` (v8.2.0+), `researcher-deep` (v8.2.0+).
 
 ### Semantic changes
 

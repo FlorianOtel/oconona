@@ -2,8 +2,8 @@
 title: "Stage 7 — OC-native telemetry redesign roadmap"
 created_at: 2026-05-28--18-16
 created_by: Actor (Claude Haiku 4.5)
-updated_by: Claude Code (Claude Opus 4.7 — 1M context)
-updated_at: 2026-06-04--17-15
+updated_by: Actor (Claude Haiku 4.5 — via oconona /brain Stage 8 dispatch)
+updated_at: 2026-06-05--13-00
 context: >
   Stage 7 roadmap doc, produced by Brain/Planner session
   20260528T181605Z-2855594. Tracks the v7.0–v7.5 sub-stages replacing the
