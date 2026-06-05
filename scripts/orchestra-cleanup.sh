@@ -6,10 +6,13 @@
 # Owns the full end-of-session sequence in the correct order:
 #   1. write .outcome (atomic)
 #   2. capture .parent-snapshot-end via oc-db.py (with {} fallback)
-#   3. rm -f <session_dir>/.<command>-inflight  (clears badge)
+#   3. write .cleanup-in-progress sidecar (atomic; marks cleanup active)
 #   4. invoke telemetry-summarize.sh
 #   5. post-verify: if telemetry.json absent, log + retry once
+#   6. rm -f <session_dir>/.<command>-inflight  (clears badge; last state change)
+#   7. rm -f .cleanup-in-progress sidecar (also cleaned by EXIT trap)
 #
+# EXIT trap removes .cleanup-in-progress sidecar if cleanup crashes before removal.
 # Always exits 0 — cleanup is best-effort, never blocks the pipeline.
 # Final stdout line: "cleanup ok: outcome=<outcome> telemetry=<exists|MISSING>"
 #
@@ -35,6 +38,10 @@ _fail() { echo "orchestra-cleanup.sh: $*" >&2; exit 0; }
 case "${COMMAND}" in brain|duo) ;; *) _fail "command must be brain or duo, got: ${COMMAND}" ;; esac
 
 INFLIGHT_MARKER="${SESSION_DIR}/.${COMMAND}-inflight"
+CLEANUP_SIDECAR="${SESSION_DIR}/.cleanup-in-progress"
+
+# ── EXIT trap: remove sidecar on crash (before any state change) ──────────────
+trap 'rm -f "${CLEANUP_SIDECAR}"' EXIT
 
 # ── Step 1: write .outcome atomically ────────────────────────────────────────
 printf '%s' "${OUTCOME}" > "${SESSION_DIR}/.outcome.tmp"
@@ -65,8 +72,9 @@ SNAPEOF
     fi
 fi
 
-# ── Step 3: remove inflight marker (clears badge) ────────────────────────────
-rm -f "${INFLIGHT_MARKER}"
+# ── Step 3: write .cleanup-in-progress sidecar (atomic; marks cleanup active) ─
+printf 'cleanup_pid=%s\ntimestamp=%s\n' "$$" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "${CLEANUP_SIDECAR}.tmp"
+mv -f "${CLEANUP_SIDECAR}.tmp" "${CLEANUP_SIDECAR}"
 
 # ── Step 4: invoke telemetry-summarize.sh ────────────────────────────────────
 _SUMMARIZE="${SCRIPT_DIR}/telemetry-summarize.sh"
@@ -97,6 +105,12 @@ if [ ! -f "${SESSION_DIR}/telemetry.json" ]; then
         rm -f "${SESSION_DIR}/.cleanup-error"
     fi
 fi
+
+# ── Step 6: remove inflight marker (clears badge; last state change) ──────────
+rm -f "${INFLIGHT_MARKER}"
+
+# ── Step 7: remove .cleanup-in-progress sidecar (also cleaned by EXIT trap) ──
+rm -f "${CLEANUP_SIDECAR}"
 
 # ── Final status line ─────────────────────────────────────────────────────────
 echo "cleanup ok: outcome=${OUTCOME} telemetry=${_TELEMETRY_STATUS}"
