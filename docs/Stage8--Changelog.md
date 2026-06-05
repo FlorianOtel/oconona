@@ -2,8 +2,8 @@
 title: "Stage 8 — Changelog"
 created_at: 2026-06-05--13-00
 created_by: Actor (Claude Haiku 4.5 — via oconona /brain Stage 8 dispatch)
-updated_by: Claude Code (Claude Sonnet 4.6)
-updated_at: 2026-06-05--16-38
+updated_by: Claude Code (Claude Haiku 4.5)
+updated_at: 2026-06-05--18-00
 context: >
   Per-version changelog for Stage 8 of the oconona orchestra
   (Researcher tier + Brain Phase 0 hardening + telemetry counter).
@@ -13,6 +13,33 @@ context: >
 ---
 
 # Stage 8 — Changelog
+
+## v8.3.0 — orchestra-cleanup.sh — safe-order + .cleanup-in-progress sidecar + trap
+
+**Shipped:** 2026-06-05
+**Code commit:** `f8bdd2dcb893765b6b801e0fd3d5ef7e9c48d75b` (short: `f8bdd2d`)
+
+### What shipped
+
+- **Corrected cleanup order:** `scripts/orchestra-cleanup.sh` now executes steps in correct order: `.outcome` write → `.parent-snapshot-end` capture → `.cleanup-in-progress` sidecar write (NEW) → `telemetry-summarize.sh` invocation → post-verify retry block → inflight marker removal (MOVED DOWN to last state-change op) → sidecar removal (NEW).
+
+- **New `.cleanup-in-progress` sidecar:** Written atomically as `cleanup_pid=<$$>\ntimestamp=<ISO8601Z>` after parent-snapshot-end capture, before telemetry summarise. Marks cleanup as in-flight. Removed explicitly after inflight marker removal. Also protected by EXIT trap on script crash.
+
+- **EXIT trap:** `trap 'rm -f "${CLEANUP_SIDECAR}"' EXIT` defined immediately after variable setup, before any state change. Ensures sidecar cleanup on abnormal exit (e.g. OC kill-9, SIGTERM during telemetry wait). Does not swallow exit code.
+
+- **Moved `.cleanup-error` block:** Now written as part of the post-verify retry logic (step 5, unchanged semantically). Telemetry summarise happens before marker removal, fixing the HIGH#1 race condition where inflight marker was cleared before telemetry summarise began.
+
+### Why
+
+**HIGH#1 — marker-before-telemetry race:** Previous ordering cleared the inflight marker (step 3) before invoking telemetry-summarize.sh (step 4). Consequence: if telemetry-summarize.sh hangs or crashes, the badge is already cleared and the session is invisible to the stop-hook finalizer. The finalizer skips cleanup (no inflight marker) → telemetry.json never written → session silent-fails. By moving marker removal to step 6 (after post-verify), we guarantee telemetry-summarize.sh runs under badge cover. If summarise fails, the badge remains, and stop-hook will retry cleanup.
+
+**MEDIUM#2 — no cleanup-in-progress sidecar:** Previous versions had no way to distinguish "cleanup did not run" from "cleanup ran and finished." The sidecar (.cleanup-in-progress) marks the middle ground: cleanup started, telemetry summarise in progress. This is a safety hook for future escalation (e.g. monitoring dashboards, manual intervention triggers) and enables the trap to clean up the sidecar on crash.
+
+### Files changed
+
+- `scripts/orchestra-cleanup.sh`
+
+---
 
 ## v8.2.1 — orchestra-cleanup.sh — non-shortcuttable end-of-session cleanup
 

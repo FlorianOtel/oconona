@@ -2,6 +2,8 @@
 title: "Stage 8 — Prudent Brain: Researcher tier + Phase 0 hardening"
 created_at: 2026-06-05--12-57
 created_by: Actor (Claude Haiku 4.5 — via oconona /brain Stage 8 dispatch)
+updated_by: Claude Code (Claude Haiku 4.5)
+updated_at: 2026-06-05--18-00
 context: >
   Stage 8 of the oconona orchestra introduces a new subagent role —
   Researcher — with two tiers (researcher / researcher-deep) dispatched
@@ -47,6 +49,7 @@ Brain's job (interrogation, design synthesis, dispatch) remains unchanged. What 
 - `docs/Stage8--Changelog.md` — first entry referencing the code-first commit hash.
 
 ### Modified files
+- `scripts/orchestra-cleanup.sh` — v8.3.0: corrected execution order (sidecar write before telemetry summarise, marker removal after post-verify); added `.cleanup-in-progress` sidecar (atomic write/removal); added EXIT trap for crash cleanup. Fixes HIGH#1 (marker-before-telemetry race) + MEDIUM#2 (no cleanup-in-progress sidecar).
 - `commands/brain.md` — fully replaced from the operator's `~/Gin-AI/tmp/brain-prudent.md` draft; gaps closed (Researcher dispatch sub-section with Task-tool template, verdict synthesis, escalation guidance, soft verification budget; updated RESEARCH.md template with `## Verified hypotheses` section; updated Phase 0 end-gate; updated negative-examples list; 7 mechanical fixes).
 - `config/orchestra-tiers.yaml` — added `researcher` and `researcher-deep` tier entries.
 - `config/context-windows.yaml` — metadata refresh; `claude-haiku-4-5: 200000` already present.
