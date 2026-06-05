@@ -3,7 +3,7 @@ title: "Stage 8 — Changelog"
 created_at: 2026-06-05--13-00
 created_by: Actor (Claude Haiku 4.5 — via oconona /brain Stage 8 dispatch)
 updated_by: Claude Code (Claude Haiku 4.5)
-updated_at: 2026-06-05--18-00
+updated_at: 2026-06-05--18-30
 context: >
   Per-version changelog for Stage 8 of the oconona orchestra
   (Researcher tier + Brain Phase 0 hardening + telemetry counter).
@@ -31,7 +31,7 @@ context: >
 
 ### Why
 
-**HIGH#1 — marker-before-telemetry race:** Previous ordering cleared the inflight marker (step 3) before invoking telemetry-summarize.sh (step 4). Consequence: if telemetry-summarize.sh hangs or crashes, the badge is already cleared and the session is invisible to the stop-hook finalizer. The finalizer skips cleanup (no inflight marker) → telemetry.json never written → session silent-fails. By moving marker removal to step 6 (after post-verify), we guarantee telemetry-summarize.sh runs under badge cover. If summarise fails, the badge remains, and stop-hook will retry cleanup.
+**HIGH#1 — marker-before-telemetry race:** Previous ordering cleared the inflight marker (step 3) before invoking telemetry-summarize.sh (step 4). Consequence: if telemetry-summarize.sh crashed or the daemon died in that window, the session was left with no marker AND no `telemetry.json`. The stop-hook orphan finalizer at `orchestra-hook.sh:241-251` would correctly reap this state — but only on the *next* OC Stop event. If the operator exited OC before that Stop fired, the telemetry record was permanently lost (until the 30-day reaper). By moving marker removal to step 6 (after post-verify), we keep the inflight marker present while telemetry-summarize.sh runs, so any crash mid-cleanup leaves the marker in place — the stop-hook then sees an in-progress marker and waits for the next attempt instead of reaping.
 
 **MEDIUM#2 — no cleanup-in-progress sidecar:** Previous versions had no way to distinguish "cleanup did not run" from "cleanup ran and finished." The sidecar (.cleanup-in-progress) marks the middle ground: cleanup started, telemetry summarise in progress. This is a safety hook for future escalation (e.g. monitoring dashboards, manual intervention triggers) and enables the trap to clean up the sidecar on crash.
 
