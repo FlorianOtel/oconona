@@ -88,7 +88,7 @@ Use the standard `researcher` tier (you) for:
 - Tool-call payload shape validation.
 - One-off SDK behaviour questions with clear documentation.
 
-Escalate to `researcher-deep` (sohoai/claude-sonnet-4-6) when:
+Escalate to `researcher-deep` (anthropic/claude-sonnet-4-6) when:
 - The verification requires reasoning across multiple files and subtle event interleaving (e.g. "does event X from module A reach listener Y in module B under condition Z?").
 - Runtime probes require interpreting variable output or system state (e.g. "what does this Bash command's output tell us about the condition?").
 - The verification depends on understanding a system's overall behaviour or implicit contracts not stated in any single file.
