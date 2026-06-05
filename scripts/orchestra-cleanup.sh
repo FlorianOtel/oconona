@@ -40,7 +40,7 @@ case "${COMMAND}" in brain|duo) ;; *) _fail "command must be brain or duo, got: 
 INFLIGHT_MARKER="${SESSION_DIR}/.${COMMAND}-inflight"
 CLEANUP_SIDECAR="${SESSION_DIR}/.cleanup-in-progress"
 
-# ── EXIT trap: remove sidecar on crash (before any state change) ──────────────
+# ── EXIT trap: remove sidecar on crash (set here, before any pipeline state change) ──
 trap 'rm -f "${CLEANUP_SIDECAR}"' EXIT
 
 # ── Step 1: write .outcome atomically ────────────────────────────────────────
