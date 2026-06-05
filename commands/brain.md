@@ -90,6 +90,31 @@ if [ -d "${SESSIONS_ROOT}" ]; then
        -mtime +"${RETENTION_DAYS}" -exec rm -rf {} + 2>/dev/null
 fi
 
+# Refuse if another .brain-inflight exists in the same project.
+# Per-project filter: read each candidate's .project-dir and compare realpath.
+# Missing .project-dir → skip (legacy or write race; conservative default).
+_CURRENT_PROJECT="$(realpath "${OPENCODE_PROJECT_DIR:-$(pwd)}" 2>/dev/null || echo "${OPENCODE_PROJECT_DIR:-$(pwd)}")"
+ACTIVE_DIR=""
+if [ -d "${SESSIONS_ROOT}" ]; then
+    while IFS= read -r inflight; do
+        [ -z "$inflight" ] && continue
+        candidate_dir="$(dirname "$inflight")"
+        candidate_project="$(head -1 "${candidate_dir}/.project-dir" 2>/dev/null)"
+        [ -z "$candidate_project" ] && continue
+        candidate_real="$(realpath "$candidate_project" 2>/dev/null || echo "$candidate_project")"
+        if [ "$candidate_real" = "$_CURRENT_PROJECT" ]; then
+            ACTIVE_DIR="$candidate_dir"
+            break
+        fi
+    done < <(find "${SESSIONS_ROOT}" -mindepth 2 -maxdepth 2 -name '.brain-inflight' 2>/dev/null)
+fi
+if [ -n "${ACTIVE_DIR}" ]; then
+    echo "REFUSE: an active /brain session already exists in this project at:"
+    echo "  ${ACTIVE_DIR}"
+    echo "Run /brain-abandon to cancel it, or wait for it to complete."
+    exit 0
+fi
+
 # 3. Create fresh per-invocation subdir.
 SESSION_ID="$(date -u +%Y%m%dT%H%M%SZ)-$$"
 SESSION_DIR="${SESSIONS_ROOT}/${SESSION_ID}"

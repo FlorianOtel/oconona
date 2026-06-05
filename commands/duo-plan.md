@@ -27,9 +27,9 @@ Use `/duo` when the task is simple enough that a plan + execute is sufficient, a
 
 ## Refusal — one active /duo session per project
 
-Before setup, refuse if any `.duo-inflight` already exists under
+Before setup, refuse if any `.duo-inflight` already exists **for this project** under
 `${HOME}/.config/opencode/orchestra/sessions/*/`. The session-bracketed
-design assumes a single active /duo session at a time; concurrent sessions are
+design assumes a single active /duo session at a time **for this project**; concurrent sessions are
 out of scope.
 
 Run via `Bash`:
@@ -37,16 +37,29 @@ Run via `Bash`:
 ```bash
 OPENCODE_PROJECT_DIR="$(realpath "${OPENCODE_PROJECT_DIR:-$(pwd)}" 2>/dev/null || echo "${OPENCODE_PROJECT_DIR:-$(pwd)}")"
 SESSIONS_ROOT="${HOME}/.config/opencode/orchestra/sessions"
-EXISTING=""
-if [ -d "$SESSIONS_ROOT" ]; then
-  EXISTING="$(find "$SESSIONS_ROOT" -mindepth 2 -maxdepth 2 -name '.duo-inflight' 2>/dev/null | head -1)"
+# Refuse if another .duo-inflight exists in the same project.
+# Per-project filter: read each candidate's .project-dir and compare realpath.
+# Missing .project-dir → skip (legacy or write race; conservative default).
+_CURRENT_PROJECT="$(realpath "${OPENCODE_PROJECT_DIR:-$(pwd)}" 2>/dev/null || echo "${OPENCODE_PROJECT_DIR:-$(pwd)}")"
+ACTIVE_DIR=""
+if [ -d "${SESSIONS_ROOT}" ]; then
+    while IFS= read -r inflight; do
+        [ -z "$inflight" ] && continue
+        candidate_dir="$(dirname "$inflight")"
+        candidate_project="$(head -1 "${candidate_dir}/.project-dir" 2>/dev/null)"
+        [ -z "$candidate_project" ] && continue
+        candidate_real="$(realpath "$candidate_project" 2>/dev/null || echo "$candidate_project")"
+        if [ "$candidate_real" = "$_CURRENT_PROJECT" ]; then
+            ACTIVE_DIR="$candidate_dir"
+            break
+        fi
+    done < <(find "${SESSIONS_ROOT}" -mindepth 2 -maxdepth 2 -name '.duo-inflight' 2>/dev/null)
 fi
-if [ -n "$EXISTING" ]; then
-  ACTIVE_DIR="$(dirname "$EXISTING")"
-  echo "REFUSE: an active /duo session already exists at:"
-  echo "  ${ACTIVE_DIR}"
-  echo "Run /duo-act to commit it, or /duo-abandon to cancel, before /duo-plan."
-  exit 0
+if [ -n "${ACTIVE_DIR}" ]; then
+    echo "REFUSE: an active /duo session already exists in this project at:"
+    echo "  ${ACTIVE_DIR}"
+    echo "Run /duo-abandon to cancel it, or /duo-act to commit, before /duo-plan."
+    exit 0
 fi
 ```
 
