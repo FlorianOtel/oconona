@@ -128,6 +128,7 @@ def _zero_struct() -> Dict[str, Any]:
         "parent_snapshot_start": {},
         "parent_snapshot_end": {},
         "parser_warnings": [],
+        "researcher_dispatches": 0,
     }
 
 
@@ -257,6 +258,12 @@ def main():
                     # Compute hybrid attribution (with segment-delta parent)
                     hybrid_attribution = oc_db._compute_hybrid_attribution(parent, subagents)
 
+                    # Stage 8: Count researcher + researcher-deep dispatches for Phase 0 verification visibility.
+                    researcher_dispatches = sum(
+                        1 for s in subagents
+                        if s.get("agent", "") in ("researcher", "researcher-deep")
+                    )
+
                     db_data = {
                         "parent": parent,
                         "parent_delta": parent_delta,
@@ -269,6 +276,7 @@ def main():
                         "parent_snapshot_start": snap_start,
                         "parent_snapshot_end": snap_end,
                         "parser_warnings": [],
+                        "researcher_dispatches": researcher_dispatches,
                     }
                     cost_source = "oc_sqlite"
 
@@ -351,6 +359,7 @@ def main():
         "parent_snapshot_start": db_data.get("parent_snapshot_start", {}),
         "parent_snapshot_end": db_data.get("parent_snapshot_end", {}),
         "parser_warnings": db_data.get("parser_warnings", []),
+        "researcher_dispatches": db_data.get("researcher_dispatches", 0),
     }
 
     # Atomic write

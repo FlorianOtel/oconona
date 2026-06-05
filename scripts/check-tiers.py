@@ -199,6 +199,7 @@ def main():
     # Check 3: commands/brain.md mentions Reviewer model in first 20 lines
     brain_cmd_file = repo_root / "commands" / "brain.md"
     reviewer_model = tier_models.get("reviewer", "anthropic/claude-sonnet-4-6")
+    researcher_model = "anthropic/claude-haiku-4-5"
     if brain_cmd_file.exists():
         try:
             with open(brain_cmd_file) as f:
@@ -208,6 +209,10 @@ def main():
                 soft_warns.append(f"commands/brain.md: Reviewer model mention may be stale")
             else:
                 print(f"[OK] commands/brain.md: Reviewer model ({reviewer_model}) mentioned")
+            if researcher_model not in brain_text:
+                soft_warns.append(f"commands/brain.md: Researcher model mention may be stale ({researcher_model} not in first 20 lines)")
+            else:
+                print(f"[OK] commands/brain.md: Researcher model ({researcher_model}) mentioned")
         except Exception as e:
             soft_warns.append(f"commands/brain.md: could not read (error: {e})")
     else:

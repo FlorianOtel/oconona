@@ -2,8 +2,8 @@
 # title: "Context window sizes — model → advertised tokens map"
 # created_at: 2026-05-10--20-45
 # created_by: OpenCode (Claude Opus 4.7 1M, via /brain actor)
-# updated_by: OpenCode (Claude Opus 4.7 1M, via /brain fix iteration)
-# updated_at: 2026-05-10--21-10
+# updated_by: Actor (Claude Haiku 4.5)
+# updated_at: 2026-06-05--12-20
 # context: >
 #   Used by scripts/ctx-segment.sh as the denominator for the status-line
 #   ctx fill segment. Lookup is normalised + [1m]-aware. Fallback when a

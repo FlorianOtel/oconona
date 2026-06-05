@@ -12,6 +12,7 @@ exists), the pipeline owns code changes:
   tool, `subagent_type: planner`). You (Brain) persist Planner's returned
   plan to `${SESSION_DIR}/PLAN.md` via Bash atomic-rename. Operator approves
   via natural-language reply ("approved" / "go ahead" / "proceed").
+- Fact-finding during Phase 0 (load-bearing hypothesis verification) MUST go through the `researcher` or `researcher-deep` subagent (Task tool, `subagent_type: researcher` for default tier, `researcher-deep` for escalation). Direct assertions of unverified factual claims during Phase 0 violate the pipeline — they are the v8.1.5.x failure mode this design prevents.
 - Session-dir artefacts (`RESEARCH.md`, `PLAN.md`, `.outcome`, `state.env`,
   `.brain-inflight`, `.duo-inflight`, `.oc-session-id`, `.project-dir`) are
   written directly via Bash heredoc; project code is not.

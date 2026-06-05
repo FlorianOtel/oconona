@@ -91,7 +91,7 @@ done
 # Frontmatter and Role preamble differ by design; everything from
 # "You are the **<Tier>**" onward must be byte-identical.
 if ! $DRY_RUN && ! $SHOW_DIFF; then
-    for pair in "actor:actor-heavy"; do
+    for pair in "actor:actor-heavy" "researcher:researcher-deep"; do
         base="${pair%:*}"; var="${pair#*:}"
         diff <(awk '/^You are the/,0' "$REPO/agents/$base.md") \
              <(awk '/^You are the/,0' "$REPO/agents/$var.md") \
@@ -178,12 +178,6 @@ if ! $DRY_RUN; then
             ok "cleaned orphan: $OC_HOME/command/$orphan"
         fi
     done
-
-    # 7d. Researcher agent (Phase 0 dialogue agent; Phase 0 now inline in /brain).
-    if [ -f "$OC_HOME/agent/researcher.md" ]; then
-        rm -f "$OC_HOME/agent/researcher.md"
-        ok "cleaned orphan: $OC_HOME/agent/researcher.md"
-    fi
 
     # 7e. v7.3 dead scripts + config.
     # NB: native-session-report.{sh,py} were deleted in v7.3 but RESTORED in

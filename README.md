@@ -10,6 +10,8 @@ A three-tier orchestration layer for [OpenCode](https://opencode.ai) that routes
 | **Planner** | `sohoai/minimax-m3` | — | Decomposes tasks into numbered, reviewable plans |
 | **Actor** | `sohoai/qwen3-4b-q6` | `sohoai/glm-5.1` for `[tier: heavy]` steps | Executes individual plan steps; scoped, fast, cheap |
 | **Reviewer** | `anthropic/claude-sonnet-4-6` | — | Reviews Actor's output; emits PASS / FIX / BLOCK verdicts |
+| **Researcher** | `anthropic/claude-haiku-4-5` | `anthropic/claude-sonnet-4-6` (`researcher-deep`) | Verifies factual claims about code/runtime during Phase 0; returns VERDICT: TRUE/FALSE/UNCLEAR with file:line evidence |
+| **Researcher-deep** | `anthropic/claude-sonnet-4-6` | — | Escalation tier for multi-file reasoning, subtle event interleaving, or runtime probes |
 
 > Tier-to-model assignment is declared in `config/orchestra-tiers.yaml` (the SSOT). Run `scripts/check-tiers.py` to verify alignment.
 
@@ -26,7 +28,7 @@ Two distinct kinds of `.md` file in this repo, deployed to two different canonic
 
 `/brain`, `/duo-plan`, `/duo-act`, `/duo-abandon`, `/brain-abandon` are **slash commands** — operator-facing pipeline orchestrators. They dispatch the agents; they are not workers themselves.
 
-`planner`, `actor`, `actor-heavy`, `reviewer` are **subagents** — each has frontmatter declaring its model (different per tier) and its tool permissions (Planner & Reviewer read-only; Actor has Edit/Write/Bash).
+`planner`, `actor`, `actor-heavy`, `reviewer`, `researcher`, `researcher-deep` are **subagents** — each has frontmatter declaring its model (different per tier) and its tool permissions (Planner, Reviewer, Researcher, Researcher-deep read-only or read-only-plus-Bash; Actor has Edit/Write/Bash).
 
 **Brain is neither.** Brain *is* the parent OpenCode session that ran `/brain`. It cannot be implemented as a subagent because Phase 0 of `/brain` is multi-turn interactive interrogation with the operator, and OpenCode subagents are single-dispatch (no back-and-forth with the operator).
 

@@ -60,7 +60,7 @@ t = json.load(tf.open())
 def norm(m): return re.sub(r"-\d{8}$", "", m or "")
 
 # Extract cost from totals (cost pre-computed in v7.1+)
-ORDER = {"brain": 0, "planner": 1, "actor": 2, "reviewer": 3}
+ORDER = {"brain": 0, "planner": 1, "actor": 2, "reviewer": 3, "researcher": 4, "researcher-deep": 5}
 parent_toks = {
     "input": t["parent"].get("tokens_input", 0),
     "output": t["parent"].get("tokens_output", 0),
@@ -131,7 +131,7 @@ for tf_path in tf_paths:
 if n == 0:
     sys.exit(0)
 
-ORDER = {"brain": 0, "planner": 1, "actor": 2, "reviewer": 3}
+ORDER = {"brain": 0, "planner": 1, "actor": 2, "reviewer": 3, "researcher": 4, "researcher-deep": 5}
 items = sorted(accum.items(), key=lambda x: ORDER.get(x[0][0], 4))
 grand_tok  = sum(sum(v["tokens"].values()) for _, v in items)
 grand_cost = sum(v["cost"]                 for _, v in items)
@@ -180,7 +180,8 @@ for line in sys.stdin:
         cost_source = t.get("cost_source", "-")
         total_tokens = t.get("totals", {}).get("tokens_input", 0) + t.get("totals", {}).get("tokens_output", 0)
         duration = t.get("duration_s", 0)
-        note = ""
+        researcher_dispatches = t.get("researcher_dispatches", 0)
+        note = f"r={researcher_dispatches}" if researcher_dispatches > 0 else ""
         print(f"{date}\t{cmd}\t{outcome}\t${cost:.4f}\t{cost_source}\t{total_tokens}\t{duration}s\t{note}")
     except Exception:
         pass
@@ -213,6 +214,7 @@ if not sessions:
 total_cost = sum(t.get("totals", {}).get("cost_usd_estimate", 0) for t in sessions)
 total_tokens = sum(t.get("totals", {}).get("tokens_input", 0) + t.get("totals", {}).get("tokens_output", 0) for t in sessions)
 mean_cost = total_cost / len(sessions) if sessions else 0
+total_researcher_dispatches = sum(t.get("researcher_dispatches", 0) for t in sessions)
 
 by_cmd = defaultdict(lambda: {"count": 0, "cost": 0})
 for t in sessions:
@@ -224,6 +226,7 @@ print(f"Sessions       : {len(sessions)}")
 print(f"Total cost     : ${total_cost:.4f}")
 print(f"Total tokens   : {total_tokens:,}")
 print(f"Mean cost      : ${mean_cost:.4f}")
+print(f"Researcher dispatches : {total_researcher_dispatches}")
 print(f"By command     :")
 for cmd in sorted(by_cmd.keys()):
     v = by_cmd[cmd]
