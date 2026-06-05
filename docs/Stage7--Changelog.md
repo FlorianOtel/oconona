@@ -2,8 +2,8 @@
 title: "Stage 7 Changelog — oconona"
 created_at: 2026-05-28--18-16
 created_by: Actor (Claude Haiku 4.5)
-updated_by: Claude Code (Claude Opus 4.7 — 1M context)
-updated_at: 2026-06-04--21-22
+updated_by: Claude Code (Claude Sonnet 4.6 — 1M context)
+updated_at: 2026-06-05--09-39
 context: >
   Reverse-chronological implementation log for Stage 7 OC-native telemetry
   redesign. Carries forward Stage 6 entries with status annotations. Newest
@@ -13,6 +13,21 @@ context: >
 # Stage 7 Changelog
 
 Entries are reverse-chronological. Newest at the top.
+
+---
+
+## 2026-06-05--08-30 — v8.1.5 badge format — embed mode prefix; passthrough renderers
+
+**Implemented by:** Claude Code (Claude Sonnet 4.6 — 1M context) — 2026-06-05--08-30
+**Commit(s):** `0105371` (doc commit follows)
+
+Both `/brain` and `/duo` badge titles previously stored a raw 30-char title and let renderers construct the full `♪ orchestra -> <title> -> <mode> [-> <subagent>]` string at display time. This caused format divergence (brain title in `state.env`, duo title in `.duo-inflight` content), required renderers to know the pipeline mode, and produced the verbose mode/subagent suffix.
+
+Fix: mode prefix is now embedded directly in the stored value at write time. `/brain` writes `orchestra full - <title>` to `state.env` as `ORCHESTRA_TITLE=` and to `.brain-inflight` content. `/duo-plan` writes `orchestra light - <title>` to `.duo-inflight` content. Renderers (`status-line/orchestra-block.sh` and `octmux/src/orchestra-watch.ts`) are simplified to passthrough — they emit `♪ <stored-value>` without constructing any mode or subagent suffix. head -c / .slice truncation guards updated 30 → 48 chars (18-char prefix + 30-char operator title). Multi-concurrent duo count label updated to include the `orchestra light - ` prefix.
+
+Cross-project: `octmux/src/orchestra-watch.ts` and `octmux/docs/Stage8--implementation-details.md` updated in the same operator-approved cross-project session.
+
+Scope: `commands/brain.md`, `commands/duo-plan.md`, `status-line/orchestra-block.sh` (code commit `0105371`); `docs/Stage7.5--implementation-details.md` (this doc commit); octmux committed separately.
 
 ---
 

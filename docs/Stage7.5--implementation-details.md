@@ -2,8 +2,8 @@
 title: "v7.5 — oconona harness contract: per-session sidecars, badge format, attribution mechanics"
 created_at: 2026-06-03--14-30
 created_by: Claude Code (Claude Opus 4.7 1M context)
-updated_by: Claude Code (Claude Opus 4.7 — 1M context)
-updated_at: 2026-06-04--17-15
+updated_by: Claude Code (Claude Sonnet 4.6 — 1M context)
+updated_at: 2026-06-05--09-32
 context: >
   Authoritative reference for the v7.5 oconona contract exposed to OpenCode
   harnesses (octmux and future TUIs). Documents logical-part markers, all
@@ -285,46 +285,38 @@ The badge has **four canonical states**, with mode segment always present.
 ### Active `/duo` session (one)
 
 - **Condition:** One matched session dir with `.duo-inflight` present.
-- **Badge:** `♪ orchestra -> <title> -> duo`
-- **Example:** `♪ orchestra -> add docstring -> duo`
+- **Badge:** `♪ orchestra light - <title>`
+- **Example:** `♪ orchestra light - add docstring`
 
 ### Active `/duo` session with subagent dispatched
 
-- **Condition:** One matched session dir with `.duo-inflight` present, AND an active subagent is detected via OC SSE `SubtaskPart` events.
-- **Badge:** `♪ orchestra -> <title> -> duo -> <subagent>`
-- **Example:** `♪ orchestra -> add docstring -> duo -> actor`
+Removed in v8.1.5. Subagent dispatch no longer appears in the badge; the mode prefix (`orchestra light - `) is sufficient to identify the pipeline.
 
 ### Active `/duo` sessions (multiple concurrent, rare)
 
 - **Condition:** Multiple matched session dirs with `.duo-inflight`, same OC session ID (architecturally rare; refusal logic usually prevents).
-- **Badge:** `♪ orchestra -> #N -> duo`
-- **Example:** `♪ orchestra -> #2 -> duo`
+- **Badge:** `♪ orchestra light - #N`
+- **Example:** `♪ orchestra light - #2`
 
 ### Active `/brain` session
 
 - **Condition:** One matched session dir with `.brain-inflight` present.
-- **Badge:** `♪ orchestra -> <title> -> brain`
-- **Example:** `♪ orchestra -> refactor routing -> brain`
+- **Badge:** `♪ orchestra full - <title>`
+- **Example:** `♪ orchestra full - refactor routing`
 
 ### Active `/brain` session with subagent dispatched
 
-- **Condition:** One matched session dir with `.brain-inflight` present, AND an active subagent is detected via OC SSE `SubtaskPart` events.
-- **Badge:** `♪ orchestra -> <title> -> brain -> <subagent>`
-- **Example:** `♪ orchestra -> refactor routing -> brain -> planner`
+Removed in v8.1.5. Subagent dispatch no longer appears in the badge; the mode prefix (`orchestra full - `) is sufficient to identify the pipeline.
 
 ### Badge properties
 
 - **Color:** `#d3869b` (gruvbox bright purple; unchanged from Stage 8).
 - **Mode segment:** Always shown (symmetry: both brain and duo include it); never omitted even with subagent present.
-- **Title truncation:** First 30 printable chars of inflight marker content or `state.env` value.
+- **Title truncation:** First 48 chars of the stored value (mode prefix ~17–18 chars + up to 30 chars of operator title).
 
 ### Source of fields
 
-- **`<title>`:** 
-  - For `/duo`: first 30 chars of `.duo-inflight` content.
-  - For `/brain`: `ORCHESTRA_TITLE=` value from `~/.config/opencode/orchestra/state.env` (or first 30 chars of `.brain-inflight` content if state.env is unavailable).
-- **`<mode>`:** literal string `brain` or `duo` (inferred from which inflight marker is present).
-- **`<subagent>`:** Detected via OC SSE `message.part.updated` with `part.type === "subtask"`; `agent` field carries the role name. Role values (canonical in v7.5+): `planner`, `actor`, `actor-heavy`, `reviewer`.
+- **`<title>`:** The stored value (`.duo-inflight` content or `ORCHESTRA_TITLE=` in `state.env`) embeds the full badge text including mode prefix. Renderers pass it through verbatim. No separate mode or subagent field is extracted.
 
 ---
 
