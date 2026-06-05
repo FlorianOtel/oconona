@@ -165,17 +165,6 @@ echo "session_dir=${SESSION_DIR}"
 echo "retention_days=${RETENTION_DAYS}"
 ```
 
-After creating the session directory, write the pipeline mode and task title to the orchestra badge. The stored value embeds the mode prefix directly: `orchestra full - <title>`. The title portion is the operator's invocation text (the args after `/brain`), truncated to 30 printable characters, with single-quotes replaced by spaces. Run via `Bash`:
-
-```bash
-ORCH_DIR="${HOME}/.config/opencode/orchestra"
-mkdir -p "$ORCH_DIR"
-printf 'ORCHESTRA_MODE=brain\nORCHESTRA_TITLE=%s\n' \
-  "orchestra full - <task title, ≤30 chars, no single-quotes>" >> "${ORCH_DIR}/state.env"
-```
-
-Replace `<task title, ≤30 chars, no single-quotes>` with the first 30 printable characters of the operator's task description, stripping any single-quote characters. The renderer passes the full stored value through; the `♪` is prepended at render time.
-
 Print the session_dir to the operator so they can locate artifacts later.
 
 ---
@@ -468,12 +457,7 @@ The summariser writes `<SESSION_DIR>/telemetry.json` (full record) and appends o
 
 ### Clear the pipeline badge
 
-Clear the pipeline badge from state.env:
-
-```bash
-printf 'ORCHESTRA_MODE=default\nORCHESTRA_TITLE=\n' \
-  >> "${HOME}/.config/opencode/orchestra/state.env"
-```
+The badge clears automatically when `.brain-inflight` is removed (the inflight file removal is the badge signal — no separate state.env write needed).
 
 When the pipeline ends (pass, abandon, or hard-stop), print a short summary:
 

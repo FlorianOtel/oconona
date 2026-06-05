@@ -4,7 +4,7 @@ description: Cancel the active /brain session. Writes .outcome=abandoned, remove
 
 # /brain-abandon — cancel the active /brain session
 
-You are running the **brain** pipeline's abandonment step. `/brain-abandon` cleanly closes the active /brain session without further execution: it writes `.outcome=abandoned`, removes the `.brain-inflight` marker, runs the T2 telemetry summariser, and clears the status-line badge in `state.env`.
+You are running the **brain** pipeline's abandonment step. `/brain-abandon` cleanly closes the active /brain session without further execution: it writes `.outcome=abandoned`, removes the `.brain-inflight` marker, and runs the T2 telemetry summariser. Removing the inflight marker clears the status-line badge automatically.
 
 If no /brain session is active (no `.brain-inflight` in any session subdir), refuse and tell the operator there's nothing to abandon.
 
@@ -80,13 +80,6 @@ rm -f "<SESSION_DIR>/.brain-inflight"
 ~/.config/opencode/scripts/telemetry-summarize.sh \
     "<SESSION_DIR>" brain abandoned "" 2>&1 \
     | tail -n 1
-```
-
-Then clear the pipeline badge from state.env:
-
-```bash
-printf 'ORCHESTRA_MODE=default\nORCHESTRA_TITLE=\n' \
-  >> "${HOME}/.config/opencode/orchestra/state.env"
 ```
 
 ## Confirmation

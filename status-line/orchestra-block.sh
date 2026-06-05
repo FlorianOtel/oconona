@@ -31,21 +31,23 @@ if [ -n "$cwd" ] && [ -f "$HOME/.config/opencode/orchestra/oconona-config.yaml" 
     status_line=$(printf '%s' "$status_line" \
         | sed "s/ | ${_ESC}\[38;2;224;175;104m[^${_ESC}]*${_ESC}\[0m//")
 
-    # --- /brain badge: read mode+title from state.env ---
-    state_env="$HOME/.config/opencode/orchestra/state.env"
-    orch_mode="orchestra"
-    orch_title=""
-    if [ -f "$state_env" ]; then
-        _om=$(grep '^ORCHESTRA_MODE=' "$state_env" 2>/dev/null | tail -n 1 | cut -d= -f2-)
-        _ot=$(grep '^ORCHESTRA_TITLE=' "$state_env" 2>/dev/null | tail -n 1 | cut -d= -f2-)
-        [ -n "$_om" ] && [ "$_om" != "default" ] && orch_mode="$_om"
-        orch_title="$_ot"
+    # --- shared sessions root (used by both brain and duo badge reads) ---
+    sessions_root="$HOME/.config/opencode/orchestra/sessions"
+
+    # --- /brain badge: read title from .brain-inflight (symmetric with duo) ---
+    brain_count=0
+    brain_title=""
+    if [ -d "$sessions_root" ]; then
+        brain_count=$(find "$sessions_root" -maxdepth 2 -name ".brain-inflight" 2>/dev/null | wc -l | tr -d ' ')
+        if [ "$brain_count" -eq 1 ]; then
+            brain_title=$(find "$sessions_root" -maxdepth 2 -name ".brain-inflight" 2>/dev/null \
+                          -exec cat {} \; 2>/dev/null | head -c 48)
+        fi
     fi
 
-    # --- /duo badge: count .duo-inflight markers across session dirs ---
+    # --- /duo badge: read title from .duo-inflight ---
     duo_count=0
     duo_title=""
-    sessions_root="$HOME/.config/opencode/orchestra/sessions"
     if [ -d "$sessions_root" ]; then
         duo_count=$(find "$sessions_root" -maxdepth 2 -name ".duo-inflight" 2>/dev/null | wc -l | tr -d ' ')
         if [ "$duo_count" -eq 1 ]; then
@@ -118,10 +120,9 @@ PYEOF
     [ -n "$live_cost" ] && { [ -n "$_insert" ] && _insert+=" | ${live_cost}" || _insert="${live_cost}"; }
     [ -n "$_insert"   ] && status_line="${status_line/ | / | ${_insert} | }"
 
-    # --- badge rendering (passthrough: stored value contains full badge text) ---
-    # inflight content (duo) or ORCHESTRA_TITLE state.env value (brain) already
-    # embeds the mode prefix ("orchestra full - " / "orchestra light - ").
-    # Priority: duo > brain.
+    # --- badge rendering (passthrough: both inflight files embed the full badge text) ---
+    # Both brain and duo inflight content embeds the mode prefix
+    # ("orchestra full - " / "orchestra light - "). Priority: duo > brain.
     if [ "$duo_count" -gt 0 ]; then
         if [ "$duo_count" -eq 1 ]; then
             _badge_text="$duo_title"
@@ -129,8 +130,13 @@ PYEOF
             _badge_text="orchestra light - #${duo_count}"
         fi
         status_line+=$(printf " | ${ORCHESTRA_COLOR}♪ %s${RESET}" "$_badge_text")
-    elif [ -n "$orch_title" ]; then
-        status_line+=$(printf " | ${ORCHESTRA_COLOR}♪ %s${RESET}" "$orch_title")
+    elif [ "$brain_count" -gt 0 ]; then
+        if [ "$brain_count" -eq 1 ]; then
+            _badge_text="$brain_title"
+        else
+            _badge_text="orchestra full - #${brain_count}"
+        fi
+        status_line+=$(printf " | ${ORCHESTRA_COLOR}♪ %s${RESET}" "$_badge_text")
     fi
 fi
 

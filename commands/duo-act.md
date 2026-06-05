@@ -116,8 +116,6 @@ SNAPEOF
         mv -f "<SESSION_DIR>/.parent-snapshot-end.tmp" "<SESSION_DIR>/.parent-snapshot-end"
     fi
 fi
-printf 'ORCHESTRA_MODE=default\nORCHESTRA_TITLE=\n' \
-  >> "${HOME}/.config/opencode/orchestra/state.env" 2>/dev/null || true
 rm -f "<SESSION_DIR>/.duo-inflight"
 ~/.config/opencode/scripts/telemetry-summarize.sh \
     "<SESSION_DIR>" duo "<outcome>" "" 2>&1 \
