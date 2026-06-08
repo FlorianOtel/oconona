@@ -50,10 +50,11 @@ This applies especially to: data model choices, API contract decisions, error ha
 2. **Numbered steps** — each step small enough for one Actor invocation to complete (~one file or a tightly-scoped set of edits). Use imperative voice: "1. Edit X/Y.py to add …", not "1. We should modify …". Optionally annotate with a tier tag at the end of the step line (see tier annotations below).
 3. **Per-step expected outcome** — one line per step describing how you'd know it worked (e.g. "tests in X pass", "file exists with N entries", "HTTP 200 from endpoint Z").
 4. **Tier annotations** (optional but recommended for complex plans) — tag each step with one of:
-   - `[tier: fast]` — lightweight/local model sufficient; not a blocker if omitted.
-   - `[tier: default]` — standard Actor (sohoai/qwen3-coder-next); omit if unsure (defaults to `default`).
-   - `[tier: heavy]` — complex reasoning, multi-file refactor, or algorithmic work; Brain dispatches `actor-heavy` (sohoai/kimi-k2.6) instead of standard Actor.
-   - Tag is emitted inline at the end of the step line, e.g.: `3. Refactor X/Y.py to use new visitor pattern [tier: heavy]`.
+   - `[tier — fast]` — lightweight/local model sufficient; not a blocker if omitted.
+   - `[tier — default]` — standard Actor (sohoai/qwen3-4b-q6); omit if unsure (defaults to `default`).
+   - `[tier — heavy]` — complex reasoning, multi-file refactor, or algorithmic work; Brain dispatches `actor-heavy` (sohoai/glm-5.1) instead of standard Actor.
+   - Tag is emitted inline at the end of the step line, e.g.: `3. Refactor X/Y.py to use new visitor pattern [tier — heavy]`.
+   - **Separator is an em-dash (U+2014 `—`), not a colon.** Unquoted `[X: Y]` patterns trigger a YAML flow-sequence parse error in OC's stricter agent-resolution code paths (e.g. `git_worktree` project directories), silently nulling the affected agent frontmatter. See `docs/design.md` § "Known platform issues" for the full story.
 5. **Doc impact** — explicitly consider whether this change affects any project documentation. Scan for: root-level `*.md` files (`AGENTS.md`, `README*.md`, `TROUBLESHOOTING.md`, `*-strategy.md`, `*-notes.md`), any `docs/` directory, any file referenced from AGENTS.md's project-file inventory. If any doc needs updating to reflect the change, include explicit numbered step(s) for those updates (these are regular Actor-executable steps alongside the code changes). Default posture: **if the code changes something a human reader of the docs would currently believe is true, the doc must be updated in the same plan.** Out-of-scope deferrals go in the "Out of scope" section below — do not silently drop them.
 6. **Risks / unknowns** — anything you couldn't verify by reading alone. Flag these so Brain can decide whether to research further before approving.
 7. **Out of scope** — one bullet list of things the plan deliberately does NOT change. This is the fence Actor must not cross.
@@ -67,9 +68,9 @@ A plan with tier annotations looks like this:
 After this plan, X will support Y by doing Z.
 
 ## Numbered steps
-1. Edit `src/foo.py` to add `function_name()` — handles case X. [tier: fast]
-2. Add test file `tests/test_foo.py` with 5 test cases — verifies all code paths. [tier: default]
-3. Refactor `src/bar.py` to use async/await throughout — complex reasoning over 3 callers. [tier: heavy]
+1. Edit `src/foo.py` to add `function_name()` — handles case X. [tier — fast]
+2. Add test file `tests/test_foo.py` with 5 test cases — verifies all code paths. [tier — default]
+3. Refactor `src/bar.py` to use async/await throughout — complex reasoning over 3 callers. [tier — heavy]
 4. Update `docs/architecture.md` to document new async semantics — reflects code change.
 
 ## Per-step expected outcome

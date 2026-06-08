@@ -10,7 +10,7 @@ No separate sessions.  No multi-run registry. If the operator wants a parallel `
 
 ## Pipeline rules — READ FIRST
 
-`/brain` orchestrates **subagents**: Researcher (`anthropic/claude-haiku-4-5`) or Researcher-deep (`anthropic/claude-sonnet-4-6` for escalation) verifies factual claims about code / runtime / SDK behaviour during Phase 0 under your direction. Planner (`sohoai/minimax-m3`) produces the plan, Actor (`sohoai/qwen3-4b-q6` or `sohoai/glm-5.1` for `[tier: heavy]` steps) makes code changes, Reviewer (`anthropic/claude-sonnet-4-6`) audits the diff. You (Brain) dispatch them via the canonical OpenCode `Task` tool. **You do NOT do the planning or implementation work yourself.** Each phase begins with a `Task` tool call; the templates are in the relevant phase sections below.
+`/brain` orchestrates **subagents**: Researcher (`anthropic/claude-haiku-4-5`) or Researcher-deep (`anthropic/claude-sonnet-4-6` for escalation) verifies factual claims about code / runtime / SDK behaviour during Phase 0 under your direction. Planner (`sohoai/minimax-m3`) produces the plan, Actor (`sohoai/qwen3-4b-q6` or `sohoai/glm-5.1` for `[tier — heavy]` steps) makes code changes, Reviewer (`anthropic/claude-sonnet-4-6`) audits the diff. You (Brain) dispatch them via the canonical OpenCode `Task` tool. **You do NOT do the planning or implementation work yourself.** Each phase begins with a `Task` tool call; the templates are in the relevant phase sections below.
 
 
 **Recommended run environment: Anthropic Opus 4.7.** The project name (`opencode-orchestra--non-Anthropic`) refers to the *worker tier* — Planner, Actor, Reviewer, and Actor-Heavy deliberately use non-Anthropic models (Minimax M3, Qwen3-4B-Q6, GLM-5.1) for cost efficiency under the SoHoAI flat-rate subscription. **Brain itself is not part of that pattern**: the orchestrator's job (multi-turn interrogation, plan reasoning, dispatch decisions, review judgment) is best served by Anthropic's strongest reasoning model. The Prerequisites section below emits an advisory if Brain is running on a different model, but does **not** enforce — this is a deliberate deviation from claude-orchestra, where the same check is a hard gate.
@@ -401,7 +401,7 @@ Show the plan to the operator. Ask explicitly: **"Approve this plan?"** Wait for
 
 After operator approval, Actor's tool calls (`filesystem` edit/write, `bash`) surface to octmux's permission-asked handler. Behaviour depends on the operator's current mode: `ask` → modal per call; `allow` → auto-allow; `deny` → auto-reject. Mode can be switched at any time with Shift-TAB.
 
-**Tier-aware dispatch:** For each step or step-group, check the PLAN.md entry for a `[tier: heavy]` annotation. If present, dispatch with `subagent_type: actor-heavy` (for heavyweight refactoring, large-scale refactors, or architecturally complex changes); otherwise use `subagent_type: actor` (default). The prompt and instructions are identical; only the subagent type differs.
+**Tier-aware dispatch:** For each step or step-group, check the PLAN.md entry for a `[tier — heavy]` annotation (em-dash separator, U+2014). If present, dispatch with `subagent_type: actor-heavy` (for heavyweight refactoring, large-scale refactors, or architecturally complex changes); otherwise use `subagent_type: actor` (default). The prompt and instructions are identical; only the subagent type differs. Note: the legacy colon form `[tier: heavy]` is a YAML poison and no longer used — see `docs/design.md` § "Known platform issues" if you ever see it in an old plan.
 
 **Each step (or tight group of steps) of Phase 2 begins with this exact `Task` tool call.** Do NOT use `Edit/Write/Bash` on project code yourself — Actor owns the code changes. Do NOT skip ahead to Phase 3 by inspecting the diff yourself — Reviewer owns the audit.
 
@@ -424,7 +424,7 @@ Task tool invocation (default tier):
     Reviewer will audit verbatim.
 ```
 
-> **NOTE:** For `[tier: heavy]` steps, use `subagent_type: actor-heavy` instead of `actor`. The prompt body is identical; only the subagent type changes.
+> **NOTE:** For `[tier — heavy]` steps, use `subagent_type: actor-heavy` instead of `actor`. The prompt body is identical; only the subagent type changes.
 
 For each step (or tight group of steps) in `PLAN.md`:
 
