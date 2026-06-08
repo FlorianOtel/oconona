@@ -42,6 +42,28 @@ else
         || die "Tier audit failed — fix drift before deploying"
 fi
 
+# ── 0b. Agent frontmatter YAML lint ────────────────────────────────────────────
+echo ""
+echo "Agent YAML frontmatter:"
+for f in "$REPO"/agents/*.md; do
+    if $DRY_RUN; then
+        info "would validate: $(basename "$f")"
+    else
+        "$PYTHON_BIN" -c "
+import yaml, sys
+text = open(sys.argv[1]).read()
+parts = text.split('---', 2)
+if len(parts) < 3:
+    sys.exit('no frontmatter found')
+fm = yaml.safe_load(parts[1])
+missing = [k for k in ('name','description','model','tools') if fm is None or fm.get(k) is None]
+if missing:
+    sys.exit('null fields: ' + ', '.join(missing))
+" "$f" || die "Agent YAML lint failed for $(basename "$f"): $?"
+        ok "valid: $(basename "$f")"
+    fi
+done
+
 copy_file() {
     local src="$1" dst="$2"
     if $SHOW_DIFF && [ -f "$dst" ]; then
@@ -394,6 +416,49 @@ else
         ok "restarted: opencode-server.service"
     else
         warn "restart failed — run manually: systemctl --user restart opencode-server.service"
+    fi
+fi
+
+# ── 12. Post-restart agent verification ─────────────────────────────────────────
+if $DRY_RUN; then
+    info "would verify: /agent endpoint post-restart"
+elif $NO_RESTART; then
+    warn "skipping agent verification (--no-restart) — restart required before verification"
+elif ! command -v systemctl >/dev/null 2>&1; then
+    # systemctl not found, skip silently
+    :
+elif ! systemctl --user list-unit-files opencode-server.service >/dev/null 2>&1; then
+    # opencode-server.service not installed, skip silently
+    :
+else
+    # systemctl found and service installed; attempt verification
+    echo "Agent verification:"
+    verified=false
+    for attempt in {1..10}; do
+        if curl --max-time 2 -s http://localhost:4096/agent 2>/dev/null | "$PYTHON_BIN" -c "
+import sys, json
+try:
+    agents = json.load(sys.stdin)
+    for agent in agents:
+        model = agent.get('model')
+        desc = agent.get('description')
+        if not model or not isinstance(model, str) or not model.strip():
+            sys.exit('agent has null or empty model')
+        if not desc or not isinstance(desc, str) or not desc.strip():
+            sys.exit('agent has null or empty description')
+except Exception as e:
+    sys.exit(str(e))
+" >/dev/null 2>&1; then
+            ok "verified: all agents report model + description via /agent endpoint"
+            verified=true
+            break
+        fi
+        if [ "$attempt" -lt 10 ]; then
+            sleep 1
+        fi
+    done
+    if [ "$verified" = "false" ]; then
+        warn "agent verification failed after 10 retries — check OC logs; actor-heavy model may be null"
     fi
 fi
 

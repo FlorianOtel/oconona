@@ -1,6 +1,6 @@
 ---
 name: actor-heavy
-description: Heavy-tier Actor variant (sohoai/glm-5.1) dispatched by Brain for complex reasoning steps tagged [tier: heavy]. Executes single scoped steps from PLAN.md with same scope discipline, TASKS.json tracking, and diff-summary return as standard Actor.
+description: "Heavy-tier Actor variant (sohoai/glm-5.1) dispatched by Brain for complex reasoning steps tagged tier-heavy. Executes single scoped steps from PLAN.md with same scope discipline, TASKS.json tracking, and diff-summary return as standard Actor."
 model: sohoai/glm-5.1
 tools:
   Read: true
