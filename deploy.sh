@@ -46,10 +46,7 @@ fi
 echo ""
 echo "Agent YAML frontmatter:"
 for f in "$REPO"/agents/*.md; do
-    if $DRY_RUN; then
-        info "would validate: $(basename "$f")"
-    else
-        "$PYTHON_BIN" -c "
+    "$PYTHON_BIN" -c "
 import yaml, sys
 text = open(sys.argv[1]).read()
 parts = text.split('---', 2)
@@ -59,7 +56,10 @@ fm = yaml.safe_load(parts[1])
 missing = [k for k in ('name','description','model','tools') if fm is None or fm.get(k) is None]
 if missing:
     sys.exit('null fields: ' + ', '.join(missing))
-" "$f" || die "Agent YAML lint failed for $(basename "$f"): $?"
+" "$f" || { rc=$?; die "Agent YAML lint failed for $(basename "$f") (exit $rc)"; }
+    if $DRY_RUN; then
+        info "valid: $(basename "$f")"
+    else
         ok "valid: $(basename "$f")"
     fi
 done
@@ -425,11 +425,9 @@ if $DRY_RUN; then
 elif $NO_RESTART; then
     warn "skipping agent verification (--no-restart) — restart required before verification"
 elif ! command -v systemctl >/dev/null 2>&1; then
-    # systemctl not found, skip silently
-    :
+    warn "skipping agent verification (systemctl not found) — verify manually"
 elif ! systemctl --user list-unit-files opencode-server.service >/dev/null 2>&1; then
-    # opencode-server.service not installed, skip silently
-    :
+    warn "skipping agent verification (opencode-server.service not installed) — verify manually"
 else
     # systemctl found and service installed; attempt verification
     echo "Agent verification:"
