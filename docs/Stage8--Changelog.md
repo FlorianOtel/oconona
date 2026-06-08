@@ -2,8 +2,8 @@
 title: "Stage 8 — Changelog"
 created_at: 2026-06-05--13-00
 created_by: Actor (Claude Haiku 4.5 — via oconona /brain Stage 8 dispatch)
-updated_by: Claude Code (Claude Haiku 4.5)
-updated_at: 2026-06-05--18-30
+updated_by: Claude Opus 4.7 (1M context) — via oconona /brain v8.4.0 dispatch
+updated_at: 2026-06-08--06-05
 context: >
   Per-version changelog for Stage 8 of the oconona orchestra
   (Researcher tier + Brain Phase 0 hardening + telemetry counter).
@@ -13,6 +13,56 @@ context: >
 ---
 
 # Stage 8 — Changelog
+
+## v8.4.0 — YAML poison + deploy.sh frontmatter lint + agent verify
+
+**Shipped:** 2026-06-08
+**Code commit:** `ad154045ce23a82de56268e19ef45e294cb1a0bc` (short: `ad15404`)
+
+### What shipped
+
+- **`agents/actor-heavy.md` line 3 — description value wrapped in double quotes and `[tier: heavy]` rephrased to `tier-heavy`:** Root cause: unquoted `[` at the start of a value triggers YAML flow-sequence parsing in both js-yaml (OpenCode) and PyYAML (Python tooling). OC silently nulls the affected fields (`model`, `description`, `tools`) when the parse fails. Fixed with double quotes around the entire value (outer quotes protect the content) and rephrased substring (removes latent poison even without quotes). Belt-and-suspenders approach ensures compatibility with both parsers.
+
+- **`deploy.sh` § H1 — pre-deploy YAML frontmatter lint (new section 0b):** Iterates over `agents/*.md` files; extracts YAML frontmatter; uses PyYAML `safe_load` to parse; `die`s on parse exception or if any of `name`, `description`, `model`, `tools` fields are null. Runs unconditionally (including `--dry-run`); fails the deploy before any file is copied.
+
+- **`deploy.sh` § H2 — post-restart `/agent` endpoint verification (new section 12):** After successful restart, polls `http://localhost:4096/agent` for up to 10 seconds to fetch the live agent inventory. For each agent, warns loudly (does not abort) if `model` or `description` is null. Skipped on `--no-restart`.
+
+### Why
+
+**OC main-vs-git_worktree platform note:** The latent YAML poison was tolerated in `project_directory.type='main'` (js-yaml's lax parsing accepted malformed flow-sequences) but fatal in `type='git_worktree'` (stricter YAML parsing). Trigger: on 2026-06-07 23:48:26 OC registered octmux's block-renderer worktree as `type='git_worktree'`. Subsequent actor-heavy dispatches in that worktree silently fell back to Brain's model because `description` and `model` nulled out. Latent for 19 days before becoming visible. The frontmatter lint and post-restart verification catch both the latent poison and any future parse failures, surfacing them at deploy time or immediately post-restart.
+
+### Files changed
+
+- `agents/actor-heavy.md`
+- `deploy.sh`
+
+---
+
+## v8.3.1 — per-project `.brain-inflight` / `.duo-inflight` refusal check
+
+**Shipped:** 2026-06-06
+**Code commit:** `2045ab3bafe163ee6786cdf776b61ae76a2cf1cc` (short: `2045ab3`)
+
+### What shipped
+
+- **Per-project refusal check in `commands/brain.md`:** Inserted new refusal logic in Setup bash block (between lazy-cleanup close and session-ID creation). Iterates over active `.brain-inflight` markers via `find`, reads each candidate's `.project-dir` sidecar (written by Setup), normalises both paths with `realpath`, and compares project identity. Refuses with clear path if an active session is found in the same project. Missing `.project-dir` treated as unknown (skip, conservative default).
+
+- **Per-project refusal check in `commands/duo-plan.md`:** Replaced previous global refusal block (lines 37-50) with per-project equivalent. Logic mirrors brain.md exactly, only differing in marker name (`.duo-inflight`) and suggested abandon command (`/duo-abandon` or `/duo-act`). Updated prose to emphasise "**for this project**" scope.
+
+- **Path normalisation with `realpath`:** Both checks use `realpath` to normalise candidate and current project paths, handling symlinks and relative-path edge cases. Fallback `echo` provides safe identity if `realpath` fails.
+
+- **`head -1` read of `.project-dir`:** Uses `head -1` to read the sidecar (written by Setup at line `printf '%s\n' ...`), avoiding `tr -d ' \n'` corruption for paths containing spaces. Planner R4 concern addressed.
+
+### Why
+
+Race 1 (Setup-time selection in `commands/brain.md:125-130`) can cascade into Race 2 (parent_delta cumulative subtraction in `scripts/telemetry-summarize.py:93`) when two same-mode pipelines run concurrently. Per-project scope (not global) respects the documented exclusivity intent without blocking legitimate cross-project work (e.g., orchestrating two separate project folders). /duo-plan's previous global behavior was over-restrictive — corrected symmetrically. Both checks now use the same `.project-dir` sidecar written at Setup time, creating a unified project-identity mechanism.
+
+### Files changed
+
+- `commands/brain.md`
+- `commands/duo-plan.md`
+
+---
 
 ## v8.3.0 — orchestra-cleanup.sh — safe-order + .cleanup-in-progress sidecar + trap
 
