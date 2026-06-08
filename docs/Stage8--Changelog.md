@@ -2,8 +2,8 @@
 title: "Stage 8 — Changelog"
 created_at: 2026-06-05--13-00
 created_by: Actor (Claude Haiku 4.5 — via oconona /brain Stage 8 dispatch)
-updated_by: Claude Opus 4.7 (1M context) — via oconona /brain v8.4.0 dispatch
-updated_at: 2026-06-08--06-05
+updated_by: Claude Opus 4.7 (1M context) — via oconona em-dash tier sweep (v8.4.1)
+updated_at: 2026-06-08--09-00
 context: >
   Per-version changelog for Stage 8 of the oconona orchestra
   (Researcher tier + Brain Phase 0 hardening + telemetry counter).
@@ -13,6 +13,30 @@ context: >
 ---
 
 # Stage 8 — Changelog
+
+## v8.4.1 — em-dash tier-tag convention + Known platform issues capture
+
+**Shipped:** 2026-06-08
+**Code commit:** `6fc848119a7fbdc65e93de15a3cee30082bcf407` (short: `6fc8481`)
+
+### What shipped
+
+- **Repo-wide tier-tag convention change — `[tier: X]` → `[tier — X]` (em-dash U+2014 with spaces):** Active code references updated in `agents/planner.md` (schema + example plan), `agents/actor-heavy.md` (frontmatter description + body), `commands/brain.md` (dispatch instructions), `agents-md-block/orchestra-guard.md` (in-pipeline guard), `README.md` (model tiers table). The em-dash separator is YAML-safe in any context (no `:` to trigger a flow-context mapping interpretation) and reads naturally in prose. The legacy colon-space form is retained verbatim only in (a) one labelled historical example in brain.md, (b) the v8.4.0 changelog entry below describing the original poison.
+
+- **`docs/design.md` § "Known platform issues" (new section)** — captures KP-1 (silent agent-frontmatter parse failure / `model: null` fallback) and KP-2 (`main` vs `git_worktree` `project_directory` divergence) as named platform-level issues, with symptoms, root causes, mitigations, and author-time discipline. Forward-pointer from `agents/planner.md` and `commands/brain.md` Tier-aware dispatch sections so the convention is self-documenting from inside the agent files. Author-time discipline statement: no unquoted `[key: value]` substrings in agent-frontmatter scalars.
+
+- **Memory captures (operator workspace, not in repo):** `[[v8.4-yaml-poison]]` (the KP-1+KP-2 case study + first-line debug recipe) and `[[oc-agent-endpoint-builtin-null]]` (why `deploy.sh` § H2 warns every deploy on built-in OC agents, and the Approach-A filter-to-user-agents recipe saved as a signal for future regressions — NOT shipped per operator decision after the em-dash sweep eliminated the only known YAML poison in user-authored frontmatter).
+
+### Why
+
+The v8.4.0 fix addressed `agents/actor-heavy.md`'s specific YAML poison and added pre-deploy linting, but the toxic colon-space form survived elsewhere as a literal tag in agent dispatch instructions, planner schema, and docs. Future authoring of similar tag-like syntax (`[Researcher: deep]`, `[Reviewer: strict]`, etc.) would silently re-introduce the same class of bug. Em-dash convention plus a named "Known platform issues" section in `design.md` together eliminate both the immediate residue AND the recurrence vector. Historical porting docs (`docs/Opus-porting-plan.md`, `docs/Sonnet-porting-plan.md`, `docs/Glm--oc-non-A-porting.plan.md`, `docs/Kimi-oc-non-A-porting.plan.md`, `docs/Consolidated-migration-plan.md`, `docs/design-history.md`) are intentionally untouched — they document past plans accurately and should not be rewritten.
+
+### Files changed
+
+- `agents/planner.md`, `agents/actor-heavy.md`, `commands/brain.md`, `agents-md-block/orchestra-guard.md`, `README.md` (code commit `6fc8481`)
+- `docs/design.md` (em-dash references updated; new § "Known platform issues" appended), `docs/Stage8.md`, `docs/Stage8--Changelog.md` (this entry)
+
+---
 
 ## v8.4.0 — YAML poison + deploy.sh frontmatter lint + agent verify
 
@@ -158,7 +182,7 @@ Multiple sessions in the octmux project (v8.1.5.1 through v8.1.5.4) iterated aga
 
 - claude-orchestra port (captured as design memo at `~/Gin-AI/tmp/CC--prudent.md`; distinct future session).
 - "False-premise catch rate" telemetry — qualitative for now; may be measurable after 5–10 sessions.
-- Per-step verification annotation in `PLAN.md` (mirror of `[tier: heavy]`) — possible v8.3 extension.
+- Per-step verification annotation in `PLAN.md` (mirror of `[tier — heavy]`) — possible v8.3 extension.
 
 ### Verification
 

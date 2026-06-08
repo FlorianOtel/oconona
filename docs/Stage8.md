@@ -2,8 +2,8 @@
 title: "Stage 8 — Prudent Brain: Researcher tier + Phase 0 hardening"
 created_at: 2026-06-05--12-57
 created_by: Actor (Claude Haiku 4.5 — via oconona /brain Stage 8 dispatch)
-updated_by: Claude Opus 4.7 (1M context) — via oconona /brain v8.4.0 dispatch
-updated_at: 2026-06-08--06-05
+updated_by: Claude Opus 4.7 (1M context) — via oconona em-dash tier sweep (v8.4.1)
+updated_at: 2026-06-08--09-00
 context: >
   Stage 8 of the oconona orchestra introduces a new subagent role —
   Researcher — with two tiers (researcher / researcher-deep) dispatched
@@ -63,8 +63,13 @@ Brain's job (interrogation, design synthesis, dispatch) remains unchanged. What 
 - `agents-md-block/orchestra-guard.md` — added researcher-dispatch obligation bullet.
 - `docs/design.md` — extended agent table; updated Phase 0 prose; extended cost model with researcher tiers; frontmatter metadata refresh.
 - `docs/oconona--provider-contract-details.md` — added `researcher_dispatches` to telemetry.json schema; added `### New fields (v8.2.0)` section.
-- `agents/actor-heavy.md` — v8.4.0: description frontmatter value double-quoted; `[tier: heavy]` rephrased to `tier-heavy` to eliminate YAML flow-sequence parse error (js-yaml / PyYAML ScannerError) that OC silently swallows, nulling model + description + tools in git_worktree sessions.
+- `agents/actor-heavy.md` — v8.4.0: description frontmatter value double-quoted; `[tier: heavy]` rephrased to `tier-heavy` to eliminate YAML flow-sequence parse error (js-yaml / PyYAML ScannerError) that OC silently swallows, nulling model + description + tools in git_worktree sessions. v8.4.1: tag re-normalised to canonical em-dash form `[tier — heavy]` (description and body); matches repo-wide convention.
 - `deploy.sh` — v8.4.0: added H1 pre-deploy YAML frontmatter lint (section 0b) and H2 post-restart /agent endpoint verification (section 12).
+- `agents/planner.md` — v8.4.1: tier-tag schema and example plan converted to em-dash form `[tier — fast|default|heavy]`; added one-line statement of WHY (em-dash separator is YAML-safe; forward-pointer to `docs/design.md` § "Known platform issues").
+- `commands/brain.md` — v8.4.1: tier-aware dispatch instructions updated to `[tier — heavy]`; the legacy colon form `[tier: heavy]` is retained verbatim in one labelled historical example only.
+- `agents-md-block/orchestra-guard.md` — v8.4.1: two `[tier: heavy]` references updated to `[tier — heavy]`.
+- `README.md` — v8.4.1: model tiers table heavy-tier annotation updated to `[tier — heavy]`.
+- `docs/design.md` — v8.4.1: model-assignments and step-level annotation sections updated to em-dash form; new § "Known platform issues" appended documenting KP-1 (silent agent-frontmatter parse failure / `model: null` fallback) and KP-2 (`main` vs `git_worktree` `project_directory` divergence).
 
 ### External (not committed)
 - `~/Gin-AI/tmp/CC--prudent.md` — design memo for the future `claude-orchestra` port. Scratch file. Captures verbatim-carry plus OC ↔ CC surface adjustments.
@@ -88,7 +93,7 @@ This enables, after rollout, a measurable answer to "is Stage 8 firing as intend
 ## Open items deferred to future work
 
 - "False-premise catch rate" metric — qualitative for now; may be measurable from session transcripts after a few weeks.
-- Per-step verification annotation in `PLAN.md` (mirror of `[tier: heavy]`) so verifications can also fire between Plan and Act phases for newly-introduced premises — possible v8.3 extension.
+- Per-step verification annotation in `PLAN.md` (mirror of `[tier — heavy]`) so verifications can also fire between Plan and Act phases for newly-introduced premises — possible v8.3 extension.
 - claude-orchestra port — captured as design memo at `~/Gin-AI/tmp/CC--prudent.md`; distinct future session.
 
 ## References

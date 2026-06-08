@@ -2,8 +2,8 @@
 title: "OpenCode Orchestra — three-tier Brain/Planner/Actor pattern over OpenCode"
 created_at: 20260424-000000
 created_by: OpenCode (Claude Opus 4.7, 1M context)
-updated_by: Actor (Claude Haiku 4.5 — via /brain Stage 8 dispatch)
-updated_at: 2026-06-05--12-51
+updated_by: Claude Opus 4.7 (1M context) — via oconona em-dash tier sweep + KP-1/KP-2 capture (v8.4.1)
+updated_at: 2026-06-08--09-00
 context: >
   Reference architecture for OpenCode Orchestra — a three-tier orchestration
   pattern layered on OpenCode using native subagents. The design supports
@@ -70,7 +70,7 @@ When NOT to use /brain: simple tasks with ≤5 steps, low blast radius. Use /duo
 | **Brain** | Anthropic Opus 4.7 recommended (any model permitted; advisory only) | — (main session) | all | Orchestrates; surfaces plan for operator approval (G2). Strictly speaking Brain is not an "agent" — it's the parent session itself; included here as the top of the tier hierarchy. |
 | **Planner** | `sohoai/minimax-m3` | `~/.config/opencode/agents/planner.md` | Read, Grep, Glob, WebFetch, TodoWrite (read-only) | Decomposes task into numbered plan; Brain persists to PLAN.md |
 | **Actor** | `sohoai/qwen3-4b-q6` | `~/.config/opencode/agents/actor.md` | Read, Edit, Write, Bash, Grep, Glob (+ denies on rm -rf, git push) | Executes one step per invocation; self-persists TASKS.json via atomic-rename |
-| **Actor** (heavy) | `sohoai/glm-5.1` | `~/.config/opencode/agents/actor-heavy.md` | Read, Edit, Write, Bash, Grep, Glob (+ denies on rm -rf, git push) | Complex multi-file refactors; triggered by `[tier: heavy]` step annotations |
+| **Actor** (heavy) | `sohoai/glm-5.1` | `~/.config/opencode/agents/actor-heavy.md` | Read, Edit, Write, Bash, Grep, Glob (+ denies on rm -rf, git push) | Complex multi-file refactors; triggered by `[tier — heavy]` step annotations |
 | **Reviewer** | `anthropic/claude-sonnet-4-6` (v7.3.5+) | `~/.config/opencode/agents/reviewer.md` | Read, Grep, Glob, TodoWrite (read-only) | Reviews diff against PLAN.md; returns PASS / FIX / BLOCK. Model changed from `sohoai/kimi-k2.6` in v7.3.5 to enable per-tier cost tracking and marginal-attribution. |
 | **Researcher** | `anthropic/claude-haiku-4-5` | `~/.config/opencode/agents/researcher.md` | Read, Grep, Glob, Bash, WebFetch, TodoWrite (read-only + Bash for probes) | Phase 0 factual verification; returns VERDICT/EVIDENCE/CAVEATS with file:line citations |
 | **Researcher** (deep) | `anthropic/claude-sonnet-4-6` | `~/.config/opencode/agents/researcher-deep.md` | Read, Grep, Glob, Bash, WebFetch, TodoWrite (read-only + Bash for probes) | Escalation tier for multi-file reasoning, subtle event interleaving, or runtime probes; triggered by Brain's escalation policy |
@@ -436,19 +436,21 @@ Reference: [Design history & amendments](design-history.md) §Amendment 2026-05-
 |---|---|---|
 | Planner (normal) | `sohoai/minimax-m3` | all inputs |
 | Actor (default) | `sohoai/qwen3-4b-q6` | all steps unless marked heavy |
-| Actor (heavy) | `sohoai/glm-5.1` | `[tier: heavy]` annotation in PLAN.md step |
+| Actor (heavy) | `sohoai/glm-5.1` | `[tier — heavy]` annotation in PLAN.md step |
 | Reviewer | `anthropic/claude-sonnet-4-6` | all reviews (v7.3.5+; enables per-tier cost tracking) |
 
 **Brain** is recommended on Anthropic Opus 4.7 (advisory only — any model permitted; see §Model requirements above). `/duo` is unconstrained and recommends `anthropic/claude-sonnet-4-6` (advisory only); any model works for `/duo`.
 
 ### Step-level tier annotations
 
-Plan steps may be tagged with optional `[tier: …]` annotations to override tier defaults:
+Plan steps may be tagged with optional `[tier — …]` annotations (em-dash U+2014 as separator) to override tier defaults:
 
-- `[tier: default]` — use default tier (Qwen3 for Actor, GLM-5.1 for Planner). Usually omitted.
-- `[tier: heavy]` — use heavy tier (Kimi K2.6 for Actor; Sonnet stays for Planner). Used for complex multi-file refactors, architectural changes, or security-sensitive code.
+- `[tier — default]` — use default tier (Qwen3-4B-Q6 for Actor). Usually omitted.
+- `[tier — heavy]` — use heavy tier (GLM-5.1 for Actor; Sonnet stays for Reviewer). Used for complex multi-file refactors, architectural changes, or security-sensitive code.
 
-Format: annotation appears on the same line as the step heading (e.g., `### 5. Refactor X [tier: heavy]`). Brain's PLAN parser confirms the annotation exists before dispatching the heavy-tier subagent; if malformed or missing, the step runs at default tier.
+Format: annotation appears on the same line as the step heading (e.g., `### 5. Refactor X [tier — heavy]`). Brain's PLAN parser confirms the annotation exists before dispatching the heavy-tier subagent; if malformed or missing, the step runs at default tier.
+
+**Why em-dash, not colon-space:** the legacy form `[tier: heavy]` was a YAML flow-context trap when it appeared in an unquoted agent-frontmatter scalar (e.g. `description:` field). OpenCode's `git_worktree` agent-resolution path is strict about that parse error and silently nulls the affected fields (`model`, `description`, `tools`), causing the subagent to fall back to the parent session's model. See § "Known platform issues" below for the full case study. Em-dash sidesteps the issue and renders identically in plain prose.
 
 ### Alias stability contract
 
@@ -470,6 +472,38 @@ Starting in v7.3.5, Reviewer operates on `anthropic/claude-sonnet-4-6` to enable
 - TODO.md §10b–10f: deferred items (GLM-5.1 second-pass, 429 fallback, PLAN schema validator, 30 KB threshold automation, max_tokens knob).
 - Handoff §1: SoHoAI alias stability contract.
 - Handoff §3: max_tokens ≥ 500 requirement for reasoning models.
+
+---
+
+## Known platform issues
+
+This section documents OpenCode platform behaviours that have caused real regressions in oconona deployments, with the workarounds we ship. These are NOT bugs we own — they are properties of the OC daemon we run against — but they have shaped our defensive posture (`deploy.sh` H1 lint, em-dash tier convention, etc.). Capture them here so future maintainers can recognise the symptoms quickly.
+
+### KP-1 — Silent agent-frontmatter parse failure (`model: null` fallback)
+
+**Symptom.** A subagent dispatched via the `Task` tool silently runs on the parent session's model instead of the model declared in its `agents/<name>.md` frontmatter. The status line shows the wrong model. The provider gateway logs zero calls for the configured backend. The OC `/agent` HTTP endpoint reports the agent with `"model": null`, `"description": null`, and a truncated `permission` list (no `Read`/`Edit`/`Write`/`Bash` entries from the frontmatter `tools:` block).
+
+**Root cause.** OpenCode catches YAML parse exceptions when loading agent frontmatter and proceeds with the offending fields set to `null` — no warning, no log. When dispatch resolves `model: null`, OC falls back to the parent session's model. The most common trigger is an unquoted `[key: value]` substring inside a plain YAML scalar: the `[` opens a flow context and the subsequent `: ` is interpreted as a mapping-value separator within that flow. Both PyYAML and js-yaml throw `ScannerError: mapping values are not allowed here`.
+
+**The v8.4.0 case.** The substring `[tier: heavy]` lived in `agents/actor-heavy.md`'s `description:` field from the bootstrap commit on 2026-05-20 — latent for 19 days. It manifested only when a `[tier — heavy]` step was actually dispatched AND the session ran from a `project_directory` of type `git_worktree`. The same poison was silently tolerated on `project_directory.type='main'`. See KP-2 for the directory-type divergence.
+
+**Mitigations shipped.**
+- `agents/actor-heavy.md` line 3 description double-quoted and `[tier: heavy]` rephrased (v8.4.0 commit `ad15404`).
+- Repo-wide em-dash convention for tier tags: `[tier — heavy]` instead of `[tier: heavy]` everywhere (v8.4.1). Em-dash is YAML-safe in any context.
+- `deploy.sh` § H1 — pre-deploy YAML frontmatter lint with PyYAML; `die`s on parse exception or any null field in `name`/`description`/`model`/`tools` (v8.4.0).
+- `deploy.sh` § H2 — post-restart `/agent` endpoint polling (v8.4.0). Currently noisy: it iterates all agents in the response and warns on built-in OC agents that legitimately have `model: null` (`build`, `compaction`, `summary`, `title`, `explore`, `general`, `plan`). Treated as cosmetic — the H1 lint is the load-bearing check.
+
+**Author-time discipline.** No unquoted `[key: value]` substrings in agent-frontmatter scalars. Prefer the em-dash form for tag-like syntax. Quote the whole scalar if uncertain.
+
+### KP-2 — `main` vs `git_worktree` project_directory divergence
+
+**Symptom.** Identical OC daemon, identical deployed `agents/*.md` files, identical session content. A subagent dispatched from a `project_directory.type='main'` working tree resolves correctly; the same subagent dispatched from a `project_directory.type='git_worktree'` working tree falls back to the parent model (i.e. exhibits KP-1).
+
+**Root cause (empirical, not source-confirmed).** OC's agent-resolution code path differs by `project_directory.type`. The `main` path is lax about YAML parse errors in agent frontmatter; the `git_worktree` path is strict and silently nulls the affected fields. The exact divergence in OC's TypeScript source has not been read; we accepted the empirical observation (100% correlation across 10+ historical sessions in `~/.local/share/opencode/opencode.db`) and made the application-layer fix in KP-1 instead.
+
+**Trigger event.** OC auto-registers a new `project_directory` row of type `git_worktree` the first time a session is opened in a git worktree subdir of an already-registered `main` project. Inspect via `sqlite3 ~/.local/share/opencode/opencode.db "SELECT * FROM project_directory;"`. The flip happens silently at session creation, no operator action required.
+
+**Mitigation.** The em-dash convention + H1 lint (see KP-1) make user-authored frontmatter robust regardless of which OC code path is taken. We do not try to patch around the divergence itself.
 
 ---
 
