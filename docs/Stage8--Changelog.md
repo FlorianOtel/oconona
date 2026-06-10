@@ -2,8 +2,8 @@
 title: "Stage 8 — Changelog"
 created_at: 2026-06-05--13-00
 created_by: Actor (Claude Haiku 4.5 — via oconona /brain Stage 8 dispatch)
-updated_by: Claude Code (Claude Sonnet 4.6) — v8.4.2.1 deploy.sh H2 filter fix
-updated_at: 2026-06-10--13-17
+updated_by: Claude Code (Claude Sonnet 4.6) — v8.4.2.2 status-line warn fix
+updated_at: 2026-06-10--13-23
 context: >
   Per-version changelog for Stage 8 of the oconona orchestra
   (Researcher tier + Brain Phase 0 hardening + telemetry counter).
@@ -13,6 +13,25 @@ context: >
 ---
 
 # Stage 8 — Changelog
+
+## v8.4.2.2 — deploy.sh — status-line warn → info
+
+**Shipped:** 2026-06-10
+**Code commit:** `a88ddda` (short: `a88ddda`)
+
+### What shipped
+
+- **`deploy.sh` § 8 — downgrade missing-status-line from `warn` to `info`:** `status-line.sh` is absent on this machine; OC renders the status line without it, so the orchestra-block patch is not needed. The previous `warn` (yellow `!`) implied something was broken on every deploy. Changed to `info` (cyan `•`) so the message is purely informational.
+
+### Why
+
+`status-line.sh` is an OC-generated file on some installations but absent on others. The orchestra-block patch is optional enhancement (injects ctx bar + cost + badge into the status line); when the file doesn't exist the status line still works. A `warn` on every deploy produced false noise that obscured real issues.
+
+### Files changed
+
+- `deploy.sh` (code commit `a88ddda`)
+
+---
 
 ## v8.4.2.1 — deploy.sh § 12 — filter built-in agents, fix model isinstance check
 
