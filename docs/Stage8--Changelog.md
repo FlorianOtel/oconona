@@ -14,6 +14,31 @@ context: >
 
 # Stage 8 — Changelog
 
+## v8.4.2 — SNAPEOF heredoc extraction — model-parse robustness
+
+**Shipped:** 2026-06-10
+**Code commit:** `135cc3ee2d3216623730a4417ba25368dbba1eef` (short: `135cc3e`)
+
+### What shipped
+
+- **Extract Python snippet from inline heredocs to `scripts/oc-snapshot.py`:** Less-capable models (minimax-m3) mis-parsed the `<<'SNAPEOF'` heredoc pattern in `commands/duo-plan.md` and `commands/brain.md` setup blocks, seeing a conflict with nearby while-loop `done` keywords. Root cause: raw `SNAPEOF` terminator in an unquoted context triggers false conflict detection in syntactically-naive parsers. Fixed by extracting the 5-line Python snippet (`import os, json, importlib.util` through `if snap: print(...)`) to a dedicated `scripts/oc-snapshot.py` file.
+
+- **Four call-sites refactored:** `commands/duo-plan.md` (line 137), `commands/brain.md` (line 174), `scripts/orchestra-hook.sh` (line 274), `scripts/orchestra-cleanup.sh` (line 57). All now use plain file-based invocation (`python3 "${HOME}/.config/opencode/scripts/oc-snapshot.py"`) instead of inline heredocs. Pipeline semantics unchanged; heredoc replaced with explicit file reference.
+
+- **`deploy.sh` updated:** Added `oc-snapshot.py` to the Python files loop (section 5) so the script is copied to `~/.config/opencode/scripts/` on every deploy.
+
+### Why
+
+The heredoc pattern is syntactically valid bash and runs correctly in all real shells. However, less-capable LLMs running in octmux (e.g., minimax-m3 dispatched as Planner) don't parse bash heredocs reliably — they see the `SNAPEOF` terminator and surrounding context and infer a structural conflict rather than recognizing the heredoc as a single atom. Extracting the Python code to a file removes the pattern entirely, making the call-site a straightforward file invocation that all parsers handle identically. Signal value: if a future octmux agent mis-parses this simpler form, the problem is not bash syntax but a more fundamental model limitation.
+
+### Files changed
+
+- `scripts/oc-snapshot.py` (new file, 5 lines)
+- `commands/duo-plan.md`, `commands/brain.md`, `scripts/orchestra-hook.sh`, `scripts/orchestra-cleanup.sh` (code commit `135cc3e`)
+- `deploy.sh` (code commit `135cc3e`)
+
+---
+
 ## v8.4.1 — em-dash tier-tag convention + Known platform issues capture
 
 **Shipped:** 2026-06-08

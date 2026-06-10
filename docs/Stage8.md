@@ -2,8 +2,8 @@
 title: "Stage 8 — Prudent Brain: Researcher tier + Phase 0 hardening"
 created_at: 2026-06-05--12-57
 created_by: Actor (Claude Haiku 4.5 — via oconona /brain Stage 8 dispatch)
-updated_by: Claude Opus 4.7 (1M context) — via oconona em-dash tier sweep (v8.4.1)
-updated_at: 2026-06-08--09-00
+updated_by: Actor (Claude Haiku 4.5) — via oconona SNAPEOF-extraction (v8.4.2)
+updated_at: 2026-06-10--10-58
 context: >
   Stage 8 of the oconona orchestra introduces a new subagent role —
   Researcher — with two tiers (researcher / researcher-deep) dispatched
@@ -49,9 +49,9 @@ Brain's job (interrogation, design synthesis, dispatch) remains unchanged. What 
 - `docs/Stage8--Changelog.md` — first entry referencing the code-first commit hash.
 
 ### Modified files
-- `commands/brain.md` — v8.3.1: inserted per-project `.brain-inflight` refusal check in Setup bash block (between lazy-cleanup close and session-ID creation); filters active sessions by `.project-dir` realpath comparison; absent `.project-dir` treated as unknown (skip); uses `head -1` to read sidecar (avoids `tr -d ' '` corruption for paths with spaces). Also: fully replaced from operator's `~/Gin-AI/tmp/brain-prudent.md` draft in v8.2.0; gaps closed (Researcher dispatch sub-section with Task-tool template, verdict synthesis, escalation guidance, soft verification budget; updated RESEARCH.md template with `## Verified hypotheses` section; updated Phase 0 end-gate; updated negative-examples list; 7 mechanical fixes).
-- `commands/duo-plan.md` — v8.3.1: replaced global `.duo-inflight` refusal block with per-project filter matching brain.md; iterates over active markers, reads `.project-dir` sidecars, normalises paths with `realpath`, compares project identity. Updated prose to emphasise **"for this project"** scope. Cross-mode and cross-project coexistence now allowed.
-- `scripts/orchestra-cleanup.sh` — v8.3.0: corrected execution order (sidecar write before telemetry summarise, marker removal after post-verify); added `.cleanup-in-progress` sidecar (atomic write/removal); added EXIT trap for crash cleanup. Fixes HIGH#1 (marker-before-telemetry race) + MEDIUM#2 (no cleanup-in-progress sidecar).
+- `commands/brain.md` — v8.3.1: inserted per-project `.brain-inflight` refusal check in Setup bash block (between lazy-cleanup close and session-ID creation); filters active sessions by `.project-dir` realpath comparison; absent `.project-dir` treated as unknown (skip); uses `head -1` to read sidecar (avoids `tr -d ' '` corruption for paths with spaces). Also: fully replaced from operator's `~/Gin-AI/tmp/brain-prudent.md` draft in v8.2.0; gaps closed (Researcher dispatch sub-section with Task-tool template, verdict synthesis, escalation guidance, soft verification budget; updated RESEARCH.md template with `## Verified hypotheses` section; updated Phase 0 end-gate; updated negative-examples list; 7 mechanical fixes). v8.4.1: tier-aware dispatch instructions updated to `[tier — heavy]`; the legacy colon form `[tier: heavy]` is retained verbatim in one labelled historical example only. v8.4.2: line 174 SNAPEOF heredoc replaced with file-based `oc-snapshot.py` call.
+- `commands/duo-plan.md` — v8.3.1: replaced global `.duo-inflight` refusal block with per-project filter matching brain.md; iterates over active markers, reads `.project-dir` sidecars, normalises paths with `realpath`, compares project identity. Updated prose to emphasise **"for this project"** scope. Cross-mode and cross-project coexistence now allowed. v8.4.2: line 137 SNAPEOF heredoc replaced with file-based `oc-snapshot.py` call.
+- `scripts/orchestra-cleanup.sh` — v8.3.0: corrected execution order (sidecar write before telemetry summarise, marker removal after post-verify); added `.cleanup-in-progress` sidecar (atomic write/removal); added EXIT trap for crash cleanup. Fixes HIGH#1 (marker-before-telemetry race) + MEDIUM#2 (no cleanup-in-progress sidecar). v8.4.2: line 57 SNAPEOF heredoc replaced with file-based `oc-snapshot.py` call.
 - `config/orchestra-tiers.yaml` — added `researcher` and `researcher-deep` tier entries.
 - `config/context-windows.yaml` — metadata refresh; `claude-haiku-4-5: 200000` already present.
 - `scripts/check-tiers.py` — soft-warn for missing `anthropic/claude-haiku-4-5` mention in `commands/brain.md`.
@@ -64,11 +64,12 @@ Brain's job (interrogation, design synthesis, dispatch) remains unchanged. What 
 - `docs/design.md` — extended agent table; updated Phase 0 prose; extended cost model with researcher tiers; frontmatter metadata refresh.
 - `docs/oconona--provider-contract-details.md` — added `researcher_dispatches` to telemetry.json schema; added `### New fields (v8.2.0)` section.
 - `agents/actor-heavy.md` — v8.4.0: description frontmatter value double-quoted; `[tier: heavy]` rephrased to `tier-heavy` to eliminate YAML flow-sequence parse error (js-yaml / PyYAML ScannerError) that OC silently swallows, nulling model + description + tools in git_worktree sessions. v8.4.1: tag re-normalised to canonical em-dash form `[tier — heavy]` (description and body); matches repo-wide convention.
-- `deploy.sh` — v8.4.0: added H1 pre-deploy YAML frontmatter lint (section 0b) and H2 post-restart /agent endpoint verification (section 12).
+- `deploy.sh` — v8.4.0: added H1 pre-deploy YAML frontmatter lint (section 0b) and H2 post-restart /agent endpoint verification (section 12). v8.4.2: added `oc-snapshot.py` to the Python files loop (section 5).
 - `agents/planner.md` — v8.4.1: tier-tag schema and example plan converted to em-dash form `[tier — fast|default|heavy]`; added one-line statement of WHY (em-dash separator is YAML-safe; forward-pointer to `docs/design.md` § "Known platform issues").
-- `commands/brain.md` — v8.4.1: tier-aware dispatch instructions updated to `[tier — heavy]`; the legacy colon form `[tier: heavy]` is retained verbatim in one labelled historical example only.
 - `agents-md-block/orchestra-guard.md` — v8.4.1: two `[tier: heavy]` references updated to `[tier — heavy]`.
 - `README.md` — v8.4.1: model tiers table heavy-tier annotation updated to `[tier — heavy]`.
+- `scripts/orchestra-hook.sh` — v8.4.2: line 274 SNAPEOF heredoc replaced with file-based `oc-snapshot.py` call.
+- `scripts/oc-snapshot.py` — v8.4.2: new 5-line Python utility extracting the session-snapshot snippet from inline heredocs (used by brain.md, duo-plan.md, orchestra-hook.sh, orchestra-cleanup.sh).
 - `docs/design.md` — v8.4.1: model-assignments and step-level annotation sections updated to em-dash form; new § "Known platform issues" appended documenting KP-1 (silent agent-frontmatter parse failure / `model: null` fallback) and KP-2 (`main` vs `git_worktree` `project_directory` divergence).
 
 ### External (not committed)
