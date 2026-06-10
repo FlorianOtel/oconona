@@ -2,8 +2,8 @@
 title: "Stage 8 — Changelog"
 created_at: 2026-06-05--13-00
 created_by: Actor (Claude Haiku 4.5 — via oconona /brain Stage 8 dispatch)
-updated_by: Claude Opus 4.7 (1M context) — via oconona em-dash tier sweep (v8.4.1)
-updated_at: 2026-06-08--09-00
+updated_by: Claude Code (Claude Sonnet 4.6) — v8.4.2.1 deploy.sh H2 filter fix
+updated_at: 2026-06-10--13-17
 context: >
   Per-version changelog for Stage 8 of the oconona orchestra
   (Researcher tier + Brain Phase 0 hardening + telemetry counter).
@@ -13,6 +13,31 @@ context: >
 ---
 
 # Stage 8 — Changelog
+
+## v8.4.2.1 — deploy.sh § 12 — filter built-in agents, fix model isinstance check
+
+**Shipped:** 2026-06-10
+**Code commit:** `dd351c172b68fc4e0bd01ad48e22e7f0519e8b76` (short: `dd351c1`)
+
+### What shipped
+
+- **`deploy.sh` § 12 (H2) — filter `/agent` response to user-defined agents only:** The OC `/agent` endpoint returns all 13 registered agents: 6 user-defined (`actor`, `actor-heavy`, `planner`, `researcher`, `researcher-deep`, `reviewer`) plus 7 OC built-ins (`build`, `compaction`, `explore`, `general`, `plan`, `summary`, `title`). Built-ins have `model=null` and some have empty `description` by OC design. The prior verification iterated all entries; the first agent in the list (`build`, `model=null`) tripped the `not model` check immediately on every attempt, causing a false warn on every successful deploy.
+
+- **Fix 1 — derive expected name set from `agents/*.md`:** `_EXPECTED_NAMES` is built by iterating `$REPO/agents/*.md` and stripping `.md` suffixes. Python filters the `/agent` response to those names, ignoring all built-ins. The set is self-maintaining — adding a new agent file automatically includes it in verification.
+
+- **Fix 2 — replace `isinstance(model, str)` with truthy check:** User-defined agents carry `model` as a JSON object `{modelID, providerID}`, not a string. The prior `isinstance(model, str)` check would reject every valid user agent even if built-ins were filtered out. The new check uses `not a.get('model')` (falsy/null detection only).
+
+- **Updated warn message** to point at `curl http://localhost:4096/agent | jq` for diagnostics instead of mentioning `actor-heavy` specifically.
+
+### Why
+
+False warn on every deploy produced noise that obscured real failures. The prior design (v8.4.0 H2) was documented as "cosmetic noise — revisit if a real regression resurfaces" (see `oc-agent-endpoint-builtin-null` memory). The v8.4.2 SNAPEOF deploy triggered the question, making this the right moment to apply the already-designed fix.
+
+### Files changed
+
+- `deploy.sh` (code commit `dd351c1`)
+
+---
 
 ## v8.4.2 — SNAPEOF heredoc extraction — model-parse robustness
 
