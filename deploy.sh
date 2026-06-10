@@ -151,7 +151,7 @@ for s in \
 done
 # Python implementations — no chmod (always called through the .sh wrapper or
 # via importlib from another Python module).
-for p in telemetry-summarize.py session-report.py native-session-report.py oc-db.py verify-cost-rates.py check-tiers.py; do
+for p in telemetry-summarize.py session-report.py native-session-report.py oc-db.py verify-cost-rates.py check-tiers.py oc-snapshot.py; do
     if [ -f "$REPO/scripts/$p" ]; then
         copy_file "$REPO/scripts/$p" "$OC_HOME/scripts/$p"
     fi

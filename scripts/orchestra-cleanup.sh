@@ -54,15 +54,8 @@ if [ -f "${SESSION_DIR}/.oc-session-id" ]; then
 fi
 
 if [ -n "${_OC_SID}" ] && [ -d "${VENV}" ]; then
-    _SNAP_JSON=$(OC_SID="${_OC_SID}" "${VENV}/bin/python3" - 2>/dev/null <<'SNAPEOF'
-import os, json, importlib.util
-from pathlib import Path
-spec = importlib.util.spec_from_file_location("oc_db", Path.home()/".config/opencode/scripts/oc-db.py")
-oc_db = importlib.util.module_from_spec(spec); spec.loader.exec_module(oc_db)
-snap = oc_db.get_session_snapshot(os.environ["OC_SID"])
-if snap: print(json.dumps(snap))
-SNAPEOF
-)
+    _SNAP_JSON=$(OC_SID="${_OC_SID}" "${VENV}/bin/python3" \
+        "${HOME}/.config/opencode/scripts/oc-snapshot.py" 2>/dev/null)
     if [ -n "${_SNAP_JSON:-}" ]; then
         printf '%s\n' "${_SNAP_JSON}" > "${SESSION_DIR}/.parent-snapshot-end.tmp"
         mv -f "${SESSION_DIR}/.parent-snapshot-end.tmp" "${SESSION_DIR}/.parent-snapshot-end"
