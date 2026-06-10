@@ -429,34 +429,47 @@ elif ! command -v systemctl >/dev/null 2>&1; then
 elif ! systemctl --user list-unit-files opencode-server.service >/dev/null 2>&1; then
     warn "skipping agent verification (opencode-server.service not installed) — verify manually"
 else
-    # systemctl found and service installed; attempt verification
+    # systemctl found and service installed; attempt verification.
+    # Filter to user-defined agents (derived from agents/*.md) — OC built-ins
+    # (build, compaction, summary, title, explore, general, plan) intentionally
+    # have model=null and must not trigger a false warn.
     echo "Agent verification:"
+    _EXPECTED_NAMES=""
+    for _f in "$REPO"/agents/*.md; do
+        _EXPECTED_NAMES="$_EXPECTED_NAMES $(basename "$_f" .md)"
+    done
+    _EXPECTED_NAMES="${_EXPECTED_NAMES# }"
+
     verified=false
     for attempt in {1..10}; do
-        if curl --max-time 2 -s http://localhost:4096/agent 2>/dev/null | "$PYTHON_BIN" -c "
+        if curl --max-time 2 -s http://localhost:4096/agent 2>/dev/null \
+            | "$PYTHON_BIN" -c "
 import sys, json
-try:
-    agents = json.load(sys.stdin)
-    for agent in agents:
-        model = agent.get('model')
-        desc = agent.get('description')
-        if not model or not isinstance(model, str) or not model.strip():
-            sys.exit('agent has null or empty model')
-        if not desc or not isinstance(desc, str) or not desc.strip():
-            sys.exit('agent has null or empty description')
-except Exception as e:
-    sys.exit(str(e))
-" >/dev/null 2>&1; then
-            ok "verified: all agents report model + description via /agent endpoint"
+expected = set(sys.argv[1].split())
+agents_by_name = {a.get('name'): a for a in json.load(sys.stdin)}
+missing = expected - set(agents_by_name)
+if missing:
+    sys.exit('user agents missing from /agent: ' + ', '.join(sorted(missing)))
+problems = []
+for name in expected:
+    a = agents_by_name[name]
+    # model is a {modelID, providerID} dict — check truthy, not isinstance str
+    if not a.get('model'):
+        problems.append(name + ': null model')
+    desc = a.get('description')
+    if not desc or not str(desc).strip():
+        problems.append(name + ': null/empty description')
+if problems:
+    sys.exit('; '.join(problems))
+" "$_EXPECTED_NAMES" >/dev/null 2>&1; then
+            ok "verified: all user agents report model + description via /agent"
             verified=true
             break
         fi
-        if [ "$attempt" -lt 10 ]; then
-            sleep 1
-        fi
+        [ "$attempt" -lt 10 ] && sleep 1
     done
     if [ "$verified" = "false" ]; then
-        warn "agent verification failed after 10 retries — check OC logs; actor-heavy model may be null"
+        warn "agent verification failed after 10 retries — user agent may have null model; check: curl http://localhost:4096/agent | jq"
     fi
 fi
 
