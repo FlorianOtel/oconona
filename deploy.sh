@@ -272,7 +272,7 @@ fi
 echo "Status line:"
 STATUS_LINE="$OC_HOME/scripts/status-line.sh"
 if [ ! -f "$STATUS_LINE" ]; then
-    warn "status-line.sh not found — skipping patch (see status-line/orchestra-block.sh)"
+    info "status-line.sh not present — skipping patch (orchestra block not needed)"
 else
     # Idempotent re-deploy: if the block is already present, compare to the source.
     # If different, strip the old block and re-append. (Old logic was append-once-only,
