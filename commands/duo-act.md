@@ -1,10 +1,10 @@
 ---
-description: Commit the active /duo plan and execute — transitions from planning discussion to action. Presents PLAN.md for approval, dispatches Actor subagent, runs cleanup + telemetry. Refuses if no active /duo session.
+description: Commit the active /duo plan and execute — the /duo-act invocation itself is the approval signal. Dispatches Actor immediately; any text after /duo-act is treated as a last-minute plan amendment. Refuses if no active /duo session.
 ---
 
 # /duo-act — commit the active /duo plan and execute
 
-You are running the **duo** pipeline's commit-and-execute step. `/duo-act` finalises the active /duo planning session: it presents the current `PLAN.md` to the operator for natural-language approval, dispatches the Actor subagent, then runs cleanup + telemetry.
+You are running the **duo** pipeline's commit-and-execute step. `/duo-act` finalises the active /duo planning session: the invocation itself is the approval signal. Read `PLAN.md`, apply any inline amendments (text after `/duo-act`), dispatch the Actor subagent, then run cleanup + telemetry.
 
 If no /duo session is active (no `.duo-inflight` in any session subdir), refuse and tell the operator to run `/duo-plan` first.
 
@@ -48,14 +48,18 @@ Capture the `session_dir=...` value; use it as the literal path for the rest of 
 
 Read `<SESSION_DIR>/PLAN.md`. If it does not exist (e.g. `/duo-plan` was interrupted), stop and tell the operator the session is malformed; suggest `/duo-abandon`.
 
-You may show the operator a brief one-line confirmation of what's about to run, but you do not need to re-display the full plan — they have been refining it. Proceed directly to the approval gate.
+## Last-minute amendments
 
-## Plan approval gate
+The operator's `/duo-act` message is the approval signal — **no separate confirmation prompt is needed**. Dispatch Actor immediately after reading the plan.
 
-Present a one-line confirmation of what's about to execute and ask explicitly: **"Approve and dispatch Actor?"** Wait for an unambiguous natural-language reply (`"approved"` / `"go ahead"` / `"proceed"` / `"yes"`, or `"cancel"` / `"abort"`). No OC tool is called to gate this — approval is purely the operator's reply text.
+**Exception — inline amendments:** if the operator wrote anything after `/duo-act` (e.g. `/duo-act also make sure X` or `/duo-act skip step 3`), treat that text as a last-minute amendment to the plan before dispatching:
 
-- **Approved:** Phase 3 below proceeds. Actor's tool calls will surface to octmux's permission-asked handler according to the current permission mode (`ask`/`allow`/`deny`, cycled with Shift-TAB).
-- **Rejected (cancel):** the assistant's turn pauses. The session **stays open** — `.duo-inflight` is preserved. The operator can refine more and run `/duo-act` again, or run `/duo-abandon` to give up. Do not run any cleanup on rejection.
+1. Re-read `PLAN.md`.
+2. Integrate the amendment. If the intent is clear, apply it silently and proceed. If ambiguous or potentially destructive, stop and ask one targeted clarifying question before continuing.
+3. Rewrite `PLAN.md` via atomic-rename with the amended content.
+4. Then dispatch Actor with the updated plan.
+
+Do **not** ask for approval when no amendment text is present — the invocation itself is sufficient.
 
 ---
 
