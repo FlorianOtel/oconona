@@ -71,7 +71,7 @@ When NOT to use /brain: simple tasks with ≤5 steps, low blast radius. Use /duo
 | **Planner** | `sohoai/minimax-m3` | `~/.config/opencode/agents/planner.md` | Read, Grep, Glob, WebFetch, TodoWrite (read-only) | Decomposes task into numbered plan; Brain persists to PLAN.md |
 | **Actor** | `sohoai/qwen3-4b-q6` | `~/.config/opencode/agents/actor.md` | Read, Edit, Write, Bash, Grep, Glob (+ denies on rm -rf, git push) | Executes one step per invocation; self-persists TASKS.json via atomic-rename |
 | **Actor** (heavy) | `sohoai/glm-5.1` | `~/.config/opencode/agents/actor-heavy.md` | Read, Edit, Write, Bash, Grep, Glob (+ denies on rm -rf, git push) | Complex multi-file refactors; triggered by `[tier — heavy]` step annotations |
-| **Reviewer** | `anthropic/claude-sonnet-4-6` (v7.3.5+) | `~/.config/opencode/agents/reviewer.md` | Read, Grep, Glob, TodoWrite (read-only) | Reviews diff against PLAN.md; returns PASS / FIX / BLOCK. Model changed from `sohoai/kimi-k2.6` in v7.3.5 to enable per-tier cost tracking and marginal-attribution. |
+| **Reviewer** | `anthropic/claude-sonnet-4-6` (v7.3.5+) | `~/.config/opencode/agents/reviewer.md` | Read, Grep, Glob, TodoWrite (read-only) | Reviews diff against PLAN.md; returns PASS / FIX / BLOCK. Model changed from `sohoai/kimi-k2.7` in v7.3.5 to enable per-tier cost tracking and marginal-attribution. |
 | **Researcher** | `anthropic/claude-haiku-4-5` | `~/.config/opencode/agents/researcher.md` | Read, Grep, Glob, Bash, WebFetch, TodoWrite (read-only + Bash for probes) | Phase 0 factual verification; returns VERDICT/EVIDENCE/CAVEATS with file:line citations |
 | **Researcher** (deep) | `anthropic/claude-sonnet-4-6` | `~/.config/opencode/agents/researcher-deep.md` | Read, Grep, Glob, Bash, WebFetch, TodoWrite (read-only + Bash for probes) | Escalation tier for multi-file reasoning, subtle event interleaving, or runtime probes; triggered by Brain's escalation policy |
 
@@ -380,33 +380,33 @@ The `--tier` flag on `telemetry-report.sh` reads per-session `telemetry.json` fi
 
 **Sample `--tier` output:**
 
-> Example output below is from pre-v7.3.5 (Brain on Kimi K2.6, Reviewer on Kimi K2.6). Current assignments: Brain = anthropic/claude-opus-4-7, Reviewer = anthropic/claude-sonnet-4-6, Actor (heavy) = sohoai/kimi-k2.6.
+> Example output below is from pre-v7.3.5 (Brain on Kimi K2.7, Reviewer on Kimi K2.7). Current assignments: Brain = anthropic/claude-opus-4-7, Reviewer = anthropic/claude-sonnet-4-6, Actor (heavy) = sohoai/kimi-k2.7.
 
 ```
   2026-05-20  brain   560s  outcome=pass  total=~$0.02
     Tier         Model                        Tokens   %tok      Cost   %cost
     -----------------------------------------------------------------------
-    brain        sohoai/kimi-k2.6    1,322,163  68.5%  ~$0.0200 100.0%
+    brain        sohoai/kimi-k2.7    1,322,163  68.5%  ~$0.0200 100.0%
     planner      sohoai/glm-5.1         92,598   4.8%  ~$0.0000   0.0%
     actor        sohoai/qwen3-coder-next 425,531  22.0%  ~$0.0000   0.0%
-    reviewer     sohoai/kimi-k2.6       89,658   4.6%  ~$0.0000   0.0%
+    reviewer     sohoai/kimi-k2.7       89,658   4.6%  ~$0.0000   0.0%
     -----------------------------------------------------------------------
     TOTAL                                 1,929,950          ~$0.0200
 
 --- Cumulative totals (3 session(s)) ---
   Tier         Model                        Tokens   %tok        Cost   %cost
   --------------------------------------------------------------------------
-  brain        sohoai/kimi-k2.6    2,009,402  69.3%    ~$0.0600 100.0%
+  brain        sohoai/kimi-k2.7    2,009,402  69.3%    ~$0.0600 100.0%
   planner      sohoai/glm-5.1         92,598   3.2%    ~$0.0000   0.0%
   actor        sohoai/qwen3-coder-next 709,827  24.5%    ~$0.0000   0.0%
-  reviewer     sohoai/kimi-k2.6       89,658   3.1%    ~$0.0000   0.0%
+  reviewer     sohoai/kimi-k2.7       89,658   3.1%    ~$0.0000   0.0%
   --------------------------------------------------------------------------
   TOTAL                                 2,901,485          ~$0.0600
 ```
 
 ### Rate sources and verification
 
-Model costs are centralized in `scripts/model-rates.yaml` (v7.3.5+), keyed by provider-qualified model IDs (e.g., `"anthropic/claude-opus-4-7"`, `"sohoai/kimi-k2.6"`). Anthropic rates are derived from public pricing (https://www.anthropic.com/pricing/claude) and verified quarterly. SoHoAI models run on flat-rate subscription ($0 marginal cost). Cache write costs are **TTL-parameterised** — separate tiers for 5-minute (ephemeral, default) and 1-hour (extended, commented out) cache retention.
+Model costs are centralized in `scripts/model-rates.yaml` (v7.3.5+), keyed by provider-qualified model IDs (e.g., `"anthropic/claude-opus-4-7"`, `"sohoai/kimi-k2.7"`). Anthropic rates are derived from public pricing (https://www.anthropic.com/pricing/claude) and verified quarterly. SoHoAI models run on flat-rate subscription ($0 marginal cost). Cache write costs are **TTL-parameterised** — separate tiers for 5-minute (ephemeral, default) and 1-hour (extended, commented out) cache retention.
 
 Per-tier cost validation is performed by `scripts/verify-cost-rates.py` (v7.3.5+), integrated as Check D in `smoke-test.sh`. It detects rate drift > 1% between stored session costs (from OC's SQLite) and rate-based calculation (from `model-rates.yaml`). See `docs/Stage7-3-5--token-accounting-for-hybrid-orchestra.md §Cache TTL parameterisation` for details on the TTL model.
 
@@ -460,7 +460,7 @@ Without this contract, cost + quality tracking would drift silently between depl
 
 ### Reviewer is now Claude Sonnet 4.6 (v7.3.5+)
 
-Starting in v7.3.5, Reviewer operates on `anthropic/claude-sonnet-4-6` to enable per-tier cost tracking and marginal-attribution for hybrid-orchestra sessions. Prior versions used `sohoai/kimi-k2.6` (flat-rate SoHoAI). Rationale for revert to Anthropic:
+Starting in v7.3.5, Reviewer operates on `anthropic/claude-sonnet-4-6` to enable per-tier cost tracking and marginal-attribution for hybrid-orchestra sessions. Prior versions used `sohoai/kimi-k2.7` (flat-rate SoHoAI). Rationale for revert to Anthropic:
 - **Per-tier accounting**: Reviewer cost is now separately tracked and attributed in telemetry (see `docs/Stage7-3-5--token-accounting-for-hybrid-orchestra.md §Marginal-attribution methodology`).
 - **Quality**: Sonnet 4.6 provides consistent code review capability and enables accurate comparison across `/brain` (orchestrated) and `/duo` (interactive) workflows.
 - **Cost visibility**: moving to Anthropic per-token pricing for Reviewer allows the operator to make informed tier-selection decisions and measure the review loop's ROI.

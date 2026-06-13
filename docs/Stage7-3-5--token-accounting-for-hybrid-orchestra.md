@@ -15,7 +15,7 @@ context: >
 
 v7.3.5 introduces **hybrid orchestra token accounting** — a framework for tracking and attributing marginal token costs across the Brain (parent) and its subagent dispatches (Planner, Actor, Reviewer). After v7.3.5 ships:
 
-1. **Reviewer** reverts from `sohoai/kimi-k2.6` to `anthropic/claude-sonnet-4-6` (restoring the standard pipeline as of v7.2+).
+1. **Reviewer** reverts from `sohoai/kimi-k2.7` to `anthropic/claude-sonnet-4-6` (restoring the standard pipeline as of v7.2+).
 2. **Model rates** are centralized in `scripts/model-rates.yaml`, keyed by provider and supporting TTL-parameterised cache costs.
 3. **Marginal attribution** computes the hidden cost of subagent dispatches within a Brain session (e.g., if Brain on Claude Opus caches a Planner response, the cache write is a marginal cost on Opus's output rate, not charged separately).
 4. **Session reports** display per-agent cost delineation with a new `--hybrid-detail` flag for marginal-cost breakdown.
@@ -26,7 +26,7 @@ v7.3.5 introduces **hybrid orchestra token accounting** — a framework for trac
 In this stage, the Reviewer agent's model field changes from:
 
 ```yaml
-model: sohoai/kimi-k2.6
+model: sohoai/kimi-k2.7
 ```
 
 to:
@@ -58,7 +58,7 @@ provider_models:
       "5m": 6.25
       # "1h": 10.00
 
-  "sohoai/kimi-k2.6":
+  "sohoai/kimi-k2.7":
     input: 0
     output: 0
     cache_read: 0

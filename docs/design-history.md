@@ -2,7 +2,7 @@
 title: "OpenCode three-tier orchestrator (Brain/Planner/Actor) — design notes & open questions"
 created_at: 20260424-000000
 created_by: OpenCode (Claude Opus 4.7, 1M context)
-updated_by: OpenCode (claude-code-kimi-k2.6)
+updated_by: OpenCode (claude-code-kimi-k2.7)
 updated_at: 2026-05-20--00-00
 context: >
   Working session exploring how to build a three-layer Brain/Planner/Actor
@@ -1577,11 +1577,11 @@ Session ID: `20260510T180922Z-2575990` (this session). All code + documentation 
 
 ---
 
-## Amendment 2026-05-10 (b) — actor-heavy switched to claude-code-kimi-k2.6
+## Amendment 2026-05-10 (b) — actor-heavy switched to claude-code-kimi-k2.7
 
-**Change:** `agents/actor-heavy.md` model field updated from `claude-code-deepseek-v4-pro` to `claude-code-kimi-k2.6`.
+**Change:** `agents/actor-heavy.md` model field updated from `claude-code-deepseek-v4-pro` to `claude-code-kimi-k2.7`.
 
-**Rationale:** Operator preference; Kimi K2.6 is available as a SoHoAI alias and is now the preferred model for heavy-tier Actor steps. Planner continues to use `claude-code-deepseek-v4-pro`; no change there.
+**Rationale:** Operator preference; Kimi K2.7 is available as a SoHoAI alias and is now the preferred model for heavy-tier Actor steps. Planner continues to use `claude-code-deepseek-v4-pro`; no change there.
 
 **Files updated:** `agents/actor-heavy.md` (model + description + body text), `docs/design.md` (agents table, multi-model routing table, tier annotation text, alias stability example list), `docs/design-history.md` (this amendment), `docs/TODO.md` (§10.2 status line).
 
@@ -1591,9 +1591,9 @@ Session ID: `20260510T180922Z-2575990` (this session). All code + documentation 
 
 **Change:** `agents/planner.md` model field updated from `claude-code-deepseek-v4-pro` to `claude-code-glm-5.1`.
 
-**Rationale:** `claude-code-deepseek-v4-pro` has a ~70% failure rate on ollama-cloud per SoHoAI commit `67fd92b` (2026-05-11, `~/Gin-AI/projects/SoHoAI`). That commit introduced HTTP 529 fast-fail guards and a 30-second request timeout for ollama-cloud targets; the documentation in `docs/Model-routing.md` (SoHoAI repo §2.3) flags deepseek-v4-pro as unreliable and recommends `qwen3-coder-next` as an alternative. Given the ~70% abort rate, continuing to use deepseek-v4-pro for the normal-input Planner tier would break `/brain` runs before planning even starts in the majority of sessions. `claude-code-glm-5.1` is the replacement; its entry was already present in `config/pricing.yaml` and `config/context-windows.yaml` (128 K context window). This follows the same pattern as Amendment 2026-05-10(b) which switched `actor-heavy` from deepseek to `claude-code-kimi-k2.6`.
+**Rationale:** `claude-code-deepseek-v4-pro` has a ~70% failure rate on ollama-cloud per SoHoAI commit `67fd92b` (2026-05-11, `~/Gin-AI/projects/SoHoAI`). That commit introduced HTTP 529 fast-fail guards and a 30-second request timeout for ollama-cloud targets; the documentation in `docs/Model-routing.md` (SoHoAI repo §2.3) flags deepseek-v4-pro as unreliable and recommends `qwen3-coder-next` as an alternative. Given the ~70% abort rate, continuing to use deepseek-v4-pro for the normal-input Planner tier would break `/brain` runs before planning even starts in the majority of sessions. `claude-code-glm-5.1` is the replacement; its entry was already present in `config/pricing.yaml` and `config/context-windows.yaml` (128 K context window). This follows the same pattern as Amendment 2026-05-10(b) which switched `actor-heavy` from deepseek to `claude-code-kimi-k2.7`.
 
-**Files updated:** `agents/planner.md` (model field; `[tier: heavy]` description corrected to kimi-k2.6 — stale from 2026-05-10(b)), `agents/planner-long.md` (same `[tier: heavy]` description fix), `commands/brain.md` (pipeline rules summary), `docs/design.md` (agents table, model assignments table, tier annotations text, alias stability example list), `docs/design-history.md` (this amendment), `docs/TODO.md` (§10.4 four inline references), `memory/project_state.md` (Tier model assignments).
+**Files updated:** `agents/planner.md` (model field; `[tier: heavy]` description corrected to kimi-k2.7 — stale from 2026-05-10(b)), `agents/planner-long.md` (same `[tier: heavy]` description fix), `commands/brain.md` (pipeline rules summary), `docs/design.md` (agents table, model assignments table, tier annotations text, alias stability example list), `docs/design-history.md` (this amendment), `docs/TODO.md` (§10.4 four inline references), `memory/project_state.md` (Tier model assignments).
 
 ---
 
@@ -1622,20 +1622,20 @@ model | ctx ▓▓░░░░░░░░ 21% 210K/1M | ~$X.YZ | ◆ project | 
 
 ---
 
-## Amendment 2026-05-20 — full non-Anthropic pipeline + reviewer model switch to kimi-k2.6
+## Amendment 2026-05-20 — full non-Anthropic pipeline + reviewer model switch to kimi-k2.7
 
 **Change:** Complete transition to non-Anthropic SoHoAI flat-rate models across all agent tiers.
 
 **Model assignments (final):**
 - **Planner:** `claude-code-glm-5.1` (no planner-long fallback; removed)
 - **Actor (default):** `claude-code-qwen3-coder-next`
-- **Actor (heavy):** `claude-code-kimi-k2.6`
-- **Reviewer:** `claude-code-kimi-k2.6` (switched from Sonnet 4.6)
+- **Actor (heavy):** `claude-code-kimi-k2.7`
+- **Reviewer:** `claude-code-kimi-k2.7` (switched from Sonnet 4.6)
 
 **Rationale:**
 - **Planner-long removal:** Under non-Anthropic routing, prompt cache benefits don't apply to cached input (LiteLLM strips `cache_control` headers). The planner-long Sonnet fallback was a hedge against per-token costs for large inputs; flat-rate SoHoAI eliminates the cost incentive. Removed the planner-long agent entirely; Planner is now always `claude-code-glm-5.1`.
-- **Reviewer moved to Kimi K2.6:** Under flat-rate, Reviewer's $0 marginal cost means review iterations are economically viable even with cap-3 per step. Sonnet 4.6 remains available as the user's interactive Brain model and via manual `/duo` sessions for cross-checking. Quality calibration is preserved via this heterogeneity (if Kimi K2.6 Reviewer verdicts diverge from Sonnet `/duo` plans, the signal is immediately visible). Documented in design.md §Multi-model routing why this shift is now justified.
+- **Reviewer moved to Kimi K2.7:** Under flat-rate, Reviewer's $0 marginal cost means review iterations are economically viable even with cap-3 per step. Sonnet 4.6 remains available as the user's interactive Brain model and via manual `/duo` sessions for cross-checking. Quality calibration is preserved via this heterogeneity (if Kimi K2.7 Reviewer verdicts diverge from Sonnet `/duo` plans, the signal is immediately visible). Documented in design.md §Multi-model routing why this shift is now justified.
 
-**Files updated:** `docs/design.md` (agents table: removed planner-long row, changed reviewer model to kimi-k2.6; multi-model routing section: deleted planner long-context subsection, rewrote "Reviewer is now Kimi K2.6"; cost model updated for flat-rate; file inventory updated), `docs/design-history.md` (this amendment), `CLAUDE.md` (Layout line for agents, Smoke test Model line), `config/pricing.yaml` (retained Anthropic entries for historical T2 fallback; added non-Anthropic SoHoAI entries at $0).
+**Files updated:** `docs/design.md` (agents table: removed planner-long row, changed reviewer model to kimi-k2.7; multi-model routing section: deleted planner long-context subsection, rewrote "Reviewer is now Kimi K2.7"; cost model updated for flat-rate; file inventory updated), `docs/design-history.md` (this amendment), `CLAUDE.md` (Layout line for agents, Smoke test Model line), `config/pricing.yaml` (retained Anthropic entries for historical T2 fallback; added non-Anthropic SoHoAI entries at $0).
 
-**Metadata:** Updated `docs/design.md` frontmatter `updated_by=OpenCode (claude-code-kimi-k2.6)` and `updated_at=2026-05-20--00-00`.
+**Metadata:** Updated `docs/design.md` frontmatter `updated_by=OpenCode (claude-code-kimi-k2.7)` and `updated_at=2026-05-20--00-00`.

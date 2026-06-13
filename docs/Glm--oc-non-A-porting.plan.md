@@ -46,10 +46,10 @@ rather than copied from OP:
 1. **Agent models** — CAN uses non-Anthropic models; OP uses Anthropic models
    - CAN `actor.md`: `model: claude-code-qwen3-coder-next`
    - OP `actor.md`: `model: claude-haiku-4-5-20251001`
-   - CAN `actor-heavy.md`: `model: claude-code-kimi-k2.6` (extra file, absent in OP)
+   - CAN `actor-heavy.md`: `model: claude-code-kimi-k2.7` (extra file, absent in OP)
    - CAN `planner.md`: `model: claude-code-glm-5.1` (with tier annotations)
    - OP `planner.md`: `model: claude-sonnet-4-6` (no tier annotations)
-   - CAN `reviewer.md`: `model: claude-code-kimi-k2.6`
+   - CAN `reviewer.md`: `model: claude-code-kimi-k2.7`
    - OP `reviewer.md`: `model: claude-sonnet-4-6`
 
 2. **pricing.yaml** — CAN has SoHoAI non-Anthropic model entries (all $0.00) plus
@@ -68,7 +68,7 @@ rather than copied from OP:
    - Litellm cache-rate override logic
 
 6. **context-windows.yaml** — CAN has entries for non-Anthropic models
-   (`claude-code-qwen3-coder-next`, `claude-code-kimi-k2.6`, `claude-code-deepseek-v4-pro`,
+   (`claude-code-qwen3-coder-next`, `claude-code-kimi-k2.7`, `claude-code-deepseek-v4-pro`,
    `claude-code-glm-5.1`, plus local Ollama models). OP has Anthropic models only.
 
 7. **Extra files in CAN** (not in OP):
@@ -253,9 +253,9 @@ Keep CAN's models, rename only the orchestra branding:
 | File | Model line | Keep as-is |
 |---|---|---|
 | `agents/actor.md` | `model: claude-code-qwen3-coder-next` | Yes |
-| `agents/actor-heavy.md` | `model: claude-code-kimi-k2.6` | Yes (whole file preserved) |
+| `agents/actor-heavy.md` | `model: claude-code-kimi-k2.7` | Yes (whole file preserved) |
 | `agents/planner.md` | `model: claude-code-glm-5.1` | Yes |
-| `agents/reviewer.md` | `model: claude-code-kimi-k2.6` | Yes |
+| `agents/reviewer.md` | `model: claude-code-kimi-k2.7` | Yes |
 
 ### 3b. pricing.yaml non-Anthropic entries
 
@@ -293,7 +293,7 @@ These must be preserved. Only path strings (`~/.claude/` → `~/.config/opencode
 
 ### 3f. context-windows.yaml non-Anthropic entries
 
-CAN has entries for `claude-code-qwen3-coder-next`, `claude-code-kimi-k2.6`,
+CAN has entries for `claude-code-qwen3-coder-next`, `claude-code-kimi-k2.7`,
 `claude-code-deepseek-v4-pro`, `claude-code-glm-5.1`, and local Ollama models.
 These must be preserved. OP only has Anthropic entries.
 
@@ -327,7 +327,7 @@ the authoritative one:
 
 1. **OP's `agents/planner.md`** — CAN's version has tier annotations; OP's doesn't.
 2. **OP's `agents/actor.md`** — CAN's version has dynamic model identity; OP hardcodes.
-3. **OP's `agents/reviewer.md`** — CAN has `claude-code-kimi-k2.6`; OP has `claude-sonnet-4-6`.
+3. **OP's `agents/reviewer.md`** — CAN has `claude-code-kimi-k2.7`; OP has `claude-sonnet-4-6`.
 4. **OP's `pricing.yaml`** — CAN has SoHoAI entries; OP doesn't.
 5. **OP's `context-windows.yaml`** — CAN has non-Anthropic models; OP doesn't.
 6. **OP's `telemetry-summarize.py`** — CAN has enhanced litellm cost logic.
@@ -386,7 +386,7 @@ After all phases, verify:
 | CAN `agents/actor.md` | Copy + rename paths/branding | Keep `model: claude-code-qwen3-coder-next`, dynamic identity text |
 | CAN `agents/actor-heavy.md` | Copy + rename paths/branding | Doesn't exist in OP; keep entirely |
 | CAN `agents/planner.md` | Copy + rename paths/branding | Keep tier annotations, `model: claude-code-glm-5.1` |
-| CAN `agents/reviewer.md` | Copy + rename paths/branding | Keep `model: claude-code-kimi-k2.6` |
+| CAN `agents/reviewer.md` | Copy + rename paths/branding | Keep `model: claude-code-kimi-k2.7` |
 | CAN `commands/brain.md` | Copy + rename paths/branding | Keep tier-aware dispatch section; apply `TODO(Phase 2)` ExitPlanMode note from OP |
 | CAN `commands/brain-abandon.md` | Copy + rename paths/branding | |
 | CAN `commands/duo-plan.md` | Copy + rename paths/branding | |

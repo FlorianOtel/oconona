@@ -5,7 +5,7 @@
 #
 # ## Rate structure
 #
-# Keys are provider-qualified (`"anthropic/claude-opus-4-7"`, `"sohoai/kimi-k2.6"`).
+# Keys are provider-qualified (`"anthropic/claude-opus-4-7"`, `"sohoai/kimi-k2.7"`).
 # For `providerID == "sohoai"`, the `id` field's `"ollama-cloud/"` or `"local/"` prefix is stripped during normalization.
 # Defensive fallback: if `providerID` is missing but `id` starts with `"claude-"`, assume `"anthropic"`.
 #
@@ -123,7 +123,7 @@ provider_models:
       "5m": 0
       "1h": 0
 
-  "sohoai/kimi-k2.6":
+  "sohoai/kimi-k2.7":
     input: 0
     output: 0
     cache_read: 0

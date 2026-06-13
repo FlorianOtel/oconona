@@ -50,7 +50,7 @@ context: >
 - **§9.3 Positive-grep**: PASS — `OC_HOME` confirmed in deploy.sh + collect.sh; `GLOBAL_AGENTS_MD` confirmed; `OPENCODE_ORCHESTRA_SESSION_DIR` confirmed; `"opencode"` process detection confirmed; non-Anthropic models confirmed in agents/*.md and pricing.yaml; `agents/actor-heavy` confirmed in brain.md + collect.sh.
 - **§9.4 deploy --dry-run**: Not run (requires live OpenCode install).
 - **§9.5 Live smoke test**: Not run (requires live OpenCode install).
-- **§9.6 Model assignments**: PASS — `claude-code-qwen3-coder-next` (actor), `claude-code-kimi-k2.6` (actor-heavy, reviewer), `claude-code-glm-5.1` (planner).
+- **§9.6 Model assignments**: PASS — `claude-code-qwen3-coder-next` (actor), `claude-code-kimi-k2.7` (actor-heavy, reviewer), `claude-code-glm-5.1` (planner).
 
 ### Discrepancies and notes
 
@@ -69,7 +69,7 @@ Four independent porting plans were authored on 2026-05-20:
 | ID | File | Author | Strongest contribution |
 |---|---|---|---|
 | **Plan A** | [`docs/Sonnet-porting-plan.md`](Sonnet-porting-plan.md) | Claude Sonnet 4.6 1M | Most complete file-by-file line-numbered edit list; correct three-project framing; best `Preserve from CAN` table; deploy smoke test in §9.4. |
-| **Plan B** | [`docs/Kimi-oc-non-A-porting.plan.md`](Kimi-oc-non-A-porting.plan.md) | OpenCode (Kimi K2.6) | Only plan to flag the stale `scripts/orchestra-hook.sh.orig` backup, `scripts/__pycache__/`, and `scripts/telemetry-summarize.sh`'s `CLAUDE_SESSION_ID` fallback. Concise Phase 8 verification block. |
+| **Plan B** | [`docs/Kimi-oc-non-A-porting.plan.md`](Kimi-oc-non-A-porting.plan.md) | OpenCode (Kimi K2.7) | Only plan to flag the stale `scripts/orchestra-hook.sh.orig` backup, `scripts/__pycache__/`, and `scripts/telemetry-summarize.sh`'s `CLAUDE_SESSION_ID` fallback. Concise Phase 8 verification block. |
 | **Plan C** | [`docs/Glm--oc-non-A-porting.plan.md`](Glm--oc-non-A-porting.plan.md) | GLM-5.1 via SoHoAI | Best `Preserve-from-CAN` granularity (Phase 3a-3h) and the only plan to make `Files to NOT port from OP` (Phase 4) an explicit list. Surfaces the litellm-gateway branch-policy decision. |
 | **Plan D / Opus 4.7** | [`docs/Opus-porting-plan.md`](Opus-porting-plan.md) | Claude Opus 4.7 1M | Catches what Plans A/B missed — `scripts/ctx-segment.sh:41`, `agents/planner.md:50` CLAUDE.md inside the rule body, `utils/snapshot_codebase.py:29` wrong `PROJECT_ROOT`, README line 3 second broken link, repo-name references, branch-policy decision. Negative-grep verification. |
 
@@ -91,7 +91,7 @@ This consolidated plan adopts Plan A as the backbone, folds in Plan B's stale-ar
 
 These five model/feature invariants are non-negotiable. They are the entire reason OAN exists as distinct from OP.
 
-1. **Never edit model assignments.** Non-Anthropic models stay (`claude-code-glm-5.1` for Planner, `claude-code-qwen3-coder-next` for Actor, `claude-code-kimi-k2.6` for actor-heavy and Reviewer).
+1. **Never edit model assignments.** Non-Anthropic models stay (`claude-code-glm-5.1` for Planner, `claude-code-qwen3-coder-next` for Actor, `claude-code-kimi-k2.7` for actor-heavy and Reviewer).
 2. **Never edit `pricing.yaml`'s SoHoAI flat-rate entries** ($0.00 marginal cost by design).
 3. **Never edit `[tier: fast/default/heavy]` annotations** in `agents/planner.md`.
 4. **Never edit actor-heavy dispatch logic** in `commands/brain.md` (the `subagent_type: actor-heavy` for `[tier: heavy]` steps).
@@ -350,10 +350,10 @@ Model-tier table (Plan A §5.18.1):
 ```markdown
 | Tier | Model | Fallback | Role |
 |---|---|---|---|
-| **Brain** | Your main session (`claude-code-kimi-k2.6` recommended) | — (main session) | Orchestrates, delegates, approves |
+| **Brain** | Your main session (`claude-code-kimi-k2.7` recommended) | — (main session) | Orchestrates, delegates, approves |
 | **Planner** | `claude-code-glm-5.1` | — | Decomposes tasks into numbered, reviewable plans |
-| **Actor** | `claude-code-qwen3-coder-next` | `claude-code-kimi-k2.6` for `[tier: heavy]` steps | Executes individual plan steps; scoped, fast, cheap |
-| **Reviewer** | `claude-code-kimi-k2.6` | — | Reviews Actor's output; emits PASS / FIX / BLOCK verdicts |
+| **Actor** | `claude-code-qwen3-coder-next` | `claude-code-kimi-k2.7` for `[tier: heavy]` steps | Executes individual plan steps; scoped, fast, cheap |
+| **Reviewer** | `claude-code-kimi-k2.7` | — | Reviews Actor's output; emits PASS / FIX / BLOCK verdicts |
 ```
 
 ### 5.24 `utils/snapshot_codebase.py` (Plan D — solo)
@@ -495,7 +495,7 @@ grep -n 'OC_HOME' deploy.sh collect.sh
 grep -n 'GLOBAL_AGENTS_MD' deploy.sh
 grep -n 'OPENCODE_ORCHESTRA_SESSION_DIR' commands/brain.md agents/planner.md agents/reviewer.md
 grep -n '"opencode"' scripts/bash-session-init.sh
-grep -n 'claude-code-glm-5.1\|claude-code-qwen3-coder-next\|claude-code-kimi-k2.6' \
+grep -n 'claude-code-glm-5.1\|claude-code-qwen3-coder-next\|claude-code-kimi-k2.7' \
   agents/*.md config/pricing.yaml
 grep -rn 'agents/actor-heavy' commands/brain.md collect.sh
 ```
@@ -521,9 +521,9 @@ After `./deploy.sh` and restarting OpenCode, run the five-step ctx + SoHoAI smok
 grep '^model:' agents/*.md
 # Expected, exactly:
 #   agents/actor.md:        model: claude-code-qwen3-coder-next
-#   agents/actor-heavy.md:  model: claude-code-kimi-k2.6
+#   agents/actor-heavy.md:  model: claude-code-kimi-k2.7
 #   agents/planner.md:      model: claude-code-glm-5.1
-#   agents/reviewer.md:     model: claude-code-kimi-k2.6
+#   agents/reviewer.md:     model: claude-code-kimi-k2.7
 ```
 
 If any line shows an Anthropic model (Sonnet/Opus/Haiku), the port is broken — re-check §2 rule 1.
@@ -554,7 +554,7 @@ feat: bootstrap opencode-orchestra--non-Anthropic from CAN baseline + Phase 0 de
 
 Preserved verbatim from CAN:
   - non-Anthropic model assignments (claude-code-glm-5.1, claude-code-qwen3-coder-next,
-    claude-code-kimi-k2.6)
+    claude-code-kimi-k2.7)
   - actor-heavy tier and [tier: heavy] dispatch in /brain
   - OPENCODE_ORCHESTRA_SESSION_DIR env var (CAN-correct; OP carries stale
     CLAUDE_ORCHESTRA_SESSION_DIR — do NOT import OP's name)

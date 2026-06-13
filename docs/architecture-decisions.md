@@ -43,7 +43,7 @@ No split between native Anthropic and SoHoAI routing.
 
 **Non-Anthropic variant note:** This decision is more load-bearing in the non-Anthropic
 pipeline because all models (claude-code-glm-5.1, claude-code-qwen3-coder-next,
-claude-code-kimi-k2.6) are SoHoAI-routed via LiteLLM aliases. There is no fallback
+claude-code-kimi-k2.7) are SoHoAI-routed via LiteLLM aliases. There is no fallback
 to direct Anthropic APIs.
 
 ## Decision 4: Status-line cost display

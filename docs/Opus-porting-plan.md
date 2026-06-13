@@ -28,7 +28,7 @@ Critical framing the plans must get right: **the target is OAN, an empty repo. W
 
 ## 2. Foundational rules
 
-1. **Never edit model assignments.** Non-Anthropic model IDs (`claude-code-glm-5.1`, `claude-code-qwen3-coder-next`, `claude-code-kimi-k2.6`) and the actor-heavy tier are the entire reason this project exists.
+1. **Never edit model assignments.** Non-Anthropic model IDs (`claude-code-glm-5.1`, `claude-code-qwen3-coder-next`, `claude-code-kimi-k2.7`) and the actor-heavy tier are the entire reason this project exists.
 2. **Never edit `pricing.yaml`'s SoHoAI flat-rate entries.** Marginal cost is $0 per invocation by design.
 3. **Never edit tier annotations** (`[tier: fast/default/heavy]` schema in `agents/planner.md`).
 4. **Never edit actor-heavy dispatch logic** in `commands/brain.md`.
@@ -298,10 +298,10 @@ The **branch policy section** (lines 10-24) belongs to CAN's repo workflow (main
 ```markdown
 | Tier | Model | Fallback | Role |
 |---|---|---|---|
-| **Brain** | Your main session (`claude-code-kimi-k2.6` recommended) | — (main session) | Orchestrates, delegates, approves |
+| **Brain** | Your main session (`claude-code-kimi-k2.7` recommended) | — (main session) | Orchestrates, delegates, approves |
 | **Planner** | `claude-code-glm-5.1` | — | Decomposes tasks into numbered, reviewable plans |
-| **Actor** | `claude-code-qwen3-coder-next` | `claude-code-kimi-k2.6` for `[tier: heavy]` steps | Executes individual plan steps; scoped, fast, cheap |
-| **Reviewer** | `claude-code-kimi-k2.6` | — | Reviews Actor's output; emits PASS / FIX / BLOCK verdicts |
+| **Actor** | `claude-code-qwen3-coder-next` | `claude-code-kimi-k2.7` for `[tier: heavy]` steps | Executes individual plan steps; scoped, fast, cheap |
+| **Reviewer** | `claude-code-kimi-k2.7` | — | Reviews Actor's output; emits PASS / FIX / BLOCK verdicts |
 ```
 
 ### 5.24 `utils/snapshot_codebase.py`  *(missed by all three plans)*
@@ -444,7 +444,7 @@ grep -n 'OC_HOME' deploy.sh collect.sh
 grep -n 'GLOBAL_AGENTS_MD' deploy.sh
 grep -n 'OPENCODE_ORCHESTRA_SESSION_DIR' commands/brain.md agents/planner.md
 grep -n '"opencode"' scripts/bash-session-init.sh
-grep -n 'claude-code-glm-5.1\|claude-code-qwen3-coder-next\|claude-code-kimi-k2.6' agents/*.md config/pricing.yaml
+grep -n 'claude-code-glm-5.1\|claude-code-qwen3-coder-next\|claude-code-kimi-k2.7' agents/*.md config/pricing.yaml
 grep -rn 'agents/actor-heavy' commands/brain.md collect.sh
 ```
 
@@ -481,7 +481,7 @@ feat: bootstrap opencode-orchestra--non-Anthropic from CAN baseline + Phase 0 de
   scripts/ctx-segment.sh runtime path
 
 Preserved verbatim from CAN: all non-Anthropic model assignments
-(claude-code-glm-5.1 / claude-code-qwen3-coder-next / claude-code-kimi-k2.6),
+(claude-code-glm-5.1 / claude-code-qwen3-coder-next / claude-code-kimi-k2.7),
 actor-heavy tier, [tier: heavy] dispatch in /brain, OPENCODE_ORCHESTRA_SESSION_DIR
 env var, SoHoAI flat-rate pricing entries, query_litellm_cost() pricing.yaml
 override + claude-code-* alias detection.

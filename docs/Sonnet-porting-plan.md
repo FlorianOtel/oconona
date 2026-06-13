@@ -57,7 +57,7 @@ and must be kept unchanged:
 | Item | Where | Reason to Preserve |
 |---|---|---|
 | `OPENCODE_ORCHESTRA_SESSION_DIR` | `commands/brain.md`, `commands/duo-plan.md`, all agents | Non-Anthropic renamed this further than opencode-orchestra; opencode-orchestra still has the old `CLAUDE_ORCHESTRA_SESSION_DIR` |
-| Non-Anthropic model assignments | `agents/planner.md` (`claude-code-glm-5.1`), `agents/actor.md` (`claude-code-qwen3-coder-next`), `agents/reviewer.md` (`claude-code-kimi-k2.6`) | Core feature of the project |
+| Non-Anthropic model assignments | `agents/planner.md` (`claude-code-glm-5.1`), `agents/actor.md` (`claude-code-qwen3-coder-next`), `agents/reviewer.md` (`claude-code-kimi-k2.7`) | Core feature of the project |
 | `agents/actor-heavy.md` | `agents/actor-heavy.md` | Unique to non-Anthropic; opencode-orchestra has no actor-heavy |
 | Tier annotations in Planner | `agents/planner.md` | `[tier: fast/default/heavy]` annotation system; absent in opencode-orchestra |
 | actor-heavy dispatch in Brain | `commands/brain.md` | Tier-aware dispatch using `subagent_type: actor-heavy`; absent in opencode-orchestra |
@@ -670,10 +670,10 @@ Place it alongside the existing `.opencode/` entry.
 
    Target:
    ```markdown
-   | **Brain** | Your main session (`claude-code-kimi-k2.6` recommended) | — (main session) | Orchestrates, delegates, approves |
+   | **Brain** | Your main session (`claude-code-kimi-k2.7` recommended) | — (main session) | Orchestrates, delegates, approves |
    | **Planner** | `claude-code-glm-5.1` | Sonnet fallback (`planner-long`) for large inputs | Decomposes tasks into numbered, reviewable plans |
-   | **Actor** | `claude-code-qwen3-coder-next` | `claude-code-kimi-k2.6` for `[tier: heavy]` steps | Executes individual plan steps; scoped, fast, cheap |
-   | **Reviewer** | `claude-code-kimi-k2.6` | — | Reviews Actor's output; emits PASS / FIX / BLOCK verdicts |
+   | **Actor** | `claude-code-qwen3-coder-next` | `claude-code-kimi-k2.7` for `[tier: heavy]` steps | Executes individual plan steps; scoped, fast, cheap |
+   | **Reviewer** | `claude-code-kimi-k2.7` | — | Reviews Actor's output; emits PASS / FIX / BLOCK verdicts |
    ```
 
 2. **Prerequisites link** — Fix wrong Claude Code link:
@@ -874,8 +874,8 @@ After applying all changes, verify the following:
 ### Non-Anthropic Specifics
 - [ ] `agents/actor.md` still has `model: claude-code-qwen3-coder-next`
 - [ ] `agents/planner.md` still has `model: claude-code-glm-5.1` and tier annotations
-- [ ] `agents/reviewer.md` still has `model: claude-code-kimi-k2.6`
-- [ ] `agents/actor-heavy.md` still exists with `model: claude-code-kimi-k2.6`
+- [ ] `agents/reviewer.md` still has `model: claude-code-kimi-k2.7`
+- [ ] `agents/actor-heavy.md` still exists with `model: claude-code-kimi-k2.7`
 - [ ] `commands/brain.md` still has actor-heavy dispatch for `[tier: heavy]` steps
 - [ ] All agents still use `OPENCODE_ORCHESTRA_SESSION_DIR` (not `CLAUDE_ORCHESTRA_SESSION_DIR`)
 - [ ] `config/pricing.yaml` still contains non-Anthropic flat-rate ($0.00) model entries

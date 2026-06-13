@@ -28,7 +28,7 @@ context: >
 
 Complete the Phase 0 CC→OC rename in the `claude-orchestra--non-Anthropic` codebase
 so it matches the completion standard of `opencode-orchestra/main`, while **preserving
-all non-Anthropic model assignments** (GLM-5.1 Planner, Qwen3 Actor, Kimi K2.6
+all non-Anthropic model assignments** (GLM-5.1 Planner, Qwen3 Actor, Kimi K2.7
 actor-heavy + Reviewer).
 
 <!-- Opus-4.7> Appreciated: the Foundational Rule table (rows for planner/actor/actor-heavy/
@@ -45,8 +45,8 @@ non-Anthropic differentiator and must not be touched:
 |---|---|
 | `agents/planner.md` | `model: claude-code-glm-5.1` |
 | `agents/actor.md` | `model: claude-code-qwen3-coder-next` |
-| `agents/actor-heavy.md` | `model: claude-code-kimi-k2.6` |
-| `agents/reviewer.md` | `model: claude-code-kimi-k2.6` |
+| `agents/actor-heavy.md` | `model: claude-code-kimi-k2.7` |
+| `agents/reviewer.md` | `model: claude-code-kimi-k2.7` |
 | `config/pricing.yaml` | Zero-rate entries for all `claude-code-*` models |
 
 Files confirmed identical to opencode-orchestra/main (no action needed):
@@ -276,9 +276,9 @@ grep -c 'AGENTS.md' AGENTS.md deploy.sh collect.sh docs/design.md
 grep '^model:' agents/*.md
 # Expected:
 # agents/actor.md:        model: claude-code-qwen3-coder-next
-# agents/actor-heavy.md:  model: claude-code-kimi-k2.6
+# agents/actor-heavy.md:  model: claude-code-kimi-k2.7
 # agents/planner.md:      model: claude-code-glm-5.1
-# agents/reviewer.md:     model: claude-code-kimi-k2.6
+# agents/reviewer.md:     model: claude-code-kimi-k2.7
 ```
 
 ---

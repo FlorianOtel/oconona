@@ -117,7 +117,7 @@ def _parse_model_full(raw) -> str:
       - Normalization for sohoai: strip "ollama-cloud/" or "local/" prefixes
       - On error, returns ""
 
-    Format of raw: {"id":"kimi-k2.6","providerID":"sohoai","variant":"default"}
+    Format of raw: {"id":"kimi-k2.7","providerID":"sohoai","variant":"default"}
     """
     if not raw:
         return ""

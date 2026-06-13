@@ -82,7 +82,7 @@ Summary: misleading `agent: "brain"` default removed from oc-db.py (NULL agent c
 - **Tier-to-model remap:** All three SoHoAI worker tiers remapped per operator-directed SoHoAI model rebalance (session 20260603T213230Z-814278):
   - Planner: `sohoai/glm-5.1` → `sohoai/minimax-m3`
   - Actor: `sohoai/qwen3-coder-next` → `sohoai/qwen3-4b-q6`
-  - Actor-Heavy: `sohoai/kimi-k2.6` → `sohoai/glm-5.1`
+  - Actor-Heavy: `sohoai/kimi-k2.7` → `sohoai/glm-5.1`
 - **Configuration SSOT updates:** `config/orchestra-tiers.yaml` (tiers block), `scripts/model-rates.yaml` (new `sohoai/minimax-m3` entry, 0-cost flat-rate), `config/context-windows.yaml` (new `sohoai/minimax-m3: 1000000` entry).
 - **Agent frontmatter updates:** `agents/planner.md`, `agents/actor.md`, `agents/actor-heavy.md` (model field + description/role prose).
 - **User-facing documentation sync:** `README.md` (tier-model table), `AGENTS.md` (file tree + example command), `commands/brain.md` (prose mentions), `docs/design.md` (live-state lines 34, 71–74, 277–278, 310, 324, 371, 433–435, 451; frozen-in-time blocks left as-is per audit convention).
@@ -204,10 +204,10 @@ The hotfix #2 smoke session (`20260602T192923Z-368859`, left orphaned in the oct
 
 ### Delivered
 
-- **commands/brain.md:** Line 13 `Reviewer (sohoai/kimi-k2.6)` → `Reviewer (anthropic/claude-sonnet-4-6)`. Actor-Heavy parenthetical preserved (still uses `sohoai/kimi-k2.6`).
+- **commands/brain.md:** Line 13 `Reviewer (sohoai/kimi-k2.7)` → `Reviewer (anthropic/claude-sonnet-4-6)`. Actor-Heavy parenthetical preserved (still uses `sohoai/kimi-k2.7`).
 - **README.md:** Reviewer model-tiers table row updated to `anthropic/claude-sonnet-4-6`.
 - **docs/TODO.md:** Flow diagram line 144 Reviewer model updated; frontmatter refreshed.
-- **docs/design.md:** `/duo` advisory updated from `sohoai/kimi-k2.6` to `anthropic/claude-sonnet-4-6` at lines 52, 79, 428. Pre-v7.3.5 example-output blocks annotated as historical (Q1b — authentic numbers preserved, blockquote prepended noting model assignments at the time vs. current v7.3.5+ assignments). Frontmatter refreshed. Also picks up prior-session uncommitted v7.4 / hotfix #1 carry-forward in this file (per operator Q4).
+- **docs/design.md:** `/duo` advisory updated from `sohoai/kimi-k2.7` to `anthropic/claude-sonnet-4-6` at lines 52, 79, 428. Pre-v7.3.5 example-output blocks annotated as historical (Q1b — authentic numbers preserved, blockquote prepended noting model assignments at the time vs. current v7.3.5+ assignments). Frontmatter refreshed. Also picks up prior-session uncommitted v7.4 / hotfix #1 carry-forward in this file (per operator Q4).
 - **AGENTS.md:** Section `## Brain model` renamed `## Brain and /duo model recommendations`; single advisory paragraph split into two — `/brain` recommends Opus 4.7, `/duo` recommends `anthropic/claude-sonnet-4-6` (v7.3.5+, advisory only).
 
 ### Scope
@@ -217,16 +217,16 @@ Prose-only sweep. No runtime code changed. Source of truth (`agents/reviewer.md`
 ### Verification
 
 ```bash
-grep 'Reviewer' commands/brain.md | grep -v 'kimi-k2.6'
-grep 'Reviewer' README.md | grep -v 'kimi-k2.6'
-grep 'Phase 3' docs/TODO.md | grep -v 'kimi-k2.6'
+grep 'Reviewer' commands/brain.md | grep -v 'kimi-k2.7'
+grep 'Reviewer' README.md | grep -v 'kimi-k2.7'
+grep 'Phase 3' docs/TODO.md | grep -v 'kimi-k2.7'
 grep '/duo' docs/design.md | grep -i 'anthropic/claude-sonnet-4-6'
 grep 'anthropic/claude-sonnet-4-6' AGENTS.md | grep -i duo
 ```
 
 ### Why
 
-The octmux smoke session `20260602T093049Z-215608` surfaced a discrepancy: Reviewer subagent self-reported `anthropic/claude-sonnet-4-6` (correct, per `agents/reviewer.md`), but the deployed `commands/brain.md` still read `Reviewer (sohoai/kimi-k2.6)`. The octmux Brain consulted that deployed doc to set its `expected_model`, producing a `reviewer-noop.txt` that recorded `expected_model: sohoai/kimi-k2.6` even though the actual Reviewer ran on `anthropic/claude-sonnet-4-6`. This hotfix aligns all documentation with the v7.3.5 source of truth and additionally unifies the `/duo` model advisory recommendation to `anthropic/claude-sonnet-4-6` per operator directive (Q2a).
+The octmux smoke session `20260602T093049Z-215608` surfaced a discrepancy: Reviewer subagent self-reported `anthropic/claude-sonnet-4-6` (correct, per `agents/reviewer.md`), but the deployed `commands/brain.md` still read `Reviewer (sohoai/kimi-k2.7)`. The octmux Brain consulted that deployed doc to set its `expected_model`, producing a `reviewer-noop.txt` that recorded `expected_model: sohoai/kimi-k2.7` even though the actual Reviewer ran on `anthropic/claude-sonnet-4-6`. This hotfix aligns all documentation with the v7.3.5 source of truth and additionally unifies the `/duo` model advisory recommendation to `anthropic/claude-sonnet-4-6` per operator directive (Q2a).
 
 ---
 
@@ -318,7 +318,7 @@ head -25 docs/Stage7--Changelog.md | grep -E '^## 2026-05-31 — v7.4'
 
 ### Delivered
 
-- **Reviewer revert to Anthropic**: `agents/reviewer.md` model field restored from `sohoai/kimi-k2.6` to `anthropic/claude-sonnet-4-6`, enabling measurable per-tier costs for marginal-attribution calculation.
+- **Reviewer revert to Anthropic**: `agents/reviewer.md` model field restored from `sohoai/kimi-k2.7` to `anthropic/claude-sonnet-4-6`, enabling measurable per-tier costs for marginal-attribution calculation.
 - **`scripts/model-rates.yaml`**: central source of truth for model costs. Provider-qualified keys (`"anthropic/claude-opus-4-7"`, etc.). Cache write costs are TTL-keyed sub-maps; default TTL is `5m` (future: switch to `1h` via config edit). Anthropic rates derived from public pricing (2026-05-31). SoHoAI: free-tier ($0).
 - **`_parse_model_full()` + `_load_model_rates()` + `_get_rate()` in `oc-db.py`**: new helpers for rate lookup and model normalization. `_parse_model_full()` extracts provider-qualified key from OC's model JSON; defensive fallback for missing providerID. `_get_rate()` resolves TTL-keyed cache_write with fallback to default_cache_ttl.
 - **`_compute_hybrid_attribution()` in `oc-db.py`**: computes marginal cost per subagent (subagent.tokens_output × brain's cache_write rate / 1e6). Returns `hybrid_attribution` dict with per-subagent costs and hidden_hybrid_cost_usd. Wired into `get_session_telemetry()`.
@@ -638,7 +638,7 @@ Live `/brain` and `/duo-plan` sessions now write `.oc-session-id` at setup. At c
   **load-bearing**, not just defensive.
 
 - **`model` column is JSON**: OC's `session.model` stores a JSON object
-  `{"id":"kimi-k2.6","providerID":"sohoai","variant":"default"}`. `oc-db.py`'s `_parse_model()`
+  `{"id":"kimi-k2.7","providerID":"sohoai","variant":"default"}`. `oc-db.py`'s `_parse_model()`
   extracts the `id` field; falls back to the raw string for NULL or non-JSON values.
   Stage7.md originally assumed plain strings — corrected in this commit.
 
@@ -718,8 +718,8 @@ Code changes deferred to v7.1–v7.3.
 |---|---|---|
 | Planner | `claude-code-glm-5.1` | `sohoai/glm-5.1` |
 | Actor | `claude-code-qwen3-coder-next` | `sohoai/qwen3-coder-next` |
-| Actor-Heavy | `claude-code-kimi-k2.6` | `sohoai/kimi-k2.6` |
-| Reviewer | `claude-code-kimi-k2.6` | `sohoai/kimi-k2.6` |
+| Actor-Heavy | `claude-code-kimi-k2.7` | `sohoai/kimi-k2.7` |
+| Reviewer | `claude-code-kimi-k2.7` | `sohoai/kimi-k2.7` |
 
 **Cleanup — dead lookup keys / dead branches:**
 - `config/pricing.yaml`: 6 key renames + `notes:` block rewritten (no more "gateway alias" framing — these are canonical OC IDs). `last_updated: 2026-05-28`.
@@ -744,7 +744,7 @@ Code changes deferred to v7.1–v7.3.
 ### Delivered
 
 **Brain model recommendation — Anthropic Opus 4.7 (advisory, never blocks):**
-- `commands/brain.md`: replaced the prior `claude-code-kimi-k2.6` "recommended run environment" with an Anthropic Opus 4.7 recommendation. Implemented as a Prerequisite #1 **advisory check** — emits a one-line notice when Brain is not on Opus 4.7, then proceeds regardless. Any model is permitted; the operator's choice is final.
+- `commands/brain.md`: replaced the prior `claude-code-kimi-k2.7` "recommended run environment" with an Anthropic Opus 4.7 recommendation. Implemented as a Prerequisite #1 **advisory check** — emits a one-line notice when Brain is not on Opus 4.7, then proceeds regardless. Any model is permitted; the operator's choice is final.
 - **Deliberate deviation from `claude-orchestra`:** the upstream project hard-gates the equivalent check (STOPs on Haiku, older Sonnet, or non-Anthropic models). `oconona` downgrades to advisory only — the recommendation is preserved, but enforcement is removed. This is documented inline in `commands/brain.md`, `docs/design.md` §Model requirements, and `AGENTS.md`.
 - Rationale captured inline: project name `--non-Anthropic` refers to the *worker tier* (Planner / Actor / Reviewer / Actor-Heavy) only. Brain itself benefits from Anthropic's strongest reasoning model because the orchestrator's job (multi-turn interrogation, plan reasoning, dispatch decisions, review judgment) rewards reasoning quality, and Brain is one session per pipeline (not per step), so the cost is bounded.
 
