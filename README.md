@@ -1,6 +1,6 @@
 # oconona (OpenCode Orchestra non-Anthropic)
 
-A three-tier orchestration layer for [OpenCode](https://opencode.ai) that routes tasks across model tiers by complexity, adds a structured PLAN → IMPLEMENT → REVIEW pipeline, and provides live visibility into each tier's work via tmux windows. Designed to be as idiomatic as possible and work identically in both terminal (tmux) and VSCode OpenCode extension environments.
+A three-tier agent orchestration layer for [OpenCode](https://opencode.ai) that routes tasks across model tiers by complexity, adds a structured PLAN → IMPLEMENT → REVIEW pipeline, and provides live visibility into each tier's work via tmux windows. Designed to be as idiomatic as possible and work identically in both terminal (tmux) and VSCode OpenCode extension environments.
 
 ## Model tiers
 
