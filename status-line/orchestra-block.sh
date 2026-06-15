@@ -34,14 +34,35 @@ if [ -n "$cwd" ] && [ -f "$HOME/.config/opencode/orchestra/oconona-config.yaml" 
     # --- shared sessions root (used by both brain and duo badge reads) ---
     sessions_root="$HOME/.config/opencode/orchestra/sessions"
 
+    # Current project (realpath of TUI cwd) for per-project badge filtering.
+    # A session in another project must never render a badge here.
+    _current_project=$(realpath "$cwd" 2>/dev/null || echo "$cwd")
+
+    # Emit the inflight-marker paths belonging to THIS project, one per line.
+    # Per-project filter mirrors brain.md / duo-plan.md: read each candidate's
+    # sibling .project-dir and compare realpath against $_current_project.
+    # Missing .project-dir → skip (legacy or write race; conservative default).
+    _orchestra_inflight_in_project() {
+        local marker_name="$1" inflight candidate_dir candidate_project candidate_real
+        [ -d "$sessions_root" ] || return 0
+        while IFS= read -r inflight; do
+            [ -z "$inflight" ] && continue
+            candidate_dir="$(dirname "$inflight")"
+            candidate_project="$(head -1 "${candidate_dir}/.project-dir" 2>/dev/null)"
+            [ -z "$candidate_project" ] && continue
+            candidate_real="$(realpath "$candidate_project" 2>/dev/null || echo "$candidate_project")"
+            [ "$candidate_real" = "$_current_project" ] && printf '%s\n' "$inflight"
+        done < <(find "$sessions_root" -mindepth 2 -maxdepth 2 -name "$marker_name" 2>/dev/null)
+    }
+
     # --- /brain badge: read title from .brain-inflight (symmetric with duo) ---
     brain_count=0
     brain_title=""
     if [ -d "$sessions_root" ]; then
-        brain_count=$(find "$sessions_root" -maxdepth 2 -name ".brain-inflight" 2>/dev/null | wc -l | tr -d ' ')
+        _brain_inflight_files=$(_orchestra_inflight_in_project ".brain-inflight")
+        brain_count=$(printf '%s' "$_brain_inflight_files" | grep -c . | tr -d ' ')
         if [ "$brain_count" -eq 1 ]; then
-            brain_title=$(find "$sessions_root" -maxdepth 2 -name ".brain-inflight" 2>/dev/null \
-                          -exec cat {} \; 2>/dev/null | head -c 48)
+            brain_title=$(head -c 48 "$_brain_inflight_files" 2>/dev/null)
         fi
     fi
 
@@ -49,10 +70,10 @@ if [ -n "$cwd" ] && [ -f "$HOME/.config/opencode/orchestra/oconona-config.yaml" 
     duo_count=0
     duo_title=""
     if [ -d "$sessions_root" ]; then
-        duo_count=$(find "$sessions_root" -maxdepth 2 -name ".duo-inflight" 2>/dev/null | wc -l | tr -d ' ')
+        _duo_inflight_files=$(_orchestra_inflight_in_project ".duo-inflight")
+        duo_count=$(printf '%s' "$_duo_inflight_files" | grep -c . | tr -d ' ')
         if [ "$duo_count" -eq 1 ]; then
-            duo_title=$(find "$sessions_root" -maxdepth 2 -name ".duo-inflight" 2>/dev/null \
-                        -exec cat {} \; 2>/dev/null | head -c 48)
+            duo_title=$(head -c 48 "$_duo_inflight_files" 2>/dev/null)
         fi
     fi
 

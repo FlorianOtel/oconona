@@ -77,11 +77,25 @@ stage_for_subagent() {
   esac
 }
 
-# Returns 0 if a /brain or /duo session is currently in-flight.
+# Returns 0 if a /brain or /duo session is currently in-flight IN THIS PROJECT.
+# Per-project filter: read each candidate's .project-dir and compare realpath
+# against PROJECT_DIR (computed above). Missing .project-dir → skip (legacy or
+# write race; conservative default). Mirrors the canonical filter in brain.md /
+# duo-plan.md so a session in another project never gates this one.
 has_active_orchestra_session() {
-  find "${ORCHESTRA_DIR}/sessions" -maxdepth 2 \
-    \( -name ".brain-inflight" -o -name ".duo-inflight" \) \
-    2>/dev/null | grep -q .
+  local sessions_root="${ORCHESTRA_DIR}/sessions"
+  [ -d "$sessions_root" ] || return 1
+  local inflight candidate_dir candidate_project candidate_real
+  while IFS= read -r inflight; do
+    [ -z "$inflight" ] && continue
+    candidate_dir="$(dirname "$inflight")"
+    candidate_project="$(head -1 "${candidate_dir}/.project-dir" 2>/dev/null)"
+    [ -z "$candidate_project" ] && continue
+    candidate_real="$(realpath "$candidate_project" 2>/dev/null || echo "$candidate_project")"
+    [ "$candidate_real" = "$PROJECT_DIR" ] && return 0
+  done < <(find "$sessions_root" -mindepth 2 -maxdepth 2 \
+             \( -name ".brain-inflight" -o -name ".duo-inflight" \) 2>/dev/null)
+  return 1
 }
 
 # Sidecar so `end` can find what `start` created.

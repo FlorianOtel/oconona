@@ -1,8 +1,13 @@
 ## Orchestra in-pipeline guard
 
-If a /brain or /duo session is active in the current project (any
-`${HOME}/.config/opencode/orchestra/sessions/*/.brain-inflight` or `.duo-inflight` file
-exists), the pipeline owns code changes:
+If a /brain or /duo session is active **in the current project**, the pipeline
+owns code changes. A session counts as active-in-this-project only when some
+`${HOME}/.config/opencode/orchestra/sessions/*/.brain-inflight` (or `.duo-inflight`)
+file exists **whose sibling `.project-dir` file resolves (realpath) to the current
+working directory**. An inflight marker whose `.project-dir` points at a *different*
+project does NOT gate this session — it is unrelated and must be ignored (do not
+mention it, do not suggest `/brain-abandon` for it). When in doubt, verify by
+reading the marker's sibling `.project-dir` before treating the pipeline as active:
 
 - Code edits to project files MUST go through the Actor subagent (Task tool,
   `subagent_type: actor` for default tier, or `subagent_type: actor-heavy` for
