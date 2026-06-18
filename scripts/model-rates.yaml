@@ -131,7 +131,7 @@ provider_models:
       "5m": 0
       "1h": 0
 
-  "sohoai/glm-5.1":
+  "sohoai/glm-5.2":
     input: 0
     output: 0
     cache_read: 0

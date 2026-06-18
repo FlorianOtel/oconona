@@ -10,10 +10,10 @@ No separate sessions.  No multi-run registry. If the operator wants a parallel `
 
 ## Pipeline rules — READ FIRST
 
-`/brain` orchestrates **subagents**: Researcher (`anthropic/claude-haiku-4-5`) or Researcher-deep (`anthropic/claude-sonnet-4-6` for escalation) verifies factual claims about code / runtime / SDK behaviour during Phase 0 under your direction. Planner (`sohoai/minimax-m3`) produces the plan, Actor (`sohoai/qwen3-4b-q6` or `sohoai/glm-5.1` for `[tier — heavy]` steps) makes code changes, Reviewer (`anthropic/claude-sonnet-4-6`) audits the diff. You (Brain) dispatch them via the canonical OpenCode `Task` tool. **You do NOT do the planning or implementation work yourself.** Each phase begins with a `Task` tool call; the templates are in the relevant phase sections below.
+`/brain` orchestrates **subagents**: Researcher (`anthropic/claude-haiku-4-5`) or Researcher-deep (`anthropic/claude-sonnet-4-6` for escalation) verifies factual claims about code / runtime / SDK behaviour during Phase 0 under your direction. Planner (`sohoai/minimax-m3`) produces the plan, Actor (`sohoai/qwen3-4b-q6` or `sohoai/glm-5.2` for `[tier — heavy]` steps) makes code changes, Reviewer (`anthropic/claude-sonnet-4-6`) audits the diff. You (Brain) dispatch them via the canonical OpenCode `Task` tool. **You do NOT do the planning or implementation work yourself.** Each phase begins with a `Task` tool call; the templates are in the relevant phase sections below.
 
 
-**Recommended run environment: Anthropic Opus 4.7.** The project name (`opencode-orchestra--non-Anthropic`) refers to the *worker tier* — Planner, Actor, Reviewer, and Actor-Heavy deliberately use non-Anthropic models (Minimax M3, Qwen3-4B-Q6, GLM-5.1) for cost efficiency under the SoHoAI flat-rate subscription. **Brain itself is not part of that pattern**: the orchestrator's job (multi-turn interrogation, plan reasoning, dispatch decisions, review judgment) is best served by Anthropic's strongest reasoning model. The Prerequisites section below emits an advisory if Brain is running on a different model, but does **not** enforce — this is a deliberate deviation from claude-orchestra, where the same check is a hard gate.
+**Recommended run environment: Anthropic Opus 4.7.** The project name (`opencode-orchestra--non-Anthropic`) refers to the *worker tier* — Planner, Actor, Reviewer, and Actor-Heavy deliberately use non-Anthropic models (Minimax M3, Qwen3-4B-Q6, GLM-5.2) for cost efficiency under the SoHoAI flat-rate subscription. **Brain itself is not part of that pattern**: the orchestrator's job (multi-turn interrogation, plan reasoning, dispatch decisions, review judgment) is best served by Anthropic's strongest reasoning model. The Prerequisites section below emits an advisory if Brain is running on a different model, but does **not** enforce — this is a deliberate deviation from claude-orchestra, where the same check is a hard gate.
 
 ### Pipeline ownership of the plan
 
@@ -328,7 +328,15 @@ EOF
 mv -f "${OPENCODE_ORCHESTRA_SESSION_DIR}/RESEARCH.md.tmp" "${OPENCODE_ORCHESTRA_SESSION_DIR}/RESEARCH.md"
 ```
 
-Then proceed to Phase 1. **"Proceed to Phase 1" means: dispatch the Planner subagent via the `Task` tool using the template at the top of Phase 1.** It does NOT mean "write `PLAN.md` yourself." If you respond to the operator's go-ahead signal by composing the plan in your reply text or via `Write`, you have skipped Phase 1.
+**Before dispatching Planner, pause and present a summary to the operator.** After writing RESEARCH.md, do the following in your response text:
+
+1. Print a compact summary of RESEARCH.md: goal (one sentence), chosen approach (one sentence), scope (in/out, one bullet each), any open questions.
+2. Ask the operator explicitly: **"Ready to dispatch Planner? Add any constraints for the planning phase, or just say 'go'."**
+3. Stop. Wait for the operator's reply.
+
+**On the next operator turn:**
+- If affirmative ("go", "proceed", "yes", "dispatch", "sounds good", or any clear approval): proceed to Phase 1 — dispatch the Planner subagent via the `Task` tool using the template at the top of Phase 1. If the operator's message included additional constraints, fold them into the `Additional constraints` field of the Planner prompt. "Proceed to Phase 1" means dispatching the Planner Task tool — it does NOT mean writing `PLAN.md` yourself. If you compose the plan in your reply text or via `Write`, you have skipped Phase 1.
+- If the operator says "stop" / "abandon" / "never mind": run the cleanup block (see § Cleanup) with `outcome=abandoned`, then stop.
 
 ### What to do when ending (abandonment branch)
 

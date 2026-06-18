@@ -35,5 +35,5 @@ models:
   sohoai/qwen3-9b-q4:     262144   # llama-server: Qwen3.5-9B Q4_K_XL, 1 slot × 262144 (hot-swap via llama-swap)
   sohoai/deepseek-v4-pro: 1000000  # Ollama Cloud; 1M context
   sohoai/kimi-k2.7:       256000   # Ollama Cloud; 256K (not binary 262144)
-  sohoai/glm-5.1:         200000   # Ollama Cloud; 200K
+  sohoai/glm-5.2:         1000000  # Ollama Cloud; 1M context
   sohoai/qwen3-coder-next: 262000  # Ollama Cloud; 262K

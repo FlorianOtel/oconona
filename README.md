@@ -8,7 +8,7 @@ A three-tier agent orchestration layer for [OpenCode](https://opencode.ai) that 
 |---|---|---|---|
 | **Brain** | Your main session, **Anthropic Opus 4.7 recommended** (any model permitted) | — (main session) | Orchestrates, delegates, approves |
 | **Planner** | `sohoai/minimax-m3` | — | Decomposes tasks into numbered, reviewable plans |
-| **Actor** | `sohoai/qwen3-4b-q6` | `sohoai/glm-5.1` for `[tier — heavy]` steps | Executes individual plan steps; scoped, fast, cheap |
+| **Actor** | `sohoai/qwen3-4b-q6` | `sohoai/glm-5.2` for `[tier — heavy]` steps | Executes individual plan steps; scoped, fast, cheap |
 | **Reviewer** | `anthropic/claude-sonnet-4-6` | — | Reviews Actor's output; emits PASS / FIX / BLOCK verdicts |
 | **Researcher** | `anthropic/claude-haiku-4-5` | `anthropic/claude-sonnet-4-6` (`researcher-deep`) | Verifies factual claims about code/runtime during Phase 0; returns VERDICT: TRUE/FALSE/UNCLEAR with file:line evidence |
 | **Researcher-deep** | `anthropic/claude-sonnet-4-6` | — | Escalation tier for multi-file reasoning, subtle event interleaving, or runtime probes |

@@ -21,7 +21,7 @@
 - **`commands/*.md`** → operator-facing slash commands (deployed to `~/.config/opencode/commands/`). Invoked by the operator typing `/name`. The body becomes Brain's prompt.
 - **`agents/*.md`** → dispatchable subagents (deployed to `~/.config/opencode/agents/`). Invoked by Brain via the `Task` tool with `subagent_type: name`. Each has frontmatter declaring its model and tool permissions.
 
-- `agents/` — planner (sohoai/minimax-m3, read-only), actor (sohoai/qwen3-4b-q6), actor-heavy (sohoai/glm-5.1), reviewer (anthropic/claude-sonnet-4-6 as of v7.3.5, read-only), researcher (anthropic/claude-haiku-4-5, Phase 0 verifier, read-only + Bash), researcher-deep (anthropic/claude-sonnet-4-6, escalation verifier, read-only + Bash)
+- `agents/` — planner (sohoai/minimax-m3, read-only), actor (sohoai/qwen3-4b-q6), actor-heavy (sohoai/glm-5.2), reviewer (anthropic/claude-sonnet-4-6 as of v7.3.5, read-only), researcher (anthropic/claude-haiku-4-5, Phase 0 verifier, read-only + Bash), researcher-deep (anthropic/claude-sonnet-4-6, escalation verifier, read-only + Bash)
 - `config/orchestra-tiers.yaml` — SSOT for tier→model assignment; verified at deploy time by `scripts/check-tiers.py`
 - `commands/` — /brain (full pipeline: Phase 0 inline + 3 subagents) + /brain-abandon (explicit cancel); /duo-plan, /duo-act, /duo-abandon (lightweight session-bracketed pipeline: Brain plans interactively across multiple turns, Actor acts after /duo-act)
 - `scripts/orchestra-hook.sh` — PreToolUse / SubagentStop / PreCompact / Stop dispatcher
@@ -52,5 +52,5 @@ Check cost report:
 Check ctx segment (no OC restart needed):
 
 ```bash
-~/.config/opencode/scripts/ctx-segment.sh 12 24000 200000 sohoai/glm-5.1
+~/.config/opencode/scripts/ctx-segment.sh 12 24000 1000000 sohoai/glm-5.2
 ```
