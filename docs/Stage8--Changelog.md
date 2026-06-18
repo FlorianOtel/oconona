@@ -2,8 +2,8 @@
 title: "Stage 8 — Changelog"
 created_at: 2026-06-05--13-00
 created_by: Actor (Claude Haiku 4.5 — via oconona /brain Stage 8 dispatch)
-updated_by: Claude Code (Claude Sonnet 4.6) — v8.4.2.2 status-line warn fix
-updated_at: 2026-06-10--13-23
+updated_by: Claude Code (Claude Sonnet 4.6) — v8.4.3 brain pause gate
+updated_at: 2026-06-18--05-30
 context: >
   Per-version changelog for Stage 8 of the oconona orchestra
   (Researcher tier + Brain Phase 0 hardening + telemetry counter).
@@ -13,6 +13,56 @@ context: >
 ---
 
 # Stage 8 — Changelog
+
+## v8.4.3 — brain: explicit operator gate before Planner dispatch
+
+**Commit:** `45b0d74`
+
+### Change
+
+`commands/brain.md` § "What to do when ending (proceed branch)" — the single
+sentence "Then proceed to Phase 1" is replaced with a three-step pause block:
+
+1. After writing RESEARCH.md, Brain prints a compact summary (goal, approach,
+   scope, open questions) to the operator.
+2. Brain asks explicitly: *"Ready to dispatch Planner? Add any constraints for
+   the planning phase, or just say 'go'."*
+3. Brain stops and waits. Planner is not dispatched until the operator
+   responds with an affirmative ("go", "proceed", "yes", "dispatch", etc.)
+
+The operator's Phase 0 "proceed" signal previously served double duty: it ended
+interrogation **and** triggered Planner dispatch. This decouples those two
+moments, giving the operator a review beat and a chance to inject planning
+constraints before the Planner subagent is invoked.
+
+### Unchanged
+
+Phase 0 end-conditions, Phase 1 Planner Task template, PLAN.md persistence,
+plan approval gate (line 385), Phase 2 Actor dispatch, all other commands.
+
+### Rationale
+
+Operator feedback: Planner was silently dispatched as a side-effect of the
+Phase 0 go-ahead. The intent was to require an *additional* explicit gate
+specifically for planning authorisation.
+
+### Out of scope
+
+`/duo-plan` (no Planner dispatch in duo), `reviewer.md`, `actor.md`,
+`actor-heavy.md` — all unchanged.
+
+### Verification
+
+1. `./deploy.sh` (no restart requested this session — verify manually).
+2. `/brain` → complete Phase 0 → say "proceed".
+3. Confirm Brain pauses at RESEARCH.md summary, does NOT fire Planner Task tool.
+4. Reply "go" → confirm Planner dispatched, Phase 1 proceeds normally.
+
+### Per-session procedure
+
+Code-first commit (`45b0d74`) → this doc commit → deploy (no restart) → smoke deferred.
+
+---
 
 ## v8.4.2.2 — deploy.sh — status-line warn → info
 
