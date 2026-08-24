@@ -190,7 +190,7 @@ def _get_rate(key: str, field: str, *, ttl: Optional[str] = None) -> Optional[fl
     Look up a rate from the model-rates table.
 
     Args:
-        key: provider-qualified model key (e.g., "anthropic/claude-opus-4-7")
+        key: provider-qualified model key (e.g., "anthropic/claude-opus-5")
         field: rate field ("input", "output", "cache_read", "cache_write")
         ttl: optional TTL override (e.g., "1h", "5m"); only used for cache_write.
              If not provided, uses top-level default_cache_ttl from YAML.

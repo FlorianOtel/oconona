@@ -74,6 +74,31 @@
 default_cache_ttl: "5m"
 
 provider_models:
+  "anthropic/claude-opus-5":
+    input: 5.00
+    output: 25.00
+    cache_read: 0.50
+    cache_write:
+      "5m": 6.25
+      # "1h": 10.00
+
+  "anthropic/claude-sonnet-5":
+    input: 3.00
+    output: 15.00
+    cache_read: 0.30
+    cache_write:
+      "5m": 3.75
+      # "1h": 6.00
+
+  "anthropic/claude-fable-5":
+    input: 10.00
+    output: 50.00
+    cache_read: 1.00
+    cache_write:
+      "5m": 12.50
+      # "1h": 20.00
+
+  # legacy — superseded by claude-opus-5 (2026-07-24); kept for historical telemetry lookups
   "anthropic/claude-opus-4-7":
     input: 5.00
     output: 25.00
@@ -82,6 +107,7 @@ provider_models:
       "5m": 6.25
       # "1h": 10.00
 
+  # legacy — superseded by claude-sonnet-5 (~2026-07-07); kept for historical telemetry lookups
   "anthropic/claude-sonnet-4-6":
     input: 3.00
     output: 15.00
@@ -91,12 +117,12 @@ provider_models:
       # "1h": 6.00
 
   "anthropic/claude-haiku-4-5":
-    input: 0.80
-    output: 4.00
-    cache_read: 0.08
+    input: 1.00
+    output: 5.00
+    cache_read: 0.10
     cache_write:
-      "5m": 1.00
-      # "1h": 1.60
+      "5m": 1.25
+      # "1h": 2.00
 
   # SoHoAI models — free-tier (internal deployment)
   "sohoai/deepseek-v4-flash":
@@ -171,5 +197,5 @@ provider_models:
       "5m": 0
       "1h": 0
 
-last_verified: 2026-05-31
+last_verified: 2026-08-24
 last_verified_session: "ses_18a544a4effeLo8NL1EAZJdcKN"

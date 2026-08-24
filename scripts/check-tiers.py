@@ -134,7 +134,7 @@ def main():
 
     # Check 3: All models exist in context-windows.yaml
     # context-windows.yaml uses:
-    #   - Bare names for Anthropic models (claude-opus-4-7, claude-sonnet-4-6)
+    #   - Bare names for Anthropic models (claude-opus-5, claude-sonnet-5)
     #   - Full sohoai/ prefix for SoHoAI models (sohoai/qwen3-coder-next)
     ctx_file = repo_root / "config" / "context-windows.yaml"
     ctx_config = load_yaml(ctx_file)
@@ -198,7 +198,7 @@ def main():
 
     # Check 3: commands/brain.md mentions Reviewer model in first 20 lines
     brain_cmd_file = repo_root / "commands" / "brain.md"
-    reviewer_model = tier_models.get("reviewer", "anthropic/claude-sonnet-4-6")
+    reviewer_model = tier_models.get("reviewer", "anthropic/claude-sonnet-5")
     researcher_model = "anthropic/claude-haiku-4-5"
     if brain_cmd_file.exists():
         try:
