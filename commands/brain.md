@@ -10,7 +10,7 @@ No separate sessions.  No multi-run registry. If the operator wants a parallel `
 
 ## Pipeline rules — READ FIRST
 
-`/brain` orchestrates **subagents**: Researcher (`anthropic/claude-haiku-4-5`) or Researcher-deep (`anthropic/claude-sonnet-4-6` for escalation) verifies factual claims about code / runtime / SDK behaviour during Phase 0 under your direction. Planner (`sohoai/minimax-m3`) produces the plan, Actor (`sohoai/qwen3-4b-q6` or `sohoai/glm-5.2` for `[tier — heavy]` steps) makes code changes, Reviewer (`anthropic/claude-sonnet-4-6`) audits the diff. You (Brain) dispatch them via the canonical OpenCode `Task` tool. **You do NOT do the planning or implementation work yourself.** Each phase begins with a `Task` tool call; the templates are in the relevant phase sections below.
+`/brain` orchestrates **subagents**: Researcher (`anthropic/claude-haiku-4-5`) or Researcher-deep (`anthropic/claude-sonnet-5` for escalation) verifies factual claims about code / runtime / SDK behaviour during Phase 0 under your direction. Planner (`sohoai/minimax-m3`) produces the plan, Actor (`sohoai/qwen3-4b-q6` or `sohoai/glm-5.2` for `[tier — heavy]` steps) makes code changes, Reviewer (`anthropic/claude-sonnet-5`) audits the diff. You (Brain) dispatch them via the canonical OpenCode `Task` tool. **You do NOT do the planning or implementation work yourself.** Each phase begins with a `Task` tool call; the templates are in the relevant phase sections below.
 
 
 **Recommended run environment: Anthropic Opus 4.7.** The project name (`opencode-orchestra--non-Anthropic`) refers to the *worker tier* — Planner, Actor, Reviewer, and Actor-Heavy deliberately use non-Anthropic models (Minimax M3, Qwen3-4B-Q6, GLM-5.2) for cost efficiency under the SoHoAI flat-rate subscription. **Brain itself is not part of that pattern**: the orchestrator's job (multi-turn interrogation, plan reasoning, dispatch decisions, review judgment) is best served by Anthropic's strongest reasoning model. The Prerequisites section below emits an advisory if Brain is running on a different model, but does **not** enforce — this is a deliberate deviation from claude-orchestra, where the same check is a hard gate.
@@ -46,11 +46,11 @@ Each of these means a `Task`-tool dispatch was skipped. If you catch yourself ab
 
 ## Prerequisites
 
-1. **Model recommendation (ADVISORY only — never blocks):** Brain runs best on Anthropic Opus 4.7. The pipeline subagents use non-Anthropic models by design; Brain itself benefits from stronger reasoning. This is a **soft recommendation, not a gate** — any model is permitted. After the Setup Bash block writes `${OPENCODE_ORCHESTRA_SESSION_DIR}/.oc-current-model` (sourced from OC's live `/session.model` — the authoritative current model, immune to `/model`-swap staleness), read it and emit the appropriate one-line notice, then proceed:
+1. **Model recommendation (ADVISORY only — never blocks):** Brain runs best on Anthropic Opus 5. The pipeline subagents use non-Anthropic models by design; Brain itself benefits from stronger reasoning. This is a **soft recommendation, not a gate** — any model is permitted. After the Setup Bash block writes `${OPENCODE_ORCHESTRA_SESSION_DIR}/.oc-current-model` (sourced from OC's live `/session.model` — the authoritative current model, immune to `/model`-swap staleness), read it and emit the appropriate one-line notice, then proceed:
 
-   - File contains `anthropic/claude-opus-4-7` (or a newer/higher-capability Anthropic model id under `anthropic/`) → proceed silently (no notice).
-   - File contains any other value (Sonnet 4.6 / Sonnet 4.5 / Haiku / non-Anthropic / unknown) → emit a single-line advisory and proceed, substituting the live `<providerID>/<model.id>` for `[MODEL-ID]`:
-     > "ℹ️ /brain recommends Anthropic Opus 4.7 for best orchestration quality. You are on [MODEL-ID] — proceeding anyway (deliberate non-enforcement; `/model claude-opus-4-7` to switch if desired)."
+   - File contains `anthropic/claude-opus-5` (or a newer/higher-capability Anthropic model id under `anthropic/`) → proceed silently (no notice).
+   - File contains any other value (Sonnet 5 / Sonnet 4.6 / Sonnet 4.5 / Haiku / non-Anthropic / unknown) → emit a single-line advisory and proceed, substituting the live `<providerID>/<model.id>` for `[MODEL-ID]`:
+     > "ℹ️ /brain recommends Anthropic Opus 5 for best orchestration quality. You are on [MODEL-ID] — proceeding anyway (deliberate non-enforcement; `/model claude-opus-5` to switch if desired)."
    - File is empty or missing (OC HTTP unreachable at Setup time) → fall back to reading "The exact model ID is…" from your system context and apply the same rules. This preserves the legacy check when OC is unavailable; in that path the advisory may be stale after a mid-session `/model` swap, but it is the best signal available.
 
    **Why not just read system context (legacy mechanism, retained as fallback):** the "The exact model ID is…" line is a session-prompt snapshot frozen at session creation. OC's `/model` slash command does not re-render the system prompt — it only re-routes subsequent API calls — so after a mid-session model swap the snapshot is stale. OC's `/session.model` is updated on swap, so it is the live source of truth.
@@ -199,7 +199,7 @@ You interrogate the operator about the task **before any planning or implementat
 
 ### Researcher dispatch
 
-Brain dispatches **Researcher** (`anthropic/claude-haiku-4-5`) — or **Researcher-deep** (`anthropic/claude-sonnet-4-6`) for escalation — via the canonical `Task` tool to verify a single, binary-answerable factual claim. Multiple researchers in parallel when hypotheses are independent.
+Brain dispatches **Researcher** (`anthropic/claude-haiku-4-5`) — or **Researcher-deep** (`anthropic/claude-sonnet-5`) for escalation — via the canonical `Task` tool to verify a single, binary-answerable factual claim. Multiple researchers in parallel when hypotheses are independent.
 
 Use the default `researcher` tier for: single-file lookups, symbol existence checks, frontmatter inspection, tool-call payload shape, one-off SDK behaviour questions.
 

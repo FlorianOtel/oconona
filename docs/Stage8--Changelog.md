@@ -2,8 +2,8 @@
 title: "Stage 8 — Changelog"
 created_at: 2026-06-05--13-00
 created_by: Actor (Claude Haiku 4.5 — via oconona /brain Stage 8 dispatch)
-updated_by: Claude Code (Claude Sonnet 4.6) — v8.4.3 brain pause gate
-updated_at: 2026-06-18--05-30
+updated_by: Claude Code (Claude Sonnet 5) — v8.4.4 model sync
+updated_at: 2026-08-24--18-18
 context: >
   Per-version changelog for Stage 8 of the oconona orchestra
   (Researcher tier + Brain Phase 0 hardening + telemetry counter).
@@ -13,6 +13,90 @@ context: >
 ---
 
 # Stage 8 — Changelog
+
+## v8.4.4 — model sync: Reviewer/Researcher-deep → Sonnet 5, Brain/duo advisory → Opus 5/Sonnet 5
+
+**Commit:** `52b6a23` (code), this changelog (docs)
+
+### Change
+
+Part of a cross-project session syncing Anthropic model references in
+SoHoAI, claude-orchestra, and oconona to the current generation (Opus 5 /
+Sonnet 5 / Fable 5 / Haiku 4.5). oconona had not been migrated — Reviewer and
+Researcher-deep were still pinned to `anthropic/claude-sonnet-4-6` (from the
+v7.3.5/v8.2.0 cutovers), and Brain/`/duo`'s advisory recommendations were
+still `anthropic/claude-opus-4-7`/`anthropic/claude-sonnet-4-6`.
+claude-orchestra's equivalent tiers had already been migrated in a prior
+session (commit `625976f`).
+
+- `agents/reviewer.md`, `agents/researcher-deep.md` — `model:` →
+  `anthropic/claude-sonnet-5`.
+- `agents/researcher.md`, `agents/researcher-deep.md` — escalation-pointer
+  prose updated to reference `-sonnet-5`. Researcher's own model
+  (`anthropic/claude-haiku-4-5`) is unchanged — no dated-snapshot ID is used
+  anywhere in `opencode.json`, so the bare alias is already correct.
+- `config/orchestra-tiers.yaml` — `reviewer`/`researcher-deep` tiers and the
+  `brain`/`duo` advisory recommendations updated to Sonnet 5 / Opus 5.
+- `config/context-windows.yaml`, `scripts/model-rates.yaml` — added
+  `claude-opus-5` ($5/$25 per 1M tokens), `claude-sonnet-5` ($3/$15),
+  `claude-fable-5` ($10/$50) rows; kept the superseded `claude-opus-4-7`/
+  `claude-sonnet-4-6` rows (needed for historical telemetry lookups on past
+  sessions, not deleted).
+- `scripts/model-rates.yaml` — corrected `anthropic/claude-haiku-4-5` from a
+  stale rate (0.80/4.00) to the current one (1.00/5.00), matching
+  claude-orchestra's already-current `pricing.yaml` and confirmed current
+  Anthropic pricing.
+- `AGENTS.md`, `README.md`, `commands/brain.md`, `docs/design.md` — all
+  live/current-state prose and tables updated (Opus 4.7 → Opus 5, Sonnet
+  4.6 → Sonnet 5). Historical/closed docs (`docs/Stage7.md`, `docs/Stage8.md`,
+  prior changelog entries, `docs/TODO.md`'s old illustrative pipeline
+  diagram) deliberately left untouched — they're accurate records of what
+  was true at the time, not live specs.
+
+### Rationale
+
+Operator-initiated cross-project audit session ("update-octmux-oconona-models")
+to confirm all four related setups (SoHoAI, opencode.json, claude-orchestra,
+oconona) track the latest Anthropic model generation. SoHoAI-config.yaml and
+opencode.json were already current; claude-orchestra's agent frontmatter was
+already current but its pricing/context-window tables and a few doc
+mentions were missed in that migration (fixed in a companion commit in that
+repo); oconona had not been touched at all.
+
+### Out of scope
+
+- `agents/planner.md`, `agents/actor.md`, `agents/actor-heavy.md` — these run
+  on SoHoAI models (`sohoai/minimax-m3`, `sohoai/qwen3-4b-q6`,
+  `sohoai/glm-5.2`), unaffected by the Anthropic model generation.
+- `docs/TODO.md`'s pipeline flowchart — already stale in unrelated ways
+  (references `sohoai/glm-5.1`/`sohoai/qwen3-coder-next`, neither matching
+  current tier assignments); fixing only the Reviewer mention there would
+  have been inconsistent partial editing of an already-outdated diagram.
+- The hardcoded plaintext Anthropic API key found in
+  `~/.config/opencode/opencode.json` during this session's survey — not
+  committed to any git history (verified), but flagged to the operator as a
+  cleartext-secrets hygiene item. Not part of this change.
+
+### Verification
+
+- `python scripts/check-tiers.py` → 0 hard-fails, 0 soft-warns.
+- `grep -rn "claude-opus-4-7\|claude-sonnet-4-6" agents/ config/ scripts/
+  AGENTS.md README.md commands/ docs/design.md` → only legacy rate/
+  context-window table rows remain.
+- Per-session procedure followed: code-first commit (`52b6a23`) → this doc
+  commit → deploy → restart-timestamp verify → `/duo-plan "noop"` smoke test
+  → memory update.
+
+### Related references
+
+- `~/Gin-AI/projects/claude-orchestra` commit `b0fd737` — companion fix in
+  the sibling project (pricing.yaml, context-windows.yaml, CLAUDE.md,
+  commands/brain.md, status-line/orchestra-block.sh).
+- `docs/design.md` §"Reviewer is now Claude Sonnet" — updated in this
+  commit to record the Sonnet 4.6 → Sonnet 5 move without rewriting the
+  v7.3.5 historical rationale.
+
+---
 
 ## v8.4.3 — brain: explicit operator gate before Planner dispatch
 
