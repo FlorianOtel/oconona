@@ -17,7 +17,7 @@
 tiers:
   planner:     { model: sohoai/minimax-m3 }
   actor:       { model: sohoai/qwen3-4b-q6 }
-  actor-heavy: { model: sohoai/glm-5.2 }
+  actor-heavy: { model: sohoai/glm-5.3 }
   reviewer:    { model: anthropic/claude-sonnet-5 }
   researcher:      { model: anthropic/claude-haiku-4-5 }
   researcher-deep: { model: anthropic/claude-sonnet-5 }
