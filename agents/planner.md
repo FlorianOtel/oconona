@@ -51,7 +51,7 @@ This applies especially to: data model choices, API contract decisions, error ha
 3. **Per-step expected outcome** — one line per step describing how you'd know it worked (e.g. "tests in X pass", "file exists with N entries", "HTTP 200 from endpoint Z").
 4. **Tier annotations** (optional but recommended for complex plans) — tag each step with one of:
    - `[tier — fast]` — lightweight/local model sufficient; not a blocker if omitted.
-   - `[tier — default]` — standard Actor (sohoai/qwen3-4b-q6); omit if unsure (defaults to `default`).
+   - `[tier — default]` — standard Actor (sohoai/glm-5.3-flash); omit if unsure (defaults to `default`).
    - `[tier — heavy]` — complex reasoning, multi-file refactor, or algorithmic work; Brain dispatches `actor-heavy` (sohoai/glm-5.3) instead of standard Actor.
    - Tag is emitted inline at the end of the step line, e.g.: `3. Refactor X/Y.py to use new visitor pattern [tier — heavy]`.
    - **Separator is an em-dash (U+2014 `—`), not a colon.** Unquoted `[X: Y]` patterns trigger a YAML flow-sequence parse error in OC's stricter agent-resolution code paths (e.g. `git_worktree` project directories), silently nulling the affected agent frontmatter. See `docs/design.md` § "Known platform issues" for the full story.

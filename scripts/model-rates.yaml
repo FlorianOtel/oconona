@@ -5,7 +5,7 @@
 #
 # ## Rate structure
 #
-# Keys are provider-qualified (`"anthropic/claude-opus-4-7"`, `"sohoai/kimi-k2.7"`).
+# Keys are provider-qualified (`"anthropic/claude-opus-4-7"`, `"sohoai/glm-5.3"`).
 # For `providerID == "sohoai"`, the `id` field's `"ollama-cloud/"` or `"local/"` prefix is stripped during normalization.
 # Defensive fallback: if `providerID` is missing but `id` starts with `"claude-"`, assume `"anthropic"`.
 #
@@ -82,18 +82,30 @@ provider_models:
       "5m": 6.25
       # "1h": 10.00
 
+  # $2/$10 per MTok, cache read 10% of input — verified against Anthropic
+  # pricing docs 2026-09-18 (was 3.00/15.00, which is Sonnet 4.6's rate)
   "anthropic/claude-sonnet-5":
-    input: 3.00
-    output: 15.00
-    cache_read: 0.30
+    input: 2.00
+    output: 10.00
+    cache_read: 0.20
     cache_write:
-      "5m": 3.75
-      # "1h": 6.00
+      "5m": 2.50
+      # "1h": 4.00
 
   "anthropic/claude-fable-5":
     input: 10.00
     output: 50.00
     cache_read: 1.00
+    cache_write:
+      "5m": 12.50
+      # "1h": 20.00
+
+  # Fable 5.1 cache reads are 0.025x input (NOT the standard 0.1x)
+  # — verified against Anthropic pricing docs 2026-09-18
+  "anthropic/claude-fable-5-1":
+    input: 10.00
+    output: 50.00
+    cache_read: 0.25
     cache_write:
       "5m": 12.50
       # "1h": 20.00
@@ -125,40 +137,7 @@ provider_models:
       # "1h": 2.00
 
   # SoHoAI models — free-tier (internal deployment)
-  "sohoai/deepseek-v4-flash":
-    input: 0
-    output: 0
-    cache_read: 0
-    cache_write:
-      "5m": 0
-      "1h": 0
-
   "sohoai/deepseek-v4-pro":
-    input: 0
-    output: 0
-    cache_read: 0
-    cache_write:
-      "5m": 0
-      "1h": 0
-
-  "sohoai/minimax-m2.5":
-    input: 0
-    output: 0
-    cache_read: 0
-    cache_write:
-      "5m": 0
-      "1h": 0
-
-  "sohoai/kimi-k2.7":
-    input: 0
-    output: 0
-    cache_read: 0
-    cache_write:
-      "5m": 0
-      "1h": 0
-
-  # legacy — superseded by sohoai/glm-5.3 (2026-09-10); kept for historical telemetry lookups
-  "sohoai/glm-5.2":
     input: 0
     output: 0
     cache_read: 0
@@ -174,7 +153,42 @@ provider_models:
       "5m": 0
       "1h": 0
 
-  "sohoai/qwen3-coder-next":
+  "sohoai/deepseek-v4.1-flash":
+    input: 0
+    output: 0
+    cache_read: 0
+    cache_write:
+      "5m": 0
+      "1h": 0
+
+  "sohoai/glm-5.3-flash":
+    input: 0
+    output: 0
+    cache_read: 0
+    cache_write:
+      "5m": 0
+      "1h": 0
+
+  "sohoai/qwen3.5-9b-q4":
+    input: 0
+    output: 0
+    cache_read: 0
+    cache_write:
+      "5m": 0
+      "1h": 0
+
+  # proxy-routed duplicate of anthropic/claude-haiku-4-5; billed on SoHoAI's side
+  "sohoai/claude-haiku-4-5":
+    input: 0
+    output: 0
+    cache_read: 0
+    cache_write:
+      "5m": 0
+      "1h": 0
+
+  # HTTP 402 at Ollama Cloud until extra-usage billing is enabled; silently falls
+  # back to anthropic/claude-sonnet-5 (PAID) — do not assign to a tier until resolved
+  "sohoai/kimi-k3":
     input: 0
     output: 0
     cache_read: 0
@@ -190,21 +204,5 @@ provider_models:
       "5m": 0
       "1h": 0
 
-  "sohoai/qwen3-4b-q6":
-    input: 0
-    output: 0
-    cache_read: 0
-    cache_write:
-      "5m": 0
-      "1h": 0
-
-  "sohoai/qwen3-9b-q4":
-    input: 0
-    output: 0
-    cache_read: 0
-    cache_write:
-      "5m": 0
-      "1h": 0
-
-last_verified: 2026-08-24
+last_verified: 2026-09-18
 last_verified_session: "ses_18a544a4effeLo8NL1EAZJdcKN"

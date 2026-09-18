@@ -2,8 +2,8 @@
 # title: "Context window sizes — model → advertised tokens map"
 # created_at: 2026-05-10--20-45
 # created_by: OpenCode (Claude Opus 4.7 1M, via /brain actor)
-# updated_by: Actor (Claude Haiku 4.5)
-# updated_at: 2026-06-05--12-20
+# updated_by: Actor (claude-haiku-4-5 via /brain)
+# updated_at: 2026-09-18--22-25
 # context: >
 #   Used by scripts/ctx-segment.sh as the denominator for the status-line
 #   ctx fill segment. Lookup is normalised + [1m]-aware. Fallback when a
@@ -18,9 +18,9 @@
 # regardless of map lookup — displayed as 1.0M or 1M depending on values.
 #
 # last_updated: YYYY-MM-DD
-updated_at: 2026-08-24--00-00
-updated_by: OpenCode (Claude Sonnet 5)
-last_updated: 2026-08-24
+updated_at: 2026-09-18--22-25
+updated_by: Actor (claude-haiku-4-5 via /brain)
+last_updated: 2026-09-18
 models:
   claude-opus-5:               1000000
   claude-opus-5[1m]:           1000000
@@ -28,6 +28,8 @@ models:
   claude-sonnet-5[1m]:         1000000
   claude-fable-5:              1000000
   claude-fable-5[1m]:          1000000
+  claude-fable-5-1:     1000000
+  claude-fable-5-1[1m]: 1000000
   claude-opus-4-7:            1000000
   claude-opus-4-7[1m]:        1000000
   claude-sonnet-4-6:          200000
@@ -37,10 +39,10 @@ models:
   # Values sourced from SoHoAI config.yaml model_info.context_window
   # (advertised via /proxy/v1/model/info to clients).
   sohoai/minimax-m3:      1000000  # Ollama Cloud; 1M context
-  sohoai/qwen3-4b-q6:     131072   # llama-server: Qwen3.5-4B Q6_K_XL, 1 slot × 131072
-  sohoai/qwen3-9b-q4:     262144   # llama-server: Qwen3.5-9B Q4_K_XL, 1 slot × 262144 (hot-swap via llama-swap)
   sohoai/deepseek-v4-pro: 1000000  # Ollama Cloud; 1M context
-  sohoai/kimi-k2.7:       256000   # Ollama Cloud; 256K (not binary 262144)
-  sohoai/glm-5.2:         1000000  # legacy — superseded by sohoai/glm-5.3 (2026-09-10); kept for historical telemetry lookups
   sohoai/glm-5.3:         1000000  # Ollama Cloud; 1M context
-  sohoai/qwen3-coder-next: 262000  # Ollama Cloud; 262K
+  sohoai/deepseek-v4.1-flash: 1000000
+  sohoai/glm-5.3-flash:       1000000
+  sohoai/qwen3.5-9b-q4:        131072
+  sohoai/claude-haiku-4-5:     200000
+  sohoai/kimi-k3:             1000000   # HTTP 402 at Ollama Cloud; falls back to PAID claude-sonnet-5

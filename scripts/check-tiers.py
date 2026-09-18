@@ -6,6 +6,7 @@ Hard-fail checks (exit 1 if ANY fail):
   1. Agent frontmatter models match orchestra-tiers.yaml tier definitions.
   2. All tier and recommendation models exist in model-rates.yaml.
   3. All tier and recommendation models exist in context-windows.yaml.
+  4. All tier and recommendation models exist in opencode.json provider config.
 
 Soft-warn checks (print warnings, continue, exit 0 regardless):
   1. README.md tier-model table mentions each tier model.
@@ -14,9 +15,13 @@ Soft-warn checks (print warnings, continue, exit 0 regardless):
   4. docs/design.md mentions each tier model somewhere.
 
 Usage:
-  python check-tiers.py [--repo-root /path/to/repo]
+  python check-tiers.py [--repo-root /path/to/repo] [--opencode-json PATH]
+
+Note: opencode.json is soft-warned (not hard-failed) when absent or unparseable.
+      --opencode-json PATH overrides the default location (~/.config/opencode/opencode.json).
 """
 
+import json
 import yaml
 import sys
 import re
@@ -76,6 +81,7 @@ def extract_yaml_frontmatter(filepath):
 def main():
     parser = ArgumentParser(description="Verify tier → model assignment consistency")
     parser.add_argument("--repo-root", help="Repository root (default: inferred from script location)")
+    parser.add_argument("--opencode-json", help="Path to opencode.json (default: ~/.config/opencode/opencode.json)")
     args = parser.parse_args()
 
     if args.repo_root:
@@ -135,7 +141,7 @@ def main():
     # Check 3: All models exist in context-windows.yaml
     # context-windows.yaml uses:
     #   - Bare names for Anthropic models (claude-opus-5, claude-sonnet-5)
-    #   - Full sohoai/ prefix for SoHoAI models (sohoai/qwen3-coder-next)
+    #   - Full sohoai/ prefix for SoHoAI models (sohoai/glm-5.3-flash)
     ctx_file = repo_root / "config" / "context-windows.yaml"
     ctx_config = load_yaml(ctx_file)
     ctx_models = set(ctx_config.get("models", {}).keys())
@@ -151,6 +157,51 @@ def main():
             hard_fails.append(f"context-windows.yaml: no entry for {model}")
         else:
             print(f"[OK] context-windows.yaml: {model} entry exists")
+
+    # Check 4: All models exist in OpenCode's provider config — i.e. models OC
+    # can actually dispatch. Without this, a tier can point at a model retired
+    # upstream and the deploy still passes (see Stage8 changelog).
+    oc_json_path = (
+        Path(args.opencode_json) if args.opencode_json
+        else Path.home() / ".config" / "opencode" / "opencode.json"
+    )
+
+    if not oc_json_path.exists():
+        soft_warns.append(
+            f"opencode.json: not found at {oc_json_path} — skipping OC-availability check"
+        )
+    else:
+        oc_config = None
+        try:
+            with open(oc_json_path) as f:
+                oc_config = json.load(f)
+        except Exception as e:
+            soft_warns.append(
+                f"opencode.json: could not parse {oc_json_path}: {e} — skipping OC-availability check"
+            )
+
+        if oc_config is not None:
+            providers = oc_config.get("provider", {})
+            for model in sorted(all_models):
+                if "/" not in model:
+                    hard_fails.append(
+                        f"opencode.json: malformed model ID {model!r} (expected 'provider/key')"
+                    )
+                    continue
+                provider_name, bare_key = model.split("/", 1)
+                provider_block = providers.get(provider_name)
+                if provider_block is None:
+                    hard_fails.append(
+                        f"opencode.json: provider '{provider_name}' not found (from {model})"
+                    )
+                    continue
+                if bare_key not in provider_block.get("models", {}):
+                    hard_fails.append(
+                        f"opencode.json: no entry for {model} "
+                        f"(provider.{provider_name}.models.{bare_key} missing)"
+                    )
+                else:
+                    print(f"[OK] opencode.json: {model} entry exists")
 
     # ────── SOFT-WARN CHECKS ──────────────────────────────────────────────────────
 

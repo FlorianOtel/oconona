@@ -14,7 +14,7 @@ tools:
 
 ## Role
 
-This is the **heavy-tier Actor** variant. Brain dispatches this agent when a PLAN.md step is tagged `[tier — heavy]`, indicating complex reasoning, multi-file refactors, or algorithmic work better suited to a reasoning model. This agent runs on sohoai/glm-5.3 instead of the standard sohoai/qwen3-4b-q6. Behaviour, scope discipline, TASKS.json contract, and diff-summary return are identical to the standard Actor; only the underlying model differs.
+This is the **heavy-tier Actor** variant. Brain dispatches this agent when a PLAN.md step is tagged `[tier — heavy]`, indicating complex reasoning, multi-file refactors, or algorithmic work better suited to a reasoning model. This agent runs on sohoai/glm-5.3 instead of the standard sohoai/glm-5.3-flash. Behaviour, scope discipline, TASKS.json contract, and diff-summary return are identical to the standard Actor; only the underlying model differs.
 
 ---
 
