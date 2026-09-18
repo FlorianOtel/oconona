@@ -2,8 +2,8 @@
 title: "oconona TODO & open questions"
 created_at: 2026-05-30--00-30
 created_by: Claude Code (Claude Sonnet 4.6, 1M context)
-updated_by: Claude Code (Claude Sonnet 4.6)
-updated_at: 2026-06-03--22-00
+updated_by: Claude Code (Claude Opus 5)
+updated_at: 2026-09-18--22-58
 context: >
   Single-file ledger of open questions, deferred investigations, and follow-up
   items for the oconona project. Created during the v7.3 hotfix cycle to
@@ -18,6 +18,37 @@ context: >
 Append new entries at the top with a clear timestamp and topic header.
 Mark resolved items with their resolution date and outcome rather than
 deleting them — the rationale chain matters.
+
+---
+
+## 2026-09-18 — v8.5.0 delivered: Actor tier remap + OC-availability audit gate
+
+**Commit:** `0beb378`
+
+`sohoai/qwen3-4b-q6` retired upstream 2026-09-17/18; Actor remapped to
+`sohoai/glm-5.3-flash`. Rates/context files now mirror OpenCode's dispatchable
+model set (7 stale keys pruned, 5 added). `check-tiers.py` gained hard-fail
+Check 4 validating every tier model against `opencode.json` — the gate whose
+absence let a retired model deploy green twice (v8.4.3 glm-5.2, and this).
+Corrected `anthropic/claude-sonnet-5` from Sonnet 4.6's rate (3.00/15.00) to
+2.00/10.00, and added `claude-fable-5-1` with its non-standard 0.25 cache_read.
+
+**Open — `smoke-test.sh` Check D is broken (pre-existing).** Its grep pattern
+`^  (OK|WARN|STALE):` cannot match `verify-cost-rates.py`'s pipe-separated
+output, and `set -euo pipefail` turns the empty match into an abort, silently
+truncating every smoke run after Check C. One-line fix; not bundled into v8.5.0
+to keep that commit scoped.
+
+**Open — no lint for model names cited as examples.** Check 4 guards models a
+tier references. Names appearing as illustrations in prose, comments and
+docstrings remain unguarded; five such defects surfaced during v8.5.0 review.
+Known instances left in place: `scripts/oc-db.py:120` (`kimi-k2.7` in a
+JSON-shape example). A doc-lint would close the class.
+
+**Open — git author identity.** `0beb378` was recorded as
+`florian <florian@NucBoxK11>` rather than the operator's real address, so
+GitHub may not attribute it. Already pushed; correcting needs an amend plus
+force-push.
 
 ---
 

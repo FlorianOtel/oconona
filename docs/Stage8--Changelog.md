@@ -2,8 +2,8 @@
 title: "Stage 8 — Changelog"
 created_at: 2026-06-05--13-00
 created_by: Actor (Claude Haiku 4.5 — via oconona /brain Stage 8 dispatch)
-updated_by: Claude Code (Claude Sonnet 5) — v8.4.4 model sync
-updated_at: 2026-08-24--18-18
+updated_by: Claude Code (Claude Opus 5) — v8.5.0 Actor remap + Check 4
+updated_at: 2026-09-18--22-58
 context: >
   Per-version changelog for Stage 8 of the oconona orchestra
   (Researcher tier + Brain Phase 0 hardening + telemetry counter).
@@ -13,6 +13,104 @@ context: >
 ---
 
 # Stage 8 — Changelog
+
+## v8.5.0 — Actor tier remap to glm-5.3-flash; OC-availability audit gate; Anthropic rate corrections
+
+**Commit:** `0beb378` (code), this changelog (docs)
+
+### Change
+
+`sohoai/qwen3-4b-q6` — the default Actor tier since v7.5.1 — was retired
+upstream: removed from `~/.config/opencode/opencode.json` on 2026-09-17 and
+from SoHoAI's llama-swap config on 2026-09-18. OpenCode hard-errors on an
+unknown model key rather than falling back (`Provider.getModel` raises
+`ProviderModelNotFoundError`; `SessionPrompt.getModel` publishes an error event
+then dies with no model substitution), so the next Actor dispatch would have
+failed outright. No Actor dispatch had occurred since the key vanished — the
+last was 2026-09-14 — so no telemetry was misattributed and no historical data
+needed repair.
+
+- `config/orchestra-tiers.yaml`, `agents/actor.md` — `actor` tier →
+  `sohoai/glm-5.3-flash`. Chosen over `sohoai/deepseek-v4.1-flash` because it
+  is the only candidate with a configured fallback in SoHoAI's
+  `router_settings.fallbacks` (→ `anthropic/claude-sonnet-5`), and because
+  sharing a family with `actor-heavy` (`sohoai/glm-5.3`) makes the
+  default→heavy escalation a predictable step rather than a model-family
+  change. `sohoai/qwen3.5-9b-q4` was rejected: 8192 max output tokens, no
+  fallback entry, and llama-swap records that configuration scoring 0/150 on
+  AYA Gate G0.
+- `scripts/model-rates.yaml`, `config/context-windows.yaml` — pruned seven
+  retired SoHoAI keys (`qwen3-4b-q6`, `qwen3-9b-q4`, `glm-5.2`, `kimi-k2.7`,
+  `qwen3-coder-next`, `deepseek-v4-flash`, `minimax-m2.5`); added
+  `deepseek-v4.1-flash`, `glm-5.3-flash`, `qwen3.5-9b-q4`, `claude-haiku-4-5`
+  and `kimi-k3` so both files mirror what OpenCode can actually dispatch.
+  Departs from the glm-5.2-era convention of retaining superseded keys for
+  historical telemetry: verification found exactly one session referencing any
+  pruned key, and every runtime consumer degrades gracefully on an unknown ID
+  (`ctx-segment.sh` falls back to the caller-supplied size; `oc-db.py` and
+  `verify-cost-rates.py` return `None`/`WARN`; `session-report.py` reads
+  `telemetry.json` only). Anthropic keys were NOT pruned —
+  `context-windows.yaml` is also consumed Claude-Code-side.
+- `scripts/model-rates.yaml` — `sohoai/kimi-k3` carries a warning comment: it
+  returns HTTP 402 at Ollama Cloud until extra-usage billing is enabled and
+  silently falls back to **paid** `anthropic/claude-sonnet-5`. Not to be
+  assigned to a tier until resolved.
+- `scripts/model-rates.yaml` — **rate corrections.** `anthropic/claude-sonnet-5`
+  was carrying Sonnet 4.6's rate (3.00/15.00, cache_read 0.30, cache_write 5m
+  3.75); corrected to 2.00/10.00, 0.20, 2.50. Sonnet 5 backs both Reviewer and
+  Researcher-deep, so every cost report since v8.4.4 (2026-08-24) overstated
+  the dominant Anthropic line item by 50%. Added `anthropic/claude-fable-5-1`
+  at 10.00/50.00 with **cache_read 0.25** — Fable 5.1 caches at 2.5% of input,
+  not the standard 10%, so copying Fable 5's block would have been 4x too high.
+  Both verified against Anthropic's published pricing on 2026-09-18.
+  `anthropic/claude-sonnet-4-6` deliberately left at 3.00/15.00 — that row is
+  correct for Sonnet 4.6; the two rows were identical only because Sonnet 5's
+  was wrong.
+- `scripts/check-tiers.py` — **new hard-fail Check 4.** Every tier and
+  recommendation model must exist under `provider.<name>.models` in
+  `opencode.json`. Soft-warns (does not hard-fail) when that file is absent or
+  unparseable, since it is outside oconona's ownership. Splits each model ID on
+  the first `/` for all providers — `opencode.json` stores bare keys uniformly,
+  unlike `context-windows.yaml`'s asymmetric convention, so Check 3's
+  normalisation must NOT be reused here. Adds `--opencode-json PATH` to
+  override the default location.
+- `README.md`, `AGENTS.md`, `commands/brain.md`, `docs/design.md` — living-doc
+  sync, including `commands/brain.md`'s stale advisory text (Opus 4.7 → Opus 5,
+  GLM-5.2 → GLM-5.3). Historical records deliberately unchanged:
+  `docs/design-history.md`, `docs/Stage7--Changelog.md`, the `--tier`
+  sample-output block in `docs/design.md`, and the line-74 Reviewer-model
+  history note.
+
+### Rationale
+
+Check 4 is the substantive addition. Before it, `check-tiers.py` verified only
+that a tier's model appeared in two local YAML files — never that OpenCode could
+dispatch it. That is why `./deploy.sh` passed green while the Actor tier pointed
+at a model that no longer existed, and why the same class of breakage in v8.4.3
+(`glm-5.2`) was also found by hand rather than by the audit. The gate now fails
+the deploy instead.
+
+A residual gap remains: Check 4 guards models a *tier* references. Model names
+cited as illustrative examples in prose, comments and docstrings stay unguarded,
+and that class produced five separate defects during this session's review
+rounds — including one missed by a repo-wide sweep because it named
+`qwen3-coder-next` rather than the model being retired. A doc-lint would close
+it; not scheduled.
+
+### Verification
+
+`scripts/check-tiers.py`: 0 hard-fail(s), 0 soft-warn(s). Check 4's failure path
+exercised against a tampered scratch copy of `opencode.json` (exit 1, correct
+`[HARD-FAIL]` message), re-run independently by Brain. Post-deploy, the running
+OpenCode server's `/agent` endpoint reports `actor → sohoai/glm-5.3-flash`.
+Reviewer verdict: PASS.
+
+Known, pre-existing and NOT introduced here: `scripts/smoke-test.sh` Check D
+greps for `^  (OK|WARN|STALE):` but `verify-cost-rates.py` emits the verdict in
+a pipe-separated third column, so the pattern never matches; under
+`set -euo pipefail` this aborts the smoke run. Independent of this change.
+
+---
 
 ## v8.4.4 — model sync: Reviewer/Researcher-deep → Sonnet 5, Brain/duo advisory → Opus 5/Sonnet 5
 
