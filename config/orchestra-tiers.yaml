@@ -25,5 +25,5 @@ tiers:
   researcher-deep: { model: anthropic/claude-sonnet-5 }
 
 recommendations:
-  brain: { model: anthropic/claude-opus-5, enforcement: advisory }
+  brain: { model: anthropic/claude-opus-5.5, enforcement: advisory }
   duo:   { model: anthropic/claude-sonnet-5, enforcement: advisory }

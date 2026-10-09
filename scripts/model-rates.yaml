@@ -74,6 +74,17 @@
 default_cache_ttl: "5m"
 
 provider_models:
+  # Opus 5.5: $4/$20 per MTok, cache read 0.05x input, write-5m $5 —
+  # verified against the live pricing page 2026-10-09
+  "anthropic/claude-opus-5.5":
+    input: 4.00
+    output: 20.00
+    cache_read: 0.20
+    cache_write:
+      "5m": 5.00
+      # "1h": 8.00
+
+  # legacy — superseded by claude-opus-5.5; kept for historical telemetry lookups
   "anthropic/claude-opus-5":
     input: 5.00
     output: 25.00

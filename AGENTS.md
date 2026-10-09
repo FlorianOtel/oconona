@@ -9,7 +9,7 @@
 
 ## Brain and /duo model recommendations
 
-**`/brain`** (the parent OpenCode session running the full pipeline) is recommended to run on **Anthropic Opus 5 (`anthropic/claude-opus-5`)**. The project name `--non-Anthropic` refers to the **worker tier** only (Planner / Actor / Reviewer / Actor-Heavy); Brain itself benefits from Anthropic's strongest reasoning model because the orchestrator's job (interrogation, planning, dispatch, review judgment) rewards strong reasoning. `/brain` emits an **advisory only** when Brain is not on Opus 5 — it does **not** enforce. Any model is permitted (deliberate deviation from `claude-orchestra`, which hard-gates this check).
+**`/brain`** (the parent OpenCode session running the full pipeline) is recommended to run on **Anthropic Opus 5.5 (`anthropic/claude-opus-5.5`)**. The project name `--non-Anthropic` refers to the **worker tier** only (Planner / Actor / Reviewer / Actor-Heavy); Brain itself benefits from Anthropic's strongest reasoning model because the orchestrator's job (interrogation, planning, dispatch, review judgment) rewards strong reasoning. `/brain` emits an **advisory only** when Brain is not on Opus 5 — it does **not** enforce. Any model is permitted (deliberate deviation from `claude-orchestra`, which hard-gates this check).
 
 **`/duo`** (the lightweight session-bracketed pipeline running `/duo-plan` → `/duo-act`) is recommended to run on **`anthropic/claude-sonnet-5`** (v8.4.4+). No Reviewer is dispatched in `/duo`, so the Brain-tier choice carries more weight on plan quality; Sonnet 5 provides the best balance of reasoning quality and token cost for interactive planning turns. `/duo` is **advisory only** — any model is permitted.
 

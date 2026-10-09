@@ -6,7 +6,7 @@ A three-tier agent orchestration layer for [OpenCode](https://opencode.ai) that 
 
 | Tier | Model | Fallback | Role |
 |---|---|---|---|
-| **Brain** | Your main session, **Anthropic Opus 5 recommended** (any model permitted) | — (main session) | Orchestrates, delegates, approves |
+| **Brain** | Your main session, **Anthropic Opus 5.5 recommended** (any model permitted) | — (main session) | Orchestrates, delegates, approves |
 | **Planner** | `sohoai/minimax-m3` | — | Decomposes tasks into numbered, reviewable plans |
 | **Actor** | `sohoai/glm-5.3-flash` | `sohoai/glm-5.3` for `[tier — heavy]` steps | Executes individual plan steps; scoped, fast, cheap |
 | **Reviewer** | `anthropic/claude-sonnet-5` | — | Reviews Actor's output; emits PASS / FIX / BLOCK verdicts |
@@ -15,7 +15,7 @@ A three-tier agent orchestration layer for [OpenCode](https://opencode.ai) that 
 
 > Tier-to-model assignment is declared in `config/orchestra-tiers.yaml` (the SSOT). Run `scripts/check-tiers.py` to verify alignment.
 
-The project name's "non-Anthropic" refers to the **worker tier** (Planner / Actor / Reviewer / Actor-Heavy). Brain itself runs on Anthropic Opus 5 — the orchestrator's job (multi-turn interrogation, plan reasoning, dispatch decisions, review judgment) benefits from Anthropic's strongest reasoning model. The non-Anthropic workers are where the cost savings come from.
+The project name's "non-Anthropic" refers to the **worker tier** (Planner / Actor / Reviewer / Actor-Heavy). Brain itself runs on Anthropic Opus 5.5 — the orchestrator's job (multi-turn interrogation, plan reasoning, dispatch decisions, review judgment) benefits from Anthropic's strongest reasoning model. The non-Anthropic workers are where the cost savings come from.
 
 ## Slash commands vs subagents
 
