@@ -2,8 +2,8 @@
 title: "Stage 8 — Changelog"
 created_at: 2026-06-05--13-00
 created_by: Actor (Claude Haiku 4.5 — via oconona /brain Stage 8 dispatch)
-updated_by: Claude Code (Claude Opus 5) — v8.5.0 Actor remap + Check 4
-updated_at: 2026-09-18--22-58
+updated_by: Claude Code (Claude Sonnet 5.5)
+updated_at: 2026-10-09--21-49
 context: >
   Per-version changelog for Stage 8 of the oconona orchestra
   (Researcher tier + Brain Phase 0 hardening + telemetry counter).
@@ -13,6 +13,34 @@ context: >
 ---
 
 # Stage 8 — Changelog
+
+## v8.6.0 — Researcher Haiku 4.5 → 5.5; Brain advisory Opus 5 → 5.5
+
+**Commits:** `ee45251` (Haiku, code), `932fadc` (Opus, code), this changelog (docs)
+
+### Change
+
+Mirrors SoHoAI `18c5236`/`fd11b18` (Haiku 5.5) and `e5d1d05` (Opus 5.5).
+
+- `researcher` tier: `anthropic/claude-haiku-4-5` → `anthropic/claude-haiku-5-5`
+  (`agents/researcher.md`, `config/orchestra-tiers.yaml`, `scripts/check-tiers.py`,
+  `commands/brain.md`, `AGENTS.md`, `README.md`). Actor is unchanged
+  (`sohoai/glm-5.3-flash`), so the Researcher is the only live Haiku tier.
+- `brain` advisory: `anthropic/claude-opus-5` → `anthropic/claude-opus-5.5`.
+- `scripts/model-rates.yaml`: Haiku 5.5 uses the **>100K** price level
+  ($0.50/$2.50, read $0.05, write-5m $0.625) — one level only, so cost is never
+  under-reported; prompts ≤100K are over-costed 5×. Opus 5.5 is $4/$20, read
+  $0.20, write-5m $5. Both verified against the live pricing page 2026-10-09.
+  4.5 / Opus 5 rows kept as legacy.
+- `config/context-windows.yaml`: Haiku 5.5 and Opus 5.5 at 1,000,000.
+- `~/.config/opencode/opencode.json` (outside repo): added `claude-haiku-5-5`
+  to the `anthropic` and `sohoai` providers; fixed `claude-opus-5.5`'s
+  wrong `id` (`claude-opus-5.6` → `claude-opus-5-5`).
+
+### Why
+
+Opus 5 was missing from `opencode.json`, so `check-tiers.py` hard-failed and
+would have aborted the deploy; the Haiku upgrade was the original request.
 
 ## v8.5.0 — Actor tier remap to glm-5.3-flash; OC-availability audit gate; Anthropic rate corrections
 

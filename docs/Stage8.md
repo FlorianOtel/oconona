@@ -2,8 +2,8 @@
 title: "Stage 8 — Prudent Brain: Researcher tier + Phase 0 hardening"
 created_at: 2026-06-05--12-57
 created_by: Actor (Claude Haiku 4.5 — via oconona /brain Stage 8 dispatch)
-updated_by: Actor (Claude Haiku 4.5) — via oconona SNAPEOF-extraction (v8.4.2)
-updated_at: 2026-06-10--10-58
+updated_by: Claude Code (Claude Sonnet 5.5)
+updated_at: 2026-10-09--21-49
 context: >
   Stage 8 of the oconona orchestra introduces a new subagent role —
   Researcher — with two tiers (researcher / researcher-deep) dispatched
@@ -32,7 +32,7 @@ Brain's job (interrogation, design synthesis, dispatch) remains unchanged. What 
 
 | Topic | Decision | Rationale |
 |---|---|---|
-| Default researcher model | `anthropic/claude-haiku-4-5` | Calibrated UNCLEAR discipline (Haiku 4.5 is more willing to default to "I don't know" than equivalently-priced SoHoAI tiers); per-call cost bounded. |
+| Default researcher model | `anthropic/claude-haiku-5-5` | Calibrated UNCLEAR discipline (Haiku 5.5 is more willing to default to "I don't know" than equivalently-priced SoHoAI tiers); per-call cost bounded. |
 | Escalation researcher model | `anthropic/claude-sonnet-4-6` | Hard hypotheses raise (not lower) the stakes for honesty about unknowns; rare dispatch. Operator override of the research brief's `sohoai/glm-5.1`. |
 | Naming | `researcher-deep` (not `-heavy`) | "Deep" matches the differentiator (verification depth, not workload weight). |
 | Verdict alphabet | TRUE / FALSE / UNCLEAR (no PARTIAL) | Binary discipline; UNCLEAR with caveats covers the partial case. |
@@ -43,7 +43,7 @@ Brain's job (interrogation, design synthesis, dispatch) remains unchanged. What 
 ## Surface inventory
 
 ### New files
-- `agents/researcher.md` — `anthropic/claude-haiku-4-5`, read-only-plus-Bash, system prompt enforces VERDICT/EVIDENCE/CAVEATS contract.
+- `agents/researcher.md` — `anthropic/claude-haiku-5-5`, read-only-plus-Bash, system prompt enforces VERDICT/EVIDENCE/CAVEATS contract.
 - `agents/researcher-deep.md` — `anthropic/claude-sonnet-4-6`, identical system prompt body to `researcher.md` (post-preamble, byte-identical per the actor/actor-heavy convention).
 - `docs/Stage8.md` — this file.
 - `docs/Stage8--Changelog.md` — first entry referencing the code-first commit hash.
@@ -53,8 +53,8 @@ Brain's job (interrogation, design synthesis, dispatch) remains unchanged. What 
 - `commands/duo-plan.md` — v8.3.1: replaced global `.duo-inflight` refusal block with per-project filter matching brain.md; iterates over active markers, reads `.project-dir` sidecars, normalises paths with `realpath`, compares project identity. Updated prose to emphasise **"for this project"** scope. Cross-mode and cross-project coexistence now allowed. v8.4.2: line 137 SNAPEOF heredoc replaced with file-based `oc-snapshot.py` call.
 - `scripts/orchestra-cleanup.sh` — v8.3.0: corrected execution order (sidecar write before telemetry summarise, marker removal after post-verify); added `.cleanup-in-progress` sidecar (atomic write/removal); added EXIT trap for crash cleanup. Fixes HIGH#1 (marker-before-telemetry race) + MEDIUM#2 (no cleanup-in-progress sidecar). v8.4.2: line 57 SNAPEOF heredoc replaced with file-based `oc-snapshot.py` call.
 - `config/orchestra-tiers.yaml` — added `researcher` and `researcher-deep` tier entries.
-- `config/context-windows.yaml` — metadata refresh; `claude-haiku-4-5: 200000` already present.
-- `scripts/check-tiers.py` — soft-warn for missing `anthropic/claude-haiku-4-5` mention in `commands/brain.md`.
+- `config/context-windows.yaml` — metadata refresh; `claude-haiku-5-5: 1000000` present (4.5 kept as legacy).
+- `scripts/check-tiers.py` — soft-warn for missing `anthropic/claude-haiku-5-5` mention in `commands/brain.md`.
 - `scripts/telemetry-summarize.py` — `researcher_dispatches` counter (filters `subagents` by `agent in ("researcher","researcher-deep")`); fallback path also returns 0 for schema consistency.
 - `scripts/telemetry-report.sh` — surfaces counter in default view (`r=<N>` annotation when non-zero) + `--tier` mode + aggregate block.
 - `deploy.sh` — removed the orphan-cleanup block that deleted `researcher.md`; extended variant-check pair list to `actor:actor-heavy, researcher:researcher-deep`.

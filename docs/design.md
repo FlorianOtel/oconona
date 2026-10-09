@@ -2,8 +2,8 @@
 title: "OpenCode Orchestra — three-tier Brain/Planner/Actor pattern over OpenCode"
 created_at: 20260424-000000
 created_by: OpenCode (Claude Opus 4.7, 1M context)
-updated_by: Claude Code (Haiku 4.5 via /brain Actor)
-updated_at: 2026-09-18--22-43
+updated_by: Claude Code (Claude Sonnet 5.5)
+updated_at: 2026-10-09--21-49
 context: >
   Reference architecture for OpenCode Orchestra — a three-tier orchestration
   pattern layered on OpenCode using native subagents. The design supports
@@ -18,7 +18,7 @@ A three-tier orchestration system for OpenCode: **Brain** delegates reasoning, i
 
 ## Intro
 
-OpenCode Orchestra solves the cost/capability trade-off for multi-step code work. A single powerful Brain (Anthropic Opus 5) orchestrates cheaper specialized tiers: a read-only Planner for structured reasoning, a write-capable Actor for implementation, and a read-only Reviewer for quality gates. The project name's `--non-Anthropic` suffix refers to the **worker tier** — Planner, Actor, and Actor-Heavy run on SoHoAI flat-rate; Reviewer runs on Anthropic Sonnet (per-token) for per-tier cost attribution; Brain itself runs on Anthropic Opus 5 because the orchestrator's job (interrogation, planning, dispatch, review judgment) benefits from Anthropic's strongest reasoning model. The key design choice: **Option B — native OpenCode subagents, not separate processes** — which keeps the architecture simple and preserves permission modes and plan-approval gates.
+OpenCode Orchestra solves the cost/capability trade-off for multi-step code work. A single powerful Brain (Anthropic Opus 5.5) orchestrates cheaper specialized tiers: a read-only Planner for structured reasoning, a write-capable Actor for implementation, and a read-only Reviewer for quality gates. The project name's `--non-Anthropic` suffix refers to the **worker tier** — Planner, Actor, and Actor-Heavy run on SoHoAI flat-rate; Reviewer runs on Anthropic Sonnet (per-token) for per-tier cost attribution; Brain itself runs on Anthropic Opus 5.5 because the orchestrator's job (interrogation, planning, dispatch, review judgment) benefits from Anthropic's strongest reasoning model. The key design choice: **Option B — native OpenCode subagents, not separate processes** — which keeps the architecture simple and preserves permission modes and plan-approval gates.
 
 ## Slash commands vs subagents
 
@@ -33,7 +33,7 @@ Two distinct kinds of `.md` file in this repo, deployed to two different OpenCod
 
 **Subagents (`agents/*.md`):** `planner.md` (model: `sohoai/minimax-m3`, read-only tools), `actor.md` (model: `sohoai/glm-5.3-flash`, Edit/Write/Bash), `actor-heavy.md` (model: `sohoai/glm-5.3`, Edit/Write/Bash), `reviewer.md` (model: `anthropic/claude-sonnet-5`, read-only tools). Each has frontmatter that declares its model and tool permissions; OpenCode enforces both at dispatch time.
 
-**Brain is neither.** Brain *is* the parent OpenCode session that executes `/brain` (or `/duo-act`). It runs on Anthropic Opus 5. Brain cannot be implemented as a subagent because Phase 0 of `/brain` is multi-turn interactive interrogation with the operator, and OpenCode subagents are single-dispatch units (they cannot have multi-turn dialog with the operator). The orchestration logic in `commands/brain.md` is therefore intentionally in `commands/`, not `agents/`.
+**Brain is neither.** Brain *is* the parent OpenCode session that executes `/brain` (or `/duo-act`). It runs on Anthropic Opus 5.5. Brain cannot be implemented as a subagent because Phase 0 of `/brain` is multi-turn interactive interrogation with the operator, and OpenCode subagents are single-dispatch units (they cannot have multi-turn dialog with the operator). The orchestration logic in `commands/brain.md` is therefore intentionally in `commands/`, not `agents/`.
 
 **Auxiliary directory:** `agents-md-block/orchestra-guard.md` is yet a third thing — a markdown block injected by `deploy.sh` into `~/.config/opencode/AGENTS.md` between sentinels, to remind Brain about pipeline rules on every turn. Not a subagent, not a slash command — a project-instruction snippet.
 
@@ -67,24 +67,24 @@ When NOT to use /brain: simple tasks with ≤5 steps, low blast radius. Use /duo
 
 | Agent | Model | File | Tools | Role |
 |---|---|---|---|---|
-| **Brain** | Anthropic Opus 5 recommended (any model permitted; advisory only) | — (main session) | all | Orchestrates; surfaces plan for operator approval (G2). Strictly speaking Brain is not an "agent" — it's the parent session itself; included here as the top of the tier hierarchy. |
+| **Brain** | Anthropic Opus 5.5 recommended (any model permitted; advisory only) | — (main session) | all | Orchestrates; surfaces plan for operator approval (G2). Strictly speaking Brain is not an "agent" — it's the parent session itself; included here as the top of the tier hierarchy. |
 | **Planner** | `sohoai/minimax-m3` | `~/.config/opencode/agents/planner.md` | Read, Grep, Glob, WebFetch, TodoWrite (read-only) | Decomposes task into numbered plan; Brain persists to PLAN.md |
 | **Actor** | `sohoai/glm-5.3-flash` | `~/.config/opencode/agents/actor.md` | Read, Edit, Write, Bash, Grep, Glob (+ denies on rm -rf, git push) | Executes one step per invocation; self-persists TASKS.json via atomic-rename |
 | **Actor** (heavy) | `sohoai/glm-5.3` | `~/.config/opencode/agents/actor-heavy.md` | Read, Edit, Write, Bash, Grep, Glob (+ denies on rm -rf, git push) | Complex multi-file refactors; triggered by `[tier — heavy]` step annotations |
 | **Reviewer** | `anthropic/claude-sonnet-5` (v8.4.4+; Sonnet 4.6 since v7.3.5) | `~/.config/opencode/agents/reviewer.md` | Read, Grep, Glob, TodoWrite (read-only) | Reviews diff against PLAN.md; returns PASS / FIX / BLOCK. Model changed from `sohoai/kimi-k2.7` in v7.3.5 to enable per-tier cost tracking and marginal-attribution. |
-| **Researcher** | `anthropic/claude-haiku-4-5` | `~/.config/opencode/agents/researcher.md` | Read, Grep, Glob, Bash, WebFetch, TodoWrite (read-only + Bash for probes) | Phase 0 factual verification; returns VERDICT/EVIDENCE/CAVEATS with file:line citations |
+| **Researcher** | `anthropic/claude-haiku-5-5` | `~/.config/opencode/agents/researcher.md` | Read, Grep, Glob, Bash, WebFetch, TodoWrite (read-only + Bash for probes) | Phase 0 factual verification; returns VERDICT/EVIDENCE/CAVEATS with file:line citations |
 | **Researcher** (deep) | `anthropic/claude-sonnet-5` | `~/.config/opencode/agents/researcher-deep.md` | Read, Grep, Glob, Bash, WebFetch, TodoWrite (read-only + Bash for probes) | Escalation tier for multi-file reasoning, subtle event interleaving, or runtime probes; triggered by Brain's escalation policy |
 
 ### Model requirements
 
 | Command | Minimum | Recommended | Enforcement |
 |---|---|---|---|
-| `/brain` | none | Anthropic Opus 5 | **Advisory only** — Brain emits a one-line notice on non-Opus models and continues. Any model is permitted. |
+| `/brain` | none | Anthropic Opus 5.5 | **Advisory only** — Brain emits a one-line notice on non-Opus models and continues. Any model is permitted. |
 | `/duo` | none | anthropic/claude-sonnet-5 | Advisory only — Brain warns and continues |
 
 The check happens immediately after Phase 0 Setup runs. It is LLM-enforced: Brain reads `${OPENCODE_ORCHESTRA_SESSION_DIR}/.oc-current-model`, a `<providerID>/<model.id>` sidecar Setup Bash writes from OC's live `/session.model` field. This is the authoritative current model — OC updates it on `/model` swap, so the advisory is immune to mid-session model-swap staleness. Fallback: if `.oc-current-model` is empty (OC HTTP unreachable at Setup time), Brain falls back to reading "The exact model ID is…" from its system context (legacy mechanism, retained for resilience). That fallback path may report a stale model after a mid-session `/model` swap, since OC does not re-render the system prompt on swap — it is the best signal available when the live source is missing.
 
-**Why Anthropic Opus 5 is recommended for `/brain`.** Brain's job is multi-turn interrogation, plan reasoning over a large session context, dispatch decisions, and review judgment across the cap-3 loop. These all reward strong reasoning, and the cost is small (Brain is one session per pipeline, not per step). The pipeline subagents — Planner, Actor, and Actor-Heavy — run on SoHoAI flat-rate models; Reviewer runs on Anthropic Sonnet (per-token) to enable per-tier cost tracking. Their work is per-step and narrow-context, benefiting more from cost efficiency than from incremental reasoning quality.
+**Why Anthropic Opus 5.5 is recommended for `/brain`.** Brain's job is multi-turn interrogation, plan reasoning over a large session context, dispatch decisions, and review judgment across the cap-3 loop. These all reward strong reasoning, and the cost is small (Brain is one session per pipeline, not per step). The pipeline subagents — Planner, Actor, and Actor-Heavy — run on SoHoAI flat-rate models; Reviewer runs on Anthropic Sonnet (per-token) to enable per-tier cost tracking. Their work is per-step and narrow-context, benefiting more from cost efficiency than from incremental reasoning quality.
 
 **Deliberate deviation from `claude-orchestra`.** The upstream `claude-orchestra` project enforces this as a hard gate (STOPs on Haiku, older Sonnet, or non-Anthropic models). `oconona` deliberately downgrades the check to advisory only — the operator's model choice is final, and any model can drive `/brain`. The recommendation is preserved (notice emitted on non-Opus) but never blocks.
 
@@ -275,11 +275,11 @@ brain-state.md     (pre-compact snapshot)
 
 Costs vary by tier:
 
-- **Brain** (Anthropic Opus 5): most expensive; receives every subagent's return. Per-token Anthropic pricing. Mitigated by prompt caching + `PreCompact` hook saving state. Cost dominates a typical session.
+- **Brain** (Anthropic Opus 5.5): most expensive; receives every subagent's return. Per-token Anthropic pricing. Mitigated by prompt caching + `PreCompact` hook saving state. Cost dominates a typical session.
 - **Planner** (sohoai/minimax-m3): called once per plan. $0 marginal cost (flat-rate SoHoAI).
 - **Actor** (sohoai/glm-5.3-flash or sohoai/glm-5.3 if heavy): called once per step. $0 marginal cost (flat-rate SoHoAI).
 - **Reviewer** (anthropic/claude-sonnet-5): called once per review (up to 3 per step). Per-token Anthropic pricing (enables per-tier cost tracking).
-- **Researcher** (anthropic/claude-haiku-4-5): called 0–N times during Phase 0 for factual verification. Per-token Anthropic Haiku pricing (cheap; Haiku is the lowest-cost Anthropic tier). Counter exposed as `researcher_dispatches` in `telemetry.json` (Stage 8).
+- **Researcher** (anthropic/claude-haiku-5-5): called 0–N times during Phase 0 for factual verification. Per-token Anthropic Haiku pricing (cheap; Haiku is the lowest-cost Anthropic tier). Counter exposed as `researcher_dispatches` in `telemetry.json` (Stage 8).
 - **Researcher-deep** (anthropic/claude-sonnet-5): escalation tier for hard verifications; rare. Per-token Anthropic Sonnet pricing (same as Reviewer).
 
 Rule of thumb: use `/brain` for tasks where the review loop actually earns the Brain overhead (architecture, multi-file refactors). Use `/duo` for simple, low-risk tasks. The zero-marginal-cost subagents make both pipelines economically viable even with repeated review iterations.
@@ -325,7 +325,7 @@ See design-history.md §13.3 for three potential approaches to close the gap.
 
 ### Rationale
 
-Multi-tier orchestration has a non-obvious cost structure. Brain (Anthropic Opus 5) dominates by token volume — it re-sends its full context every turn (cached after the first hit, but still billed at the cache-read rate of the most expensive model) and receives all subagent returns. Planner (sohoai/minimax-m3) runs once per plan. Reviewer (anthropic/claude-sonnet-5) runs once per review (up to 3 per step). Actor (sohoai/glm-5.3-flash) is called once per step and may iterate. Without measurement, cost/quality trade-offs are guesses: which tier to change? which phase to skip? does the built-in `Explore` subagent justify a dedicated cheaper Researcher agent? Telemetry makes those decisions data-driven (see `TODO.md §0` for the full decision-gate framework).
+Multi-tier orchestration has a non-obvious cost structure. Brain (Anthropic Opus 5.5) dominates by token volume — it re-sends its full context every turn (cached after the first hit, but still billed at the cache-read rate of the most expensive model) and receives all subagent returns. Planner (sohoai/minimax-m3) runs once per plan. Reviewer (anthropic/claude-sonnet-5) runs once per review (up to 3 per step). Actor (sohoai/glm-5.3-flash) is called once per step and may iterate. Without measurement, cost/quality trade-offs are guesses: which tier to change? which phase to skip? does the built-in `Explore` subagent justify a dedicated cheaper Researcher agent? Telemetry makes those decisions data-driven (see `TODO.md §0` for the full decision-gate framework).
 
 Every `/brain` and `/duo` run is instrumented at cleanup by `scripts/telemetry-summarize.{sh,py}`, invoked from each command's cleanup block.
 
@@ -372,7 +372,7 @@ These are historical examples from the Anthropic-only era. For current non-Anthr
 | `/brain` | variable | ~13% | ~8% | ~13% |
 | `/duo` | ~60% | — | ~40% | — |
 
-Models: Brain (Anthropic Opus 5), Planner (sohoai/minimax-m3), Actor (sohoai/glm-5.3-flash, or sohoai/glm-5.3 for heavy steps), Reviewer (anthropic/claude-sonnet-5). SoHoAI subagents operate under flat-rate pricing (marginal cost = $0); Anthropic tiers (Brain, Reviewer) are per-token pricing.
+Models: Brain (Anthropic Opus 5.5), Planner (sohoai/minimax-m3), Actor (sohoai/glm-5.3-flash, or sohoai/glm-5.3 for heavy steps), Reviewer (anthropic/claude-sonnet-5). SoHoAI subagents operate under flat-rate pricing (marginal cost = $0); Anthropic tiers (Brain, Reviewer) are per-token pricing.
 
 Brain's tier dominance is what remains **after** prompt caching has already taken ~86% off Brain's bill — the proportions in the table are post-cache. Three multipliers stack to keep Brain on top: **model rate** (Brain pays per-token Anthropic pricing; subagents run on SoHoAI flat-rate), **context size** (Brain re-sends the whole session every turn; subagents get a fresh, scoped prompt), and **turn count** (Brain runs every user message + every dispatch round-trip; subagents are one-shot). Caching only attacks the first multiplier. To shift the proportions further: trim context (`/compact`, smaller inlined artifacts) or downgrade the Brain model.
 
@@ -380,7 +380,7 @@ The `--tier` flag on `telemetry-report.sh` reads per-session `telemetry.json` fi
 
 **Sample `--tier` output:**
 
-> Example output below is from pre-v7.3.5 (Brain on Kimi K2.7, Reviewer on Kimi K2.7). Current assignments (v8.4.4+): Brain = anthropic/claude-opus-5, Reviewer = anthropic/claude-sonnet-5, Actor (heavy) = sohoai/glm-5.3.
+> Example output below is from pre-v7.3.5 (Brain on Kimi K2.7, Reviewer on Kimi K2.7). Current assignments (v8.4.4+): Brain = anthropic/claude-opus-5.5, Reviewer = anthropic/claude-sonnet-5, Actor (heavy) = sohoai/glm-5.3.
 
 ```
   2026-05-20  brain   560s  outcome=pass  total=~$0.02
@@ -406,7 +406,7 @@ The `--tier` flag on `telemetry-report.sh` reads per-session `telemetry.json` fi
 
 ### Rate sources and verification
 
-Model costs are centralized in `scripts/model-rates.yaml` (v7.3.5+), keyed by provider-qualified model IDs (e.g., `"anthropic/claude-opus-5"`, `"sohoai/glm-5.3"`). Anthropic rates are derived from public pricing (https://www.anthropic.com/pricing/claude) and verified quarterly. SoHoAI models run on flat-rate subscription ($0 marginal cost). Cache write costs are **TTL-parameterised** — separate tiers for 5-minute (ephemeral, default) and 1-hour (extended, commented out) cache retention.
+Model costs are centralized in `scripts/model-rates.yaml` (v7.3.5+), keyed by provider-qualified model IDs (e.g., `"anthropic/claude-opus-5.5"`, `"sohoai/glm-5.3"`). Anthropic rates are derived from public pricing (https://www.anthropic.com/pricing/claude) and verified quarterly. SoHoAI models run on flat-rate subscription ($0 marginal cost). Cache write costs are **TTL-parameterised** — separate tiers for 5-minute (ephemeral, default) and 1-hour (extended, commented out) cache retention.
 
 Per-tier cost validation is performed by `scripts/verify-cost-rates.py` (v7.3.5+), integrated as Check D in `smoke-test.sh`. It detects rate drift > 1% between stored session costs (from OC's SQLite) and rate-based calculation (from `model-rates.yaml`). See `docs/Stage7-3-5--token-accounting-for-hybrid-orchestra.md §Cache TTL parameterisation` for details on the TTL model.
 
@@ -439,7 +439,7 @@ Reference: [Design history & amendments](design-history.md) §Amendment 2026-05-
 | Actor (heavy) | `sohoai/glm-5.3` | `[tier — heavy]` annotation in PLAN.md step |
 | Reviewer | `anthropic/claude-sonnet-5` | all reviews (v7.3.5+; enables per-tier cost tracking; Sonnet 5 since v8.4.4) |
 
-**Brain** is recommended on Anthropic Opus 5 (advisory only — any model permitted; see §Model requirements above). `/duo` is unconstrained and recommends `anthropic/claude-sonnet-5` (advisory only); any model works for `/duo`.
+**Brain** is recommended on Anthropic Opus 5.5 (advisory only — any model permitted; see §Model requirements above). `/duo` is unconstrained and recommends `anthropic/claude-sonnet-5` (advisory only); any model works for `/duo`.
 
 ### Step-level tier annotations
 
