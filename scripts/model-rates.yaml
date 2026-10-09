@@ -128,6 +128,20 @@ provider_models:
       "5m": 3.75
       # "1h": 6.00
 
+  # Haiku 5.5 is priced by prompt length: <=100K tokens $0.10/$0.50 (read 0.01,
+  # write-5m 0.125); >100K tokens $0.50/$2.50 (read 0.05, write-5m 0.625). Only one
+  # level can be configured; we use the HIGHER one (same as SoHoAI main.py) so cost
+  # is never under-reported; <=100K prompts are over-costed 5x.
+  # Verified against the live pricing page 2026-10-09.
+  "anthropic/claude-haiku-5-5":
+    input: 0.50
+    output: 2.50
+    cache_read: 0.05
+    cache_write:
+      "5m": 0.625
+      # "1h": 1.00
+
+  # legacy — superseded by claude-haiku-5-5 (2026-10-09); kept for historical telemetry lookups
   "anthropic/claude-haiku-4-5":
     input: 1.00
     output: 5.00
@@ -177,7 +191,16 @@ provider_models:
       "5m": 0
       "1h": 0
 
-  # proxy-routed duplicate of anthropic/claude-haiku-4-5; billed on SoHoAI's side
+  # proxy-routed duplicate of anthropic/claude-haiku-5-5; billed on SoHoAI's side
+  "sohoai/claude-haiku-5-5":
+    input: 0
+    output: 0
+    cache_read: 0
+    cache_write:
+      "5m": 0
+      "1h": 0
+
+  # legacy — proxy-routed duplicate of anthropic/claude-haiku-4-5
   "sohoai/claude-haiku-4-5":
     input: 0
     output: 0

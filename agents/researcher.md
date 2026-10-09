@@ -1,7 +1,7 @@
 ---
 name: researcher
 description: Phase 0 factual verification — verifies load-bearing hypotheses about code, runtime, and SDK behaviour before plan is drafted.
-model: anthropic/claude-haiku-4-5
+model: anthropic/claude-haiku-5-5
 tools:
   Read: true
   Grep: true

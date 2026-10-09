@@ -10,7 +10,7 @@ No separate sessions.  No multi-run registry. If the operator wants a parallel `
 
 ## Pipeline rules — READ FIRST
 
-`/brain` orchestrates **subagents**: Researcher (`anthropic/claude-haiku-4-5`) or Researcher-deep (`anthropic/claude-sonnet-5` for escalation) verifies factual claims about code / runtime / SDK behaviour during Phase 0 under your direction. Planner (`sohoai/minimax-m3`) produces the plan, Actor (`sohoai/glm-5.3-flash` or `sohoai/glm-5.3` for `[tier — heavy]` steps) makes code changes, Reviewer (`anthropic/claude-sonnet-5`) audits the diff. You (Brain) dispatch them via the canonical OpenCode `Task` tool. **You do NOT do the planning or implementation work yourself.** Each phase begins with a `Task` tool call; the templates are in the relevant phase sections below.
+`/brain` orchestrates **subagents**: Researcher (`anthropic/claude-haiku-5-5`) or Researcher-deep (`anthropic/claude-sonnet-5` for escalation) verifies factual claims about code / runtime / SDK behaviour during Phase 0 under your direction. Planner (`sohoai/minimax-m3`) produces the plan, Actor (`sohoai/glm-5.3-flash` or `sohoai/glm-5.3` for `[tier — heavy]` steps) makes code changes, Reviewer (`anthropic/claude-sonnet-5`) audits the diff. You (Brain) dispatch them via the canonical OpenCode `Task` tool. **You do NOT do the planning or implementation work yourself.** Each phase begins with a `Task` tool call; the templates are in the relevant phase sections below.
 
 
 **Recommended run environment: Anthropic Opus 5.** The project name (`opencode-orchestra--non-Anthropic`) refers to the *worker tier* — Planner, Actor, Reviewer, and Actor-Heavy deliberately use non-Anthropic models (Minimax M3, GLM-5.3-Flash, GLM-5.3) for cost efficiency under the SoHoAI flat-rate subscription. **Brain itself is not part of that pattern**: the orchestrator's job (multi-turn interrogation, plan reasoning, dispatch decisions, review judgment) is best served by Anthropic's strongest reasoning model. The Prerequisites section below emits an advisory if Brain is running on a different model, but does **not** enforce — this is a deliberate deviation from claude-orchestra, where the same check is a hard gate.
@@ -199,7 +199,7 @@ You interrogate the operator about the task **before any planning or implementat
 
 ### Researcher dispatch
 
-Brain dispatches **Researcher** (`anthropic/claude-haiku-4-5`) — or **Researcher-deep** (`anthropic/claude-sonnet-5`) for escalation — via the canonical `Task` tool to verify a single, binary-answerable factual claim. Multiple researchers in parallel when hypotheses are independent.
+Brain dispatches **Researcher** (`anthropic/claude-haiku-5-5`) — or **Researcher-deep** (`anthropic/claude-sonnet-5`) for escalation — via the canonical `Task` tool to verify a single, binary-answerable factual claim. Multiple researchers in parallel when hypotheses are independent.
 
 Use the default `researcher` tier for: single-file lookups, symbol existence checks, frontmatter inspection, tool-call payload shape, one-off SDK behaviour questions.
 

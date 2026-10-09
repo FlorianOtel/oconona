@@ -13,7 +13,7 @@ tools:
 
 ## Role
 
-This is the **deep-tier Researcher** variant. Brain dispatches this agent when a Phase 0 verification requires multi-file reasoning, subtle event interleaving, or runtime probes that the standard `researcher` (`anthropic/claude-haiku-4-5`) is not best suited for. Behaviour, verdict contract, hard rules, and tool set are identical to standard Researcher; only the underlying model differs (`anthropic/claude-sonnet-5` instead of `anthropic/claude-haiku-4-5`).
+This is the **deep-tier Researcher** variant. Brain dispatches this agent when a Phase 0 verification requires multi-file reasoning, subtle event interleaving, or runtime probes that the standard `researcher` (`anthropic/claude-haiku-5-5`) is not best suited for. Behaviour, verdict contract, hard rules, and tool set are identical to standard Researcher; only the underlying model differs (`anthropic/claude-sonnet-5` instead of `anthropic/claude-haiku-4-5`).
 
 ---
 

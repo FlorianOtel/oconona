@@ -250,7 +250,7 @@ def main():
     # Check 3: commands/brain.md mentions Reviewer model in first 20 lines
     brain_cmd_file = repo_root / "commands" / "brain.md"
     reviewer_model = tier_models.get("reviewer", "anthropic/claude-sonnet-5")
-    researcher_model = "anthropic/claude-haiku-4-5"
+    researcher_model = "anthropic/claude-haiku-5-5"
     if brain_cmd_file.exists():
         try:
             with open(brain_cmd_file) as f:

@@ -10,7 +10,7 @@ A three-tier agent orchestration layer for [OpenCode](https://opencode.ai) that 
 | **Planner** | `sohoai/minimax-m3` | — | Decomposes tasks into numbered, reviewable plans |
 | **Actor** | `sohoai/glm-5.3-flash` | `sohoai/glm-5.3` for `[tier — heavy]` steps | Executes individual plan steps; scoped, fast, cheap |
 | **Reviewer** | `anthropic/claude-sonnet-5` | — | Reviews Actor's output; emits PASS / FIX / BLOCK verdicts |
-| **Researcher** | `anthropic/claude-haiku-4-5` | `anthropic/claude-sonnet-5` (`researcher-deep`) | Verifies factual claims about code/runtime during Phase 0; returns VERDICT: TRUE/FALSE/UNCLEAR with file:line evidence |
+| **Researcher** | `anthropic/claude-haiku-5-5` | `anthropic/claude-sonnet-5` (`researcher-deep`) | Verifies factual claims about code/runtime during Phase 0; returns VERDICT: TRUE/FALSE/UNCLEAR with file:line evidence |
 | **Researcher-deep** | `anthropic/claude-sonnet-5` | — | Escalation tier for multi-file reasoning, subtle event interleaving, or runtime probes |
 
 > Tier-to-model assignment is declared in `config/orchestra-tiers.yaml` (the SSOT). Run `scripts/check-tiers.py` to verify alignment.
