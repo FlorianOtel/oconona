@@ -2,8 +2,8 @@
 title: "oconona TODO & open questions"
 created_at: 2026-05-30--00-30
 created_by: Claude Code (Claude Sonnet 4.6, 1M context)
-updated_by: Claude Code (Claude Haiku 5.5)
-updated_at: 2026-10-14--13-36
+updated_by: Claude Code (Claude Opus 5.5)
+updated_at: 2026-10-14--15-58
 context: >
   Single-file ledger of open questions, deferred investigations, and follow-up
   items for the oconona project. Created during the v7.3 hotfix cycle to
@@ -27,7 +27,7 @@ deleting them — the rationale chain matters.
 
 **Open — `collect.sh` pre-existing bugs (not fixed).** It collects from `$OC_HOME/agent/` and `command/` (singular), but `deploy.sh` installs to `agents/` and `commands/`. `researcher.md` and `researcher-deep.md` are never collected. Both predate v8.7.0.
 
-**Open — deploy blocked by live config (operator decision pending).** Live `~/.config/opencode/opencode.json` lacks `anthropic/claude-sonnet-5` and has `claude-opus-5-5` where the repo has `claude-opus-5.5`. `scripts/check-tiers.py` hard-fails, so a real `./deploy.sh` stops. Decide whether to correct the live file or the tier SSOT. Not changed in v8.7.0.
+**Closed (v8.7.1, `b2daa5b`) — deploy blocked by live config.** The repo's Anthropic IDs now match the live `~/.config/opencode/opencode.json` (`claude-sonnet-5-5`, `claude-opus-5-5`); `scripts/check-tiers.py` passes.
 
 **Watch — plugin per-shell-call cost.** On every completed `shell` call, `plugins/oconona.js` reads the `.oc-session-id` sidecar of every retained session dir under `orchestra/sessions/`. Cost grows with the number of retained dirs. Revisit if shell calls slow down.
 

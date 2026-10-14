@@ -3,7 +3,7 @@ title: "Stage 8 — Changelog"
 created_at: 2026-06-05--13-00
 created_by: Actor (Claude Haiku 4.5 — via oconona /brain Stage 8 dispatch)
 updated_by: Claude Code (Claude Opus 5.5)
-updated_at: 2026-10-14--14-20
+updated_at: 2026-10-14--15-58
 context: >
   Per-version changelog for Stage 8 of the oconona orchestra
   (Researcher tier + Brain Phase 0 hardening + telemetry counter).
@@ -13,6 +13,27 @@ context: >
 ---
 
 # Stage 8 — Changelog
+
+## v8.7.1 — Anthropic model IDs aligned to the live OpenCode config
+
+**Commits:** `b2daa5b` (code), this changelog (docs)
+
+### Change
+
+- Reviewer, researcher-deep and the `/duo` advisory: `anthropic/claude-sonnet-5` →
+  `anthropic/claude-sonnet-5-5`. `/brain` advisory: `anthropic/claude-opus-5.5` →
+  `anthropic/claude-opus-5-5` (the legacy spelling is still accepted by the advisory).
+- `scripts/model-rates.yaml`: new rows for both IDs — Sonnet 5.5 $2/$10, cache read
+  $0.10, write-5m $2.50; Opus 5.5 $4/$20, read $0.20, write-5m $5 (verified on
+  claude.com/pricing 2026-10-14). Old rows kept as legacy.
+- `config/context-windows.yaml`: both at 1,000,000.
+
+### Why
+
+`scripts/check-tiers.py` hard-failed against the live `~/.config/opencode/opencode.json`,
+which defines `claude-sonnet-5-5` and `claude-opus-5-5` but not the repo's IDs, so
+`./deploy.sh` stopped. On v2 the session model row is `{id, providerID}`, so cost
+lookups key on `anthropic/claude-opus-5-5`; the hyphenated rows make those resolve.
 
 ## v8.7.0 — OpenCode v2 API support (native agents, session_v2, metadata publisher)
 

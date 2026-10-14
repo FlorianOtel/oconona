@@ -3,7 +3,7 @@ title: "OpenCode Orchestra — three-tier Brain/Planner/Actor pattern over OpenC
 created_at: 20260424-000000
 created_by: OpenCode (Claude Opus 4.7, 1M context)
 updated_by: Claude Code (Claude Haiku 5.5)
-updated_at: 2026-10-14--13-36
+updated_at: 2026-10-14--15-56
 context: >
   Reference architecture for OpenCode Orchestra — a three-tier orchestration
   pattern layered on OpenCode using native subagents. The design supports
@@ -31,7 +31,7 @@ Two distinct kinds of `.md` file in this repo, deployed to two different OpenCod
 
 **Slash commands (`commands/*.md`):** `brain.md`, `brain-abandon.md`, `duo-plan.md`, `duo-act.md`, `duo-abandon.md`. These are pipeline orchestrators — operator-facing entry points whose body becomes Brain's instructions. They are not "workers"; they coordinate work by dispatching subagents via the `Task` tool.
 
-**Subagents (`agents/*.md`):** `planner.md` (model: `sohoai/minimax-m3`, read-only tools), `actor.md` (model: `sohoai/glm-5.3-flash`, Edit/Write/Bash), `actor-heavy.md` (model: `sohoai/glm-5.3`, Edit/Write/Bash), `reviewer.md` (model: `anthropic/claude-sonnet-5`, read-only tools). Each has frontmatter that declares its model and tool permissions; OpenCode enforces both at dispatch time.
+**Subagents (`agents/*.md`):** `planner.md` (model: `sohoai/minimax-m3`, read-only tools), `actor.md` (model: `sohoai/glm-5.3-flash`, Edit/Write/Bash), `actor-heavy.md` (model: `sohoai/glm-5.3`, Edit/Write/Bash), `reviewer.md` (model: `anthropic/claude-sonnet-5-5`, read-only tools). Each has frontmatter that declares its model and tool permissions; OpenCode enforces both at dispatch time.
 
 **Brain is neither.** Brain *is* the parent OpenCode session that executes `/brain` (or `/duo-act`). It runs on Anthropic Opus 5.5. Brain cannot be implemented as a subagent because Phase 0 of `/brain` is multi-turn interactive interrogation with the operator, and OpenCode subagents are single-dispatch units (they cannot have multi-turn dialog with the operator). The orchestration logic in `commands/brain.md` is therefore intentionally in `commands/`, not `agents/`.
 
@@ -49,7 +49,7 @@ Talk to Brain normally. Brain delegates to Planner/Actor/Reviewer as needed. No 
 
 `/duo` is a three-command session-bracketed pipeline. `/duo-plan <task>` opens a planning session (sets up the session_dir, drafts an initial `PLAN.md`, and yields back). The operator then refines the plan across as many turns as needed. `/duo-act` dispatches Actor after operator approval and runs cleanup + telemetry. `/duo-abandon` cancels the active session cleanly. No Reviewer. Example: "add a docstring to rag_engine/search.py::search_rag" — low risk, no review needed.
 
-Workflow: (1) Launch a OpenCode session (any model works for `/duo`; `anthropic/claude-sonnet-5` recommended). (2) Set octmux permission mode (Shift-TAB) to `allow` for low-risk tasks. (3) `/duo-plan <task>`. (4) Refine across turns until the plan is right. (5) `/duo-act` to execute (or `/duo-abandon` to cancel); Operator approves via natural-language reply, then Actor runs uninterrupted.
+Workflow: (1) Launch a OpenCode session (any model works for `/duo`; `anthropic/claude-sonnet-5-5` recommended). (2) Set octmux permission mode (Shift-TAB) to `allow` for low-risk tasks. (3) `/duo-plan <task>`. (4) Refine across turns until the plan is right. (5) `/duo-act` to execute (or `/duo-abandon` to cancel); Operator approves via natural-language reply, then Actor runs uninterrupted.
 
 ### /brain — full pipeline (Opus orchestrates, cap-3 review loop)
 
@@ -71,9 +71,9 @@ When NOT to use /brain: simple tasks with ≤5 steps, low blast radius. Use /duo
 | **Planner** | `sohoai/minimax-m3` | `~/.config/opencode/agents/planner.md` | Read, Grep, Glob, WebFetch, TodoWrite (read-only) | Decomposes task into numbered plan; Brain persists to PLAN.md |
 | **Actor** | `sohoai/glm-5.3-flash` | `~/.config/opencode/agents/actor.md` | Read, Edit, Write, Bash, Grep, Glob (+ denies on rm -rf, git push) | Executes one step per invocation; self-persists TASKS.json via atomic-rename |
 | **Actor** (heavy) | `sohoai/glm-5.3` | `~/.config/opencode/agents/actor-heavy.md` | Read, Edit, Write, Bash, Grep, Glob (+ denies on rm -rf, git push) | Complex multi-file refactors; triggered by `[tier — heavy]` step annotations |
-| **Reviewer** | `anthropic/claude-sonnet-5` (v8.4.4+; Sonnet 4.6 since v7.3.5) | `~/.config/opencode/agents/reviewer.md` | Read, Grep, Glob, TodoWrite (read-only) | Reviews diff against PLAN.md; returns PASS / FIX / BLOCK. Model changed from `sohoai/kimi-k2.7` in v7.3.5 to enable per-tier cost tracking and marginal-attribution. |
+| **Reviewer** | `anthropic/claude-sonnet-5-5` (v8.4.4+; Sonnet 4.6 since v7.3.5) | `~/.config/opencode/agents/reviewer.md` | Read, Grep, Glob, TodoWrite (read-only) | Reviews diff against PLAN.md; returns PASS / FIX / BLOCK. Model changed from `sohoai/kimi-k2.7` in v7.3.5 to enable per-tier cost tracking and marginal-attribution. |
 | **Researcher** | `anthropic/claude-haiku-5-5` | `~/.config/opencode/agents/researcher.md` | Read, Grep, Glob, Bash, WebFetch, TodoWrite (read-only + Bash for probes) | Phase 0 factual verification; returns VERDICT/EVIDENCE/CAVEATS with file:line citations |
-| **Researcher** (deep) | `anthropic/claude-sonnet-5` | `~/.config/opencode/agents/researcher-deep.md` | Read, Grep, Glob, Bash, WebFetch, TodoWrite (read-only + Bash for probes) | Escalation tier for multi-file reasoning, subtle event interleaving, or runtime probes; triggered by Brain's escalation policy |
+| **Researcher** (deep) | `anthropic/claude-sonnet-5-5` | `~/.config/opencode/agents/researcher-deep.md` | Read, Grep, Glob, Bash, WebFetch, TodoWrite (read-only + Bash for probes) | Escalation tier for multi-file reasoning, subtle event interleaving, or runtime probes; triggered by Brain's escalation policy |
 
 > **Tools column (superseded in v8.7.0).** The Tools column lists the pre-v8.7.0 Claude-Code-style `tools:` declarations. Those keys were inert on OpenCode v1 and v2, so before v8.7.0 Planner, Reviewer and Researchers were never read-only. The enforced rules are in §Agent permission model (v2). Dispatch wording in this document (`Task` tool, `subagent_type`) describes v1; on v2 the tool is `subagent` with `agent: <name>`.
 
@@ -82,7 +82,7 @@ When NOT to use /brain: simple tasks with ≤5 steps, low blast radius. Use /duo
 | Command | Minimum | Recommended | Enforcement |
 |---|---|---|---|
 | `/brain` | none | Anthropic Opus 5.5 | **Advisory only** — Brain emits a one-line notice on non-Opus models and continues. Any model is permitted. |
-| `/duo` | none | anthropic/claude-sonnet-5 | Advisory only — Brain warns and continues |
+| `/duo` | none | anthropic/claude-sonnet-5-5 | Advisory only — Brain warns and continues |
 
 The check happens immediately after Phase 0 Setup runs. It is LLM-enforced: Brain reads `${OPENCODE_ORCHESTRA_SESSION_DIR}/.oc-current-model`, a `<providerID>/<model.id>` sidecar Setup Bash writes from OC's live `/session.model` field. This is the authoritative current model — OC updates it on `/model` swap, so the advisory is immune to mid-session model-swap staleness. Fallback: if `.oc-current-model` is empty (OC HTTP unreachable at Setup time), Brain falls back to reading "The exact model ID is…" from its system context (legacy mechanism, retained for resilience). That fallback path may report a stale model after a mid-session `/model` swap, since OC does not re-render the system prompt on swap — it is the best signal available when the live source is missing.
 
@@ -303,9 +303,9 @@ Costs vary by tier:
 - **Brain** (Anthropic Opus 5.5): most expensive; receives every subagent's return. Per-token Anthropic pricing. Mitigated by prompt caching. (A `PreCompact` state-save hook was described here until v8.7.0; it never ran, see §Session-state publisher.) Cost dominates a typical session.
 - **Planner** (sohoai/minimax-m3): called once per plan. $0 marginal cost (flat-rate SoHoAI).
 - **Actor** (sohoai/glm-5.3-flash or sohoai/glm-5.3 if heavy): called once per step. $0 marginal cost (flat-rate SoHoAI).
-- **Reviewer** (anthropic/claude-sonnet-5): called once per review (up to 3 per step). Per-token Anthropic pricing (enables per-tier cost tracking).
+- **Reviewer** (anthropic/claude-sonnet-5-5): called once per review (up to 3 per step). Per-token Anthropic pricing (enables per-tier cost tracking).
 - **Researcher** (anthropic/claude-haiku-5-5): called 0–N times during Phase 0 for factual verification. Per-token Anthropic Haiku pricing (cheap; Haiku is the lowest-cost Anthropic tier). Counter exposed as `researcher_dispatches` in `telemetry.json` (Stage 8).
-- **Researcher-deep** (anthropic/claude-sonnet-5): escalation tier for hard verifications; rare. Per-token Anthropic Sonnet pricing (same as Reviewer).
+- **Researcher-deep** (anthropic/claude-sonnet-5-5): escalation tier for hard verifications; rare. Per-token Anthropic Sonnet pricing (same as Reviewer).
 
 Rule of thumb: use `/brain` for tasks where the review loop actually earns the Brain overhead (architecture, multi-file refactors). Use `/duo` for simple, low-risk tasks. The zero-marginal-cost subagents make both pipelines economically viable even with repeated review iterations.
 
@@ -405,7 +405,7 @@ The `--tier` flag on `telemetry-report.sh` reads per-session `telemetry.json` fi
 
 **Sample `--tier` output:**
 
-> Example output below is from pre-v7.3.5 (Brain on Kimi K2.7, Reviewer on Kimi K2.7). Current assignments (v8.4.4+): Brain = anthropic/claude-opus-5.5, Reviewer = anthropic/claude-sonnet-5, Actor (heavy) = sohoai/glm-5.3.
+> Example output below is from pre-v7.3.5 (Brain on Kimi K2.7, Reviewer on Kimi K2.7). Current assignments (v8.4.4+): Brain = anthropic/claude-opus-5-5, Reviewer = anthropic/claude-sonnet-5-5, Actor (heavy) = sohoai/glm-5.3.
 
 ```
   2026-05-20  brain   560s  outcome=pass  total=~$0.02
@@ -431,7 +431,7 @@ The `--tier` flag on `telemetry-report.sh` reads per-session `telemetry.json` fi
 
 ### Rate sources and verification
 
-Model costs are centralized in `scripts/model-rates.yaml` (v7.3.5+), keyed by provider-qualified model IDs (e.g., `"anthropic/claude-opus-5.5"`, `"sohoai/glm-5.3"`). Anthropic rates are derived from public pricing (https://www.anthropic.com/pricing/claude) and verified quarterly. SoHoAI models run on flat-rate subscription ($0 marginal cost). Cache write costs are **TTL-parameterised** — separate tiers for 5-minute (ephemeral, default) and 1-hour (extended, commented out) cache retention.
+Model costs are centralized in `scripts/model-rates.yaml` (v7.3.5+), keyed by provider-qualified model IDs (e.g., `"anthropic/claude-opus-5-5"`, `"sohoai/glm-5.3"`). Anthropic rates are derived from public pricing (https://www.anthropic.com/pricing/claude) and verified quarterly. SoHoAI models run on flat-rate subscription ($0 marginal cost). Cache write costs are **TTL-parameterised** — separate tiers for 5-minute (ephemeral, default) and 1-hour (extended, commented out) cache retention.
 
 Per-tier cost validation is performed by `scripts/verify-cost-rates.py` (v7.3.5+), integrated as Check D in `smoke-test.sh`. It detects rate drift > 1% between stored session costs (from OC's SQLite) and rate-based calculation (from `model-rates.yaml`). See `docs/Stage7-3-5--token-accounting-for-hybrid-orchestra.md §Cache TTL parameterisation` for details on the TTL model.
 
@@ -462,9 +462,9 @@ Reference: [Design history & amendments](design-history.md) §Amendment 2026-05-
 | Planner (normal) | `sohoai/minimax-m3` | all inputs |
 | Actor (default) | `sohoai/glm-5.3-flash` | all steps unless marked heavy |
 | Actor (heavy) | `sohoai/glm-5.3` | `[tier — heavy]` annotation in PLAN.md step |
-| Reviewer | `anthropic/claude-sonnet-5` | all reviews (v7.3.5+; enables per-tier cost tracking; Sonnet 5 since v8.4.4) |
+| Reviewer | `anthropic/claude-sonnet-5-5` | all reviews (v7.3.5+; enables per-tier cost tracking; Sonnet 5 since v8.4.4) |
 
-**Brain** is recommended on Anthropic Opus 5.5 (advisory only — any model permitted; see §Model requirements above). `/duo` is unconstrained and recommends `anthropic/claude-sonnet-5` (advisory only); any model works for `/duo`.
+**Brain** is recommended on Anthropic Opus 5.5 (advisory only — any model permitted; see §Model requirements above). `/duo` is unconstrained and recommends `anthropic/claude-sonnet-5-5` (advisory only); any model works for `/duo`.
 
 ### Step-level tier annotations
 
