@@ -23,7 +23,8 @@ Use `/duo` when the task is simple enough that a plan + execute is sufficient, a
 ## Prerequisites
 
 1. **Permission mode.** octmux's permission mode (Shift-TAB cycles `ask` / `allow` / `deny`) is the operator's tool-approval posture for Actor's execution phase after `/duo-act`. `ask` (yellow, default) is recommended for supervised review; `allow` (green) for trusted plans. `deny` (red) is incompatible with `/duo-act` (would reject Actor's `subagent` dispatch). No prerequisite to check or enforce — set the mode you want, then proceed.
-2. **Bypass-flattens-down caveat.** If the operator is on permission mode `allow` (green), Actor's tool calls run uninterrupted. Document but do not refuse — this is the operator's choice. Subagent frontmatter `tools:` denies still take precedence: a tool absent from an agent's frontmatter cannot be authorised by any permission mode.
+2. **Bypass-flattens-down caveat.** If the operator is on permission mode `allow` (green), Actor's tool calls run uninterrupted. Document but do not refuse — this is the operator's choice. Subagent frontmatter `permissions:` rules still take precedence: an action denied by an agent's `permissions:` block cannot be authorised by any permission mode.
+3. **SoHoAI reachability (ADVISORY only — never blocks).** Run `~/.config/opencode/scripts/preflight-sohoai.sh` once during Setup (Bun probe, NOT curl; even a probe from an iTerm2-launched shell can fail if the Local Network grant is stale). Exit 1 → emit a single-line advisory that Actor on `sohoai/*` will fail with `FailedToOpenSocket` (Local Network privacy for the server's launch context — `docs/design.md` KP-3) before the operator invests in a plan. Exit 0/2 → proceed silently.
 
 ## Refusal — one active /duo session per project
 
@@ -73,7 +74,7 @@ calls, so session dir creation and inflight write must share the same shell.)
 
 Replace `<task title, ≤30 chars, no single-quotes>` with the first 30 printable
 characters of the operator's task description, stripping any single-quote characters.
-The stored value embeds the mode prefix: `orchestra light - <title>`. The renderer
+The stored value embeds the mode prefix: `orchestra -> plan <title>`. The renderer
 passes this value through; the `♪` is prepended at render time.
 
 Run via `Bash`:
@@ -87,9 +88,12 @@ _parse_retention() {
     /^housekeeping:/ { in_hk = 1; next }
     in_hk && /^[^ ]/ { in_hk = 0 }
     in_hk && /session_retention_days:/ {
-      gsub(/[^0-9]/, "", $2); print $2; exit
+      sub(/^[^:]*:/, "");
+      gsub(/[^0-9]/, "");
+      print;
+      exit
     }
-  ' "$1" 2>/dev/null
+  ' "${1}" 2>/dev/null
 }
 # Precedence: global default > hardcoded 30.
 RETENTION_DAYS=$(_parse_retention "${HOME}/.config/opencode/orchestra/oconona-config.yaml")
@@ -106,7 +110,7 @@ mkdir -p "${SESSION_DIR}"
 # Write inflight marker in the same shell so SESSION_DIR is available.
 # Content is the full badge string (prefix + title) stored verbatim.
 # Stays live through refinement and actor execution; removed by /duo-act or /duo-abandon.
-printf '%s' "orchestra light - <task title, ≤30 chars, no single-quotes>" \
+printf '%s' "orchestra -> plan <task title, ≤30 chars, no single-quotes>" \
   > "${SESSION_DIR}/.duo-inflight.tmp"
 mv -f "${SESSION_DIR}/.duo-inflight.tmp" "${SESSION_DIR}/.duo-inflight"
 printf '%s\n' "${OPENCODE_PROJECT_DIR:-$(pwd)}" > "${SESSION_DIR}/.project-dir"

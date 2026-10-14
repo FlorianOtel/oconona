@@ -251,6 +251,7 @@ def main():
                         "cost_usd_estimate": round(cost_usd_estimate, 6),
                         "tokens_input": parent_delta["tokens_input"] + sum(c["tokens_input"] for c in subagents),
                         "tokens_output": parent_delta["tokens_output"] + sum(c["tokens_output"] for c in subagents),
+                        "tokens_reasoning": parent_delta["tokens_reasoning"] + sum(c["tokens_reasoning"] for c in subagents),
                         "tokens_cache_read": parent_delta["tokens_cache_read"] + sum(c["tokens_cache_read"] for c in subagents),
                         "tokens_cache_write": parent_delta["tokens_cache_write"] + sum(c["tokens_cache_write"] for c in subagents),
                     }
@@ -376,13 +377,13 @@ def main():
     # Extended summary: include "delta=" when segment attribution active
     if started_at_oc_ms > 0 and ended_at_oc_ms > 0:
         print(
-            f"telemetry: delta=${cost_usd_estimate:.4f} total=${db_data.get('parent_total', {}).get('cost', 0):.4f} "
+            f"telemetry: pipeline=${cost_usd_estimate:.4f} parent_lifetime=${db_data.get('parent_total', {}).get('cost', 0):.4f} "
             f"source={cost_source} session={session_dir.name}",
             flush=True,
         )
     else:
         print(
-            f"telemetry: cost=${cost_usd_estimate:.4f} source={cost_source} "
+            f"telemetry: pipeline=${cost_usd_estimate:.4f} source={cost_source} "
             f"session={session_dir.name}",
             flush=True,
         )

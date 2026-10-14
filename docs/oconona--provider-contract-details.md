@@ -293,28 +293,28 @@ The badge has **four canonical states**, with mode segment always present.
 ### Active `/duo` session (one)
 
 - **Condition:** One matched session dir with `.duo-inflight` present.
-- **Badge:** `♪ orchestra light - <title>`
-- **Example:** `♪ orchestra light - add docstring`
+- **Badge:** `♪ orchestra -> plan <title>`
+- **Example:** `♪ orchestra -> plan add docstring`
 
 ### Active `/duo` session with subagent dispatched
 
-Removed in v8.1.5. Subagent dispatch no longer appears in the badge; the mode prefix (`orchestra light - `) is sufficient to identify the pipeline.
+Removed in v8.1.5. Subagent dispatch no longer appears in the badge; the mode prefix (`orchestra -> plan `) is sufficient to identify the pipeline.
 
 ### Active `/duo` sessions (multiple concurrent, rare)
 
 - **Condition:** Multiple matched session dirs with `.duo-inflight`, same OC session ID (architecturally rare; refusal logic usually prevents).
-- **Badge:** `♪ orchestra light - #N`
-- **Example:** `♪ orchestra light - #2`
+- **Badge:** `♪ orchestra -> plan #N`
+- **Example:** `♪ orchestra -> plan #2`
 
 ### Active `/brain` session
 
 - **Condition:** One matched session dir with `.brain-inflight` present.
-- **Badge:** `♪ orchestra full - <title>`
-- **Example:** `♪ orchestra full - refactor routing`
+- **Badge:** `♪ orchestra -> brain <title>`
+- **Example:** `♪ orchestra -> brain refactor routing`
 
 ### Active `/brain` session with subagent dispatched
 
-Removed in v8.1.5. Subagent dispatch no longer appears in the badge; the mode prefix (`orchestra full - `) is sufficient to identify the pipeline.
+Removed in v8.1.5. Subagent dispatch no longer appears in the badge; the mode prefix (`orchestra -> brain `) is sufficient to identify the pipeline.
 
 ### Badge properties
 
@@ -324,7 +324,7 @@ Removed in v8.1.5. Subagent dispatch no longer appears in the badge; the mode pr
 
 ### Source of fields
 
-- **`<title>`:** The stored value embedded directly in the inflight marker file content (`.brain-inflight` for brain, `.duo-inflight` for duo) — `"orchestra full - <title>"` or `"orchestra light - <title>"`. Renderers read the file content and pass it through verbatim. `state.env` is no longer used for this purpose (deprecated v8.1.6).
+- **`<title>`:** The stored value embedded directly in the inflight marker file content (`.brain-inflight` for brain, `.duo-inflight` for duo) — `"orchestra -> brain <title>"` or `"orchestra -> plan <title>"`. Renderers read the file content and pass it through verbatim. `state.env` is no longer used for this purpose (deprecated v8.1.6).
 
 ---
 
@@ -504,11 +504,11 @@ Step-by-step recipe for a brand-new OC harness implementing orchestra-aware badg
 4. **Identify completed segments.** For each matched session_dir: if `telemetry.json` exists (and no inflight marker), it's a completed segment. Read the file.
 
 5. **Extract badge title for live segments.** Both inflight files carry the full badge text as content (v8.1.5+):
-   - For `.duo-inflight`: read marker content (first 48 chars). Example: `orchestra light - my task`.
-   - For `.brain-inflight`: read marker content (first 48 chars). Example: `orchestra full - my task`.
+   - For `.duo-inflight`: read marker content (first 48 chars). Example: `orchestra -> plan my task`.
+   - For `.brain-inflight`: read marker content (first 48 chars). Example: `orchestra -> brain my task`.
    - `state.env` is no longer used for badge title sourcing (deprecated v8.1.6).
 
-6. **Determine badge mode.** Inferred from marker filename: `.duo-inflight` → duo, `.brain-inflight` → brain. Mode is also encoded in the inflight content prefix (`orchestra light - ` / `orchestra full - `).
+6. **Determine badge mode.** Inferred from marker filename: `.duo-inflight` → duo, `.brain-inflight` → brain. Mode is also encoded in the inflight content prefix (`orchestra -> plan ` / `orchestra -> brain `).
 
 7. **Determine active subagent role.** Detect live subagents via OC SSE `SubtaskPart` events (`part.type === "subtask"`). Track `partID` set; clear on `message.part.removed` or `session.idle`. Extract `agent` field from detected parts (canonical role: `planner`, `actor`, `actor-heavy`, `reviewer`). See `octmux/src/events.ts` `detectedSubtaskPartIDs` for reference implementation.
 

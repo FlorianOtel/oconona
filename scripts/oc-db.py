@@ -552,6 +552,7 @@ def get_session_telemetry(session_id: str) -> dict:
             "cost_usd_estimate": round(sum(t["cost"] for t in all_tiers), 6),
             "tokens_input": sum(t["tokens_input"] for t in all_tiers),
             "tokens_output": sum(t["tokens_output"] for t in all_tiers),
+            "tokens_reasoning": sum(t["tokens_reasoning"] for t in all_tiers),
             "tokens_cache_read": sum(t["tokens_cache_read"] for t in all_tiers),
             "tokens_cache_write": sum(t["tokens_cache_write"] for t in all_tiers),
         }

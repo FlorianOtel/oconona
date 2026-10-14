@@ -14,6 +14,50 @@ context: >
 
 # Stage 8 — Changelog
 
+## v8.8.0 — /brain workflow fixes (reasoning display, `$N` lint, cost labels, prose, badge text); Haiku 4.5 removed
+
+**Commits:** (uncommitted — this change set)
+
+### Change
+
+- **Reasoning display (KP-4).** Anthropic's `thinking.display` defaults to `omitted`, which
+  left octmux's thinking pane empty. Fix: provider-level
+  `provider.anthropic.options.thinking = {"type":"adaptive","display":"summarized"}` in
+  `opencode.json` on both hosts. `deploy.sh` §6b warns (does not fail) if the key is missing
+  or the file is unparseable. Documented in `docs/design.md` KP-4.
+- **`claude-haiku-4-5` removed** from both hosts' `opencode.json`: the `provider.anthropic.models` and
+  `provider.sohoai.models` entries, and the inert `provider.anthropic.whitelist` array, which was removed
+  entirely because v2 ignores it. The models.dev built-in `anthropic/claude-haiku-4-5` and
+  `-20251001` entries remain listed (operator-accepted; see KP-4). No agent uses it. Pre-4.6 models need a
+  per-model `thinking: {"type": "disabled"}` override before they are re-added (KP-4).
+- **`$N` substitution lint.** OpenCode's `/\$(\d+)/g` rewrites `$<digit>` in command bodies, which
+  mangled `/brain` and `/duo-plan` setup bash. `deploy.sh` §0c hard-fails on any `$<digit>` in
+  `commands/*.md`. The retention awk in both commands was rewritten without `$N` (`sub`/`gsub` on
+  `$0`, and `${1}` for the file argument).
+- **Cost labels.** The cost-report summary line is now `pipeline=` (segment total) and
+  `parent_lifetime=` (whole-parent total). The fallback branch uses `pipeline=` too. The status-line
+  `Σ` prefix is now `ΣT$` (T = total). Both are in `scripts/telemetry-summarize.py`,
+  `status-line/orchestra-block.sh`, and `docs/design.md`.
+- **Reasoning tokens.** `tokens_reasoning` is now summed into `totals` in `scripts/oc-db.py` and
+  `scripts/telemetry-summarize.py`.
+- **Prose vs. real permissions.** `commands/brain.md` (`:61`, Planner and Reviewer sections) and
+  `commands/duo-plan.md` (`:26`) now describe the `permissions:` block (deny-all baseline with
+  selective allow), not `tools:` frontmatter. The Reviewer template in `brain.md` tells Reviewer to
+  read `TASKS.json` from disk.
+- **Badge text.** `orchestra full -` → `orchestra -> brain`, `orchestra light -` → `orchestra -> plan`,
+  matching `claude-orchestra` (code in `commands/brain.md`, `commands/duo-plan.md`,
+  `status-line/orchestra-block.sh`; docs in `docs/oconona--provider-contract-details.md`).
+- **macOS restart mechanism (docs).** The server is restarted with `~/.local/bin/opencode service
+  restart`, and `opencode service status` reports its listen address. `docs/design.md` no longer says
+  to restart the desktop app by hand.
+
+### Rollout
+
+Per host, in this order: edit `opencode.json` → restart (R1) → verify the model list → `./deploy.sh`
+→ restart (R2) → verify → one live reasoning check against `session_message`. On Linux, R2 is the
+restart that `deploy.sh` §11 performs. On macOS, §11 does not restart, so R2 is an explicit
+`~/.local/bin/opencode service restart`. A restart drops any attached live octmux session.
+
 ## v8.7.1 — Anthropic model IDs aligned to the live OpenCode config
 
 **Commits:** `b2daa5b` (code), this changelog (docs)

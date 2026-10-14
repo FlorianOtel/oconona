@@ -78,6 +78,25 @@ if fm.get('mode') != 'subagent':
     fi
 done
 
+# ── 0c. commands/*.md $<digit> lint (hard-fail) ─────────────────────────────────
+# OpenCode substitutes /\$(\d+)/g in command bodies at invocation time, so a
+# literal $<digit> in a command's bash (e.g. awk's $2, or $0) gets mangled.
+# Runs in every mode, including --dry-run.
+echo ""
+echo "Command template lint:"
+_dollar_hits="$(grep -nE '\$[0-9]' "$REPO"/commands/*.md 2>/dev/null || true)"
+if [ -n "$_dollar_hits" ]; then
+    while IFS= read -r _hit; do
+        printf "    %s\n" "$_hit"
+    done <<< "$_dollar_hits"
+    die "commands/*.md contains \$<digit> — OpenCode's /\$(\d+)/g substitution will mangle this at invocation. Use \${N} (braced) or rename the variable."
+fi
+if $DRY_RUN; then
+    info "no \$<digit> in commands/*.md"
+else
+    ok "no \$<digit> in commands/*.md"
+fi
+
 copy_file() {
     local src="$1" dst="$2"
     if $SHOW_DIFF && [ -f "$dst" ]; then
@@ -250,6 +269,92 @@ fi
 echo "Config:"
 copy_file "$REPO/config/oconona-config.yaml" "$OC_HOME/orchestra/oconona-config.yaml"
 copy_file "$REPO/config/context-windows.yaml" "$OC_HOME/orchestra/context-windows.yaml"
+
+# ── 6b. Anthropic reasoning display (warn-only, version-agnostic) ────────────
+# Anthropic's API defaults thinking.display to "omitted", which leaves octmux's
+# thinking pane empty. The fix is provider-level provider.anthropic.options.thinking
+# (docs/design.md KP-4). Warn, never fail: a missing key only hides reasoning.
+# The JSONC comment stripper tracks string-literal state (incl. escaped quotes),
+# so "//" inside a value such as a URL is not treated as a comment.
+# Read-only; prints OK/MISSING/UNPARSEABLE only, never the file contents.
+echo ""
+echo "OpenCode provider thinking config:"
+if [ ! -f "$OC_HOME/opencode.json" ]; then
+    warn "$OC_HOME/opencode.json not found — skipping thinking.display check"
+else
+    _thinking_state="$("$PYTHON_BIN" - "$OC_HOME/opencode.json" <<'PYEOF' 2>/dev/null
+import json, sys
+try:
+    src = open(sys.argv[1], encoding="utf-8").read()
+    out, i, n, in_str = [], 0, len(src), False
+    while i < n:
+        c = src[i]
+        if in_str:
+            out.append(c)
+            if c == "\\" and i + 1 < n:
+                out.append(src[i + 1])
+                i += 2
+                continue
+            if c == '"':
+                in_str = False
+            i += 1
+        elif c == '"':
+            in_str = True
+            out.append(c)
+            i += 1
+        elif src.startswith("//", i):
+            j = src.find("\n", i)
+            i = n if j < 0 else j
+        elif src.startswith("/*", i):
+            j = src.find("*/", i + 2)
+            if j < 0:
+                raise ValueError("unterminated block comment")
+            i = j + 2
+        else:
+            out.append(c)
+            i += 1
+    # Second string-aware pass: drop trailing commas that precede } or ] (outside strings).
+    text = "".join(out)
+    out2, i, n, in_str = [], 0, len(text), False
+    while i < n:
+        c = text[i]
+        if in_str:
+            out2.append(c)
+            if c == "\\" and i + 1 < n:
+                out2.append(text[i + 1])
+                i += 2
+                continue
+            if c == '"':
+                in_str = False
+            i += 1
+        elif c == '"':
+            in_str = True
+            out2.append(c)
+            i += 1
+        elif c == ",":
+            j = i + 1
+            while j < n and text[j] in " \t\r\n":
+                j += 1
+            if not (j < n and text[j] in "}]"):
+                out2.append(c)
+            i += 1
+        else:
+            out2.append(c)
+            i += 1
+    node = json.loads("".join(out2))
+    for key in ("provider", "anthropic", "options", "thinking"):
+        node = node.get(key) if isinstance(node, dict) else None
+    print("OK" if isinstance(node, dict) and node.get("display") else "MISSING")
+except Exception:
+    print("UNPARSEABLE")
+PYEOF
+)" || _thinking_state="UNPARSEABLE"
+    case "$_thinking_state" in
+        OK)      ok "provider.anthropic.options.thinking.display set" ;;
+        MISSING) warn "provider.anthropic.options.thinking.display missing — Anthropic reasoning renders empty in octmux (docs/design.md KP-4)" ;;
+        *)       warn "$OC_HOME/opencode.json unparseable or unreadable — thinking.display not checked" ;;
+    esac
+fi
 
 # ── 7. Strip dead orchestra hooks from settings.json ─────────────────────────
 # History: earlier deploys merged config/settings-hooks.json into settings.json.

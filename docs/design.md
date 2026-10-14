@@ -155,7 +155,7 @@ The OpenCode status line is extended by `status-line/orchestra-block.sh`, inject
 The orchestra block produces a **full status line layout** (not just a badge). It replaces the OC-native progress bar and token-count fields and inserts its own fields immediately after the model name:
 
 ```
-model | ctx ▓▓▓▓░░░░░░░░░░░░░░░░ 21% 210K/1M | Σ$X.YZ | ◆ project | ⎇ branch | [♪ badge]
+model | ctx ▓▓▓▓░░░░░░░░░░░░░░░░ 21% 210K/1M | ΣT$X.YZ | ◆ project | ⎇ branch | [♪ badge]
 ```
 
 Fields injected by the orchestra block:
@@ -167,7 +167,7 @@ Fields injected by the orchestra block:
 
 The utilization denominator is looked up from `context-windows.yaml` per model ID, with fallback to OpenCode's native `context_window.context_window_size`. Model ID normalization strips `[1m]`, `[200k]`, and date suffixes before lookup. Models with `[1m]` in their ID force a 1,000,000 denominator.
 
-**`Σ$X.YZ`** — accumulated running cost (always shown, including `Σ$0.00` from the very first render so the display is visibly live from session start). The `Σ` prefix marks the value as a cumulative total across the session (orchestra subagents + native residual). Source:
+**`ΣT$X.YZ`** — accumulated running cost (always shown, including `ΣT$0.00` from the very first render so the display is visibly live from session start). The `Σ` prefix marks the value as a cumulative total across the session (orchestra subagents + native residual). Source:
 - **All sessions**: OC SQLite `session.cost` for the captured `OC_SESSION_ID`. See `docs/pre-Stage7--opencode-redesign.md` for the redesign rationale; v7.1–v7.3 will implement this path.
 
 **`♪ badge`** — orchestra session badge (shown only during active /duo or /brain sessions, or when a subagent is running). Symmetric format (v7.5+): `♪ orchestra -> <title> -> <mode> [-> <subagent>]`. Mode segment always present.
@@ -311,7 +311,7 @@ Rule of thumb: use `/brain` for tasks where the review loop actually earns the B
 
 ### Disabling and troubleshooting
 
-**Global disable (publisher only)**: `mv ~/.config/opencode/plugins/oconona.js{,.bak}`, then restart the server (`systemctl --user restart opencode-v2-server.service` on Linux; restart the OpenCode desktop app on macOS). OpenCode loads only `plugins/*.js`, so the `.bak` copy is inert. Commands and agents keep working without the badge.
+**Global disable (publisher only)**: `mv ~/.config/opencode/plugins/oconona.js{,.bak}`, then restart the server (`systemctl --user restart opencode-v2-server.service` on Linux; `~/.local/bin/opencode service restart` on macOS). OpenCode loads only `plugins/*.js`, so the `.bak` copy is inert. Commands and agents keep working without the badge.
 
 **Full uninstall**: `rm -rf ~/.config/opencode/agents/{planner,actor,actor-heavy,reviewer,researcher,researcher-deep}.md ~/.config/opencode/commands/{brain,brain-abandon,duo-plan,duo-act,duo-abandon}.md ~/.config/opencode/plugins/oconona.js ~/.config/opencode/orchestra/`. No `settings.json` edit is needed: v8.7.0+ deploys strip the old hook entries, and OpenCode never read them. (The previous paths used singular `agent/` and `command/`, which `deploy.sh` does not install to.)
 
@@ -532,6 +532,47 @@ This section documents OpenCode platform behaviours that have caused real regres
 
 **Mitigation.** The em-dash convention + H1 lint (see KP-1) make user-authored frontmatter robust regardless of which OC code path is taken. We do not try to patch around the divergence itself.
 
+### KP-3 — `FailedToOpenSocket` to SoHoAI while `curl` works (macOS Local Network privacy)
+
+**Symptom.** Subagents on `sohoai/*` (e.g. Planner `sohoai/minimax-m3`) fail instantly (6–82 ms) with `provider.transport: FailedToOpenSocket: Was there a typo in the url or port?`, while `curl http://192.168.1.93:8000/proxy/v1/models` from the same shell returns 200. Not model-specific (`glm-5.3-flash` fails identically); not a timeout.
+
+**Root cause (partly confirmed).** Bun's label hides the real errno, `EHOSTUNREACH`. Node, Python (even `/usr/bin/python3`) and Bun all fail with EHOSTUNREACH/"No route to host" to every LAN host (192.168.1.93 proxy, 192.168.1.95 NucBox), while `curl` and `nc` succeed and anything run as root over ssh succeeds. That is the macOS Local Network privacy signature (enforced per *responsible process*; verify with `ssh root@<host> launchctl procinfo <pid>` → `responsible path`). A server started over ssh has `sshd-keygen-wrapper` as responsible process and no grant. **However**, shells whose responsible process is iTerm2 (including the tmux server) also fail while iTerm2 shows Local Network enabled — i.e. the grant can be present in System Settings yet not honored (stale after an OS/app update or toggled while running). A passing launch-context check is therefore necessary but not sufficient: always run the Bun probe.
+
+**Mitigations.**
+- `scripts/preflight-sohoai.sh` — Bun-based probe (curl is not representative); advisory hook in `/brain` and `/duo-plan` Prerequisites.
+- Start `opencode serve --service` from a responsible process that holds a *working* grant (iTerm2/OpenCode.app; not ssh). If the probe still fails there, toggle iTerm2 off/on under Privacy & Security → Local Network and quit/relaunch iTerm2. A restart is password-safe: the service password is persisted in `~/.config/opencode/service.json` (mtime unchanged across restarts) and octmux's `oc-*.password` mirrors it — back up `service.json` before restarting anyway.
+- Fallback for ssh/tmux-launched servers: loopback relay (root LaunchDaemon `127.0.0.1:18000 → 192.168.1.93:8000`) and a per-machine `sohoai.options.baseURL` override. Avoid port 8000 on loopback (opencode v2 auto-probes it as vLLM).
+
+### KP-4 — Anthropic reasoning renders empty in octmux's thinking pane (`thinking.display` defaults to `omitted`)
+
+**Symptom.** Anthropic models (e.g. `claude-opus-5`, `claude-opus-5-5`, `claude-sonnet-5-5`, `claude-haiku-5-5`) produce reasoning, but the octmux thinking pane is empty. In `~/.local/share/opencode/opencode.db`, `session_message` rows with `type = 'reasoning'` exist but have `text = ""`.
+
+**Root cause.** Anthropic's API defaults `thinking.display` to `"omitted"`, so reasoning blocks come back without text. OpenCode v2.0.28 forwards the setting unchanged from `provider.anthropic.options.thinking`; it does not supply a summarised default of its own.
+
+**Fix.** Set the provider-level option in `~/.config/opencode/opencode.json` (JSONC):
+
+```jsonc
+"provider": { "anthropic": { "options": {
+  "thinking": { "type": "adaptive", "display": "summarized" }
+} } }
+```
+
+Required on both hosts (Linux and macOS); see the v8.8.0 changelog entry for the rollout.
+
+**Detection.** `deploy.sh` §6b reads `opencode.json`, strips JSONC comments, and checks `provider.anthropic.options.thinking.display`. A missing key or an unparseable file is a `warn`, not a `die`: the deploy still completes, and the warning points here.
+
+**Model-compatibility caution.** The provider-level `adaptive`/`summarized` setting is not supported by every Anthropic model. Pre-4.6 models (e.g. `claude-haiku-4-5`) return a 400 under it. v8.8.0 removes `claude-haiku-4-5` from both hosts' `opencode.json` (whitelist, `provider.anthropic.models`, and `provider.sohoai.models`). Do not re-add a pre-4.6 Anthropic model under the `anthropic` provider without a per-model override `thinking: {"type": "disabled"}`.
+
+**Config-key and catalogue notes (OpenCode v2).**
+- v2 ignores provider `whitelist`/`blacklist` (legacy v1 keys, dropped during normalization: `opencode` core `src/config/normalize.ts:53,570-572`). They are inert; do not rely on them to hide models.
+- Removing a model from `opencode.json` does not hide a models.dev catalogue model (`models-dev.ts:245` enables all of them). To hide one, set per-model `"status": "deprecated"` (v1 `provider` block shape, `migrate.ts:241`) or `"disabled": true` (v2 `providers` shape).
+- `Model.small` prefers the newest-released model in a family (`model.ts:222-224`), so with `claude-haiku-5-5` present the built-in `claude-haiku-4-5` is not auto-selected. Choosing it by hand returns a 400 under the provider-level adaptive thinking setting. Operator-accepted (2026-10-14 addendum).
+
+**Verifying the fix.** In `octmux --multi-window`, send an Anthropic model (e.g. Opus 5.5) a plain task that needs reasoning, such as: "A clock gains 3 minutes every hour. It was set correctly at 08:00 on Monday. On Tuesday, when the clock first shows 14:00, what is the real time?" (answer 12:34). Watch the thinking window, or check `session_message` reasoning parts for non-empty text.
+- Do **not** word the prompt as a request to capture, extract or display the model's thinking. Anthropic's `reasoning_extraction` refusal classifier (active on Fable 5.1, Opus 5.5 and Opus 5) declines such meta-prompts. On 2026-10-14 all three refused one, which looked like a fix failure but was not.
+- Adaptive thinking may legitimately skip thinking on easy prompts. Zero reasoning parts (as opposed to reasoning parts with empty text) is therefore inconclusive, not a regression. Seen with Sonnet 5.5 on 2026-10-14.
+- Mechanism: OpenCode maps `@ai-sdk/anthropic` to its native Anthropic protocol (`core/src/aisdk-native.ts:62` → `packages/ai/src/protocols/anthropic-messages.ts`). Named variants already send display `"summarized"` (`core/src/variant.ts:29`), but the default variant sends no thinking param. That is why the provider-level setting is needed.
+
 ---
 
 ## Agent permission model (v2)
@@ -561,7 +602,7 @@ Notes:
 ## Service unit and platforms
 
 - **Linux (this host).** User unit `opencode-v2-server.service` (`~/.config/systemd/user/`). ExecStart is `%h/.opencode/bin/opencode serve --port ${OPENCODE_PORT} --hostname 0.0.0.0`, with `OPENCODE_PORT` defaulting to 4096. `EnvironmentFile=-%h/.config/opencode/opencode-server.env` supplies `OPENCODE_SERVER_PASSWORD`. The former unit `opencode-server.service` is retired. `deploy.sh` reads the password and port from that env file for the §12 check, using `grep` and never `source`.
-- **macOS (desktop app).** There is no systemd or launchd unit; the server is the OpenCode desktop app. The password is in `~/.config/opencode/service.json` (key `password`). The port is not recorded there, so `deploy.sh` skips the live agent check on macOS and prints a loud notice to restart the app by hand. On macOS `~/.config/opencode` is a local directory, not NFS.
+- **macOS (desktop app).** There is no systemd or launchd unit. The server is the OpenCode desktop app's bundled CLI, `~/Library/Application Support/ai.opencode.desktop/cli/<version>/opencode-cli serve --service`. It is restartable with the scriptable `~/.local/bin/opencode service restart`, and `opencode service status` reports the listening address (e.g. `http://0.0.0.0:49374`). A restart drops any octmux session attached to the server. The password is in `~/.config/opencode/service.json` (key `password`). `deploy.sh` §12 still skips the live agent check on macOS because it does not read the port from there; that skip is a candidate for revisiting. `deploy.sh` §11 does not restart the macOS server, so the operator runs `~/.local/bin/opencode service restart` after a deploy. On macOS `~/.config/opencode` is a local directory, not NFS.
 - **Python venv, per platform.** Linux uses `~/Gin-AI/.Gin-AI-python-3.12`; macOS uses `~/.python-3.12`. Scripts and commands select the path with `uname -s`.
 - **Auth.** v2 always requires HTTP Basic auth (user `opencode`), with no localhost exemption. Credentials are never placed on argv: `deploy.sh` writes a `curl -K` config file (mode 0600), removed on exit.
 

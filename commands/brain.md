@@ -58,7 +58,8 @@ Each of these means a `subagent`-tool dispatch was skipped. If you catch yoursel
    This is a deliberate deviation from `claude-orchestra`, where the same check is a hard gate (STOP on Haiku/older Sonnet/non-Anthropic). In `oconona` the operator's choice is final.
 
 2. **Permission mode.** octmux's permission mode (cycled with **Shift-TAB**: `ask` / `allow` / `deny`) is the operator's tool-approval posture for Phase 2 Actor calls. Default `ask` (yellow) — modal per call — is recommended for supervised review; `allow` (green) for trusted plans. `deny` (red) is incompatible with `/brain` because it would reject Planner's `subagent` dispatch in Phase 1. No "plan mode" prerequisite exists in OC; do not gate `/brain` on a mode that does not exist.
-3. **Bypass-flattens-down caveat.** If the operator is on permission mode `allow` (green), Actor's tool calls run uninterrupted. Document but do not refuse — this is the operator's choice. Note that subagent frontmatter `tools:` denies still take precedence: a tool absent from an agent's frontmatter cannot be authorised by any permission mode (e.g., Planner remains read-only even under `allow`).
+3. **Bypass-flattens-down caveat.** If the operator is on permission mode `allow` (green), Actor's tool calls run uninterrupted. Document but do not refuse — this is the operator's choice. Note that subagent frontmatter `permissions:` rules still take precedence: an action denied by an agent's `permissions:` block cannot be authorised by any permission mode (e.g., Planner remains read-only even under `allow`).
+4. **SoHoAI reachability (ADVISORY only — never blocks).** Run `~/.config/opencode/scripts/preflight-sohoai.sh` once during Setup (it is a Bun probe, NOT curl). Exit 0 → proceed silently. Exit 1 → emit a single-line advisory that Planner/Actor on `sohoai/*` will fail with `FailedToOpenSocket` (macOS Local Network privacy for the server's launch context — see `docs/design.md` KP-3) and offer to switch the worker tier to an Anthropic override. Exit 2 → proceed silently (cannot probe). A passing `curl` is **not** evidence of reachability: curl is Apple-signed and exempt.
 
 ## Setup — per-invocation artifact directory + housekeeping
 
@@ -76,9 +77,12 @@ _parse_retention() {
     /^housekeeping:/ { in_hk = 1; next }
     in_hk && /^[^ ]/ { in_hk = 0 }
     in_hk && /session_retention_days:/ {
-      gsub(/[^0-9]/, "", $2); print $2; exit
+      sub(/^[^:]*:/, "");
+      gsub(/[^0-9]/, "");
+      print;
+      exit
     }
-  ' "$1" 2>/dev/null
+  ' "${1}" 2>/dev/null
 }
 # Precedence: global default > hardcoded 30.
 RETENTION_DAYS=$(_parse_retention "${HOME}/.config/opencode/orchestra/oconona-config.yaml")
@@ -124,7 +128,7 @@ export OPENCODE_ORCHESTRA_SESSION_DIR="${SESSION_DIR}"
 # Content is the full badge string (prefix + title) stored verbatim.
 # Stays live through Phase 0/1/2/3; removed by the cleanup block (PASS / abandon /
 # block branches) or by /brain-abandon.
-printf '%s' "orchestra full - <task title, ≤30 chars, no single-quotes>" \
+printf '%s' "orchestra -> brain <task title, ≤30 chars, no single-quotes>" \
   > "${SESSION_DIR}/.brain-inflight.tmp"
 mv -f "${SESSION_DIR}/.brain-inflight.tmp" "${SESSION_DIR}/.brain-inflight"
 printf '%s\n' "${OPENCODE_PROJECT_DIR:-$(pwd)}" > "${SESSION_DIR}/.project-dir"
@@ -424,7 +428,7 @@ subagent tool invocation:
     to ${SESSION_DIR}/PLAN.md via Bash atomic-rename.
 ```
 
-Planner is **purely read-only** by frontmatter (`tools: Read, Grep, Glob, WebFetch`); it cannot modify any files. **You (Brain) own persistence of `PLAN.md`** — Planner returns the plan text; you do the atomic-rename.
+Planner is **purely read-only** by its `permissions:` block (a deny-all baseline with allow rules only for `read`, `grep`, `glob`, and `webfetch`); it cannot modify any files. **You (Brain) own persistence of `PLAN.md`** — Planner returns the plan text; you do the atomic-rename.
 
 After Planner returns, persist its plan via `Bash`:
 
@@ -501,6 +505,8 @@ subagent tool invocation:
     Pointers:
     - PLAN.md: ${SESSION_DIR}/PLAN.md
     - TASKS.json: ${SESSION_DIR}/TASKS.json
+    - Read TASKS.json from disk at ${SESSION_DIR}/TASKS.json (do not rely on
+      status echoed in this prompt); it is the authoritative step-status record.
 
     Actor's diff summary verbatim (authoritative record of what changed —
     treat this as the source of truth, not `git diff HEAD`):
@@ -515,7 +521,7 @@ subagent tool invocation:
     `Bash` is read-only here — `git diff` / test runs only.
 ```
 
-Reviewer is **read-only** (`tools: Read, Grep, Glob, Bash, TodoWrite`; `Bash` is for read-only `git diff` / test runs only). **You (Brain) own persistence of `review-comments.md`**.
+Reviewer is **read-only** by its `permissions:` block (a deny-all baseline with allow rules for `read`, `grep`, `glob`, and `shell`; `shell` is for read-only `git diff` / test runs only, and `git commit*` / `git push*` prompt the operator). **You (Brain) own persistence of `review-comments.md`**.
 
 Prompt includes:
 

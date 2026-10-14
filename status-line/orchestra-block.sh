@@ -137,7 +137,7 @@ except Exception:
 PYEOF
 )
         if printf '%s' "$_cost" | grep -qE '^[0-9]+\.?[0-9]*$'; then
-            live_cost=$(LC_ALL=C printf 'Σ$%.2f' "$_cost" 2>/dev/null || true)
+            live_cost=$(LC_ALL=C printf 'ΣT$%.2f' "$_cost" 2>/dev/null || true)
         fi
     fi
 
@@ -150,19 +150,19 @@ PYEOF
 
     # --- badge rendering (passthrough: both inflight files embed the full badge text) ---
     # Both brain and duo inflight content embeds the mode prefix
-    # ("orchestra full - " / "orchestra light - "). Priority: duo > brain.
+    # ("orchestra -> brain " / "orchestra -> plan "). Priority: duo > brain.
     if [ "$duo_count" -gt 0 ]; then
         if [ "$duo_count" -eq 1 ]; then
             _badge_text="$duo_title"
         else
-            _badge_text="orchestra light - #${duo_count}"
+            _badge_text="orchestra -> plan #${duo_count}"
         fi
         status_line+=$(printf " | ${ORCHESTRA_COLOR}♪ %s${RESET}" "$_badge_text")
     elif [ "$brain_count" -gt 0 ]; then
         if [ "$brain_count" -eq 1 ]; then
             _badge_text="$brain_title"
         else
-            _badge_text="orchestra full - #${brain_count}"
+            _badge_text="orchestra -> brain #${brain_count}"
         fi
         status_line+=$(printf " | ${ORCHESTRA_COLOR}♪ %s${RESET}" "$_badge_text")
     fi
