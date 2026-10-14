@@ -16,7 +16,7 @@ context: >
 
 ## v8.8.0 — /brain workflow fixes (reasoning display, `$N` lint, cost labels, prose, badge text); Haiku 4.5 removed
 
-**Commits:** (uncommitted — this change set)
+**Commits:** `f040c29` (code), this changelog (docs)
 
 ### Change
 
