@@ -2,8 +2,8 @@
 title: "oconona TODO & open questions"
 created_at: 2026-05-30--00-30
 created_by: Claude Code (Claude Sonnet 4.6, 1M context)
-updated_by: Claude Code (Claude Opus 5)
-updated_at: 2026-09-18--22-58
+updated_by: Claude Code (Claude Haiku 5.5)
+updated_at: 2026-10-14--13-36
 context: >
   Single-file ledger of open questions, deferred investigations, and follow-up
   items for the oconona project. Created during the v7.3 hotfix cycle to
@@ -18,6 +18,24 @@ context: >
 Append new entries at the top with a clear timestamp and topic header.
 Mark resolved items with their resolution date and outcome rather than
 deleting them — the rationale chain matters.
+
+---
+
+## 2026-10-14 — v8.7.0 v2 migration: closures and open items
+
+**Closed — octmux co-location.** octmux (15.4 `4962c17`, amended 15.4.1 `fe6c7a5`) is API-only. On v2 it reads only `metadata.orchestra` on the harness session. oconona writes only that key, on the harness session. No write conflict. See `docs/design.md` §v1/v2 API and octmux co-location.
+
+**Open — `collect.sh` pre-existing bugs (not fixed).** It collects from `$OC_HOME/agent/` and `command/` (singular), but `deploy.sh` installs to `agents/` and `commands/`. `researcher.md` and `researcher-deep.md` are never collected. Both predate v8.7.0.
+
+**Open — deploy blocked by live config (operator decision pending).** Live `~/.config/opencode/opencode.json` lacks `anthropic/claude-sonnet-5` and has `claude-opus-5-5` where the repo has `claude-opus-5.5`. `scripts/check-tiers.py` hard-fails, so a real `./deploy.sh` stops. Decide whether to correct the live file or the tier SSOT. Not changed in v8.7.0.
+
+**Watch — plugin per-shell-call cost.** On every completed `shell` call, `plugins/oconona.js` reads the `.oc-session-id` sidecar of every retained session dir under `orchestra/sessions/`. Cost grows with the number of retained dirs. Revisit if shell calls slow down.
+
+**Open — publisher dedupe state is in memory.** The `published` map lives in the plugin closure. A server restart during a run's final `shell` call loses the `active: false` / `outcome` write. Nothing republishes it until the next `shell` call on that session, so the badge can stay active.
+
+**Open — README is stale.** Its agent list omits `researcher` and `researcher-deep` (pre-existing). Its dispatch prose still describes the v1 `Task` tool.
+
+**Open — status-line subagent signal is dead.** The "Active subagent role" source in `docs/design.md` is fed by `orchestra-hook.sh`, which OpenCode never executed. Not repaired; the subagent segment stays empty.
 
 ---
 

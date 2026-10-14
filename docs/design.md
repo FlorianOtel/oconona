@@ -2,8 +2,8 @@
 title: "OpenCode Orchestra — three-tier Brain/Planner/Actor pattern over OpenCode"
 created_at: 20260424-000000
 created_by: OpenCode (Claude Opus 4.7, 1M context)
-updated_by: Claude Code (Claude Sonnet 5.5)
-updated_at: 2026-10-09--21-49
+updated_by: Claude Code (Claude Haiku 5.5)
+updated_at: 2026-10-14--13-36
 context: >
   Reference architecture for OpenCode Orchestra — a three-tier orchestration
   pattern layered on OpenCode using native subagents. The design supports
@@ -14,7 +14,7 @@ context: >
 
 # OpenCode Orchestra
 
-A three-tier orchestration system for OpenCode: **Brain** delegates reasoning, implementation, and review across **Planner**, **Actor**, and **Reviewer** tiers using OpenCode's native `Task` tool for subagent dispatch. Tier-to-model assignment is declared in `config/orchestra-tiers.yaml` (the SSOT); a summary appears in the Agents table below. Single global install at `~/.config/opencode/`; usable from any project.
+A three-tier orchestration system for OpenCode: **Brain** delegates reasoning, implementation, and review across **Planner**, **Actor**, and **Reviewer** tiers using OpenCode's native `subagent` tool for subagent dispatch (v2; see §v1/v2 API and octmux co-location). Tier-to-model assignment is declared in `config/orchestra-tiers.yaml` (the SSOT); a summary appears in the Agents table below. Single global install at `~/.config/opencode/`; usable from any project.
 
 ## Intro
 
@@ -75,6 +75,8 @@ When NOT to use /brain: simple tasks with ≤5 steps, low blast radius. Use /duo
 | **Researcher** | `anthropic/claude-haiku-5-5` | `~/.config/opencode/agents/researcher.md` | Read, Grep, Glob, Bash, WebFetch, TodoWrite (read-only + Bash for probes) | Phase 0 factual verification; returns VERDICT/EVIDENCE/CAVEATS with file:line citations |
 | **Researcher** (deep) | `anthropic/claude-sonnet-5` | `~/.config/opencode/agents/researcher-deep.md` | Read, Grep, Glob, Bash, WebFetch, TodoWrite (read-only + Bash for probes) | Escalation tier for multi-file reasoning, subtle event interleaving, or runtime probes; triggered by Brain's escalation policy |
 
+> **Tools column (superseded in v8.7.0).** The Tools column lists the pre-v8.7.0 Claude-Code-style `tools:` declarations. Those keys were inert on OpenCode v1 and v2, so before v8.7.0 Planner, Reviewer and Researchers were never read-only. The enforced rules are in §Agent permission model (v2). Dispatch wording in this document (`Task` tool, `subagent_type`) describes v1; on v2 the tool is `subagent` with `agent: <name>`.
+
 ### Model requirements
 
 | Command | Minimum | Recommended | Enforcement |
@@ -113,15 +115,36 @@ No `/orchestra-mode` command in v1 (`auto` is deferred to v2).
 
 ## Design details
 
-### Hooks
+### Session-state publisher (v2 plugin)
 
-Five hook types in `~/.config/opencode/settings.json`, dispatching to `~/.config/opencode/scripts/orchestra-hook.sh`:
+**Dead-hook finding.** Until v8.7.0 this section described five `settings.json` hooks dispatching to `scripts/orchestra-hook.sh`. They never ran. OpenCode does not read hooks from `settings.json`: neither v2.0.28 nor v1 (`dev`) has any `settings.json`, `PreToolUse`, `SubagentStop`, `PreCompact` or `Stop` hook handling. The effects that depended on them were never produced: the `invocations.log` start/end records, the `brain-state.md` PreCompact snapshot, the Stop-hook safety net, and the status-line "Active subagent role" signal. Session cleanup has always depended on the commands' own cleanup blocks. v8.7.0 deletes `scripts/orchestra-hook.sh` and `config/settings-hooks.json`. `deploy.sh` removes the orphaned hook entries from `~/.config/opencode/settings.json` on each deploy.
 
-1. **PreToolUse(Agent)** — `start` mode. Logs subagent invocation to invocations.log.
-2. **SubagentStop** — `end` mode. Logs subagent completion.
-3. **PreCompact** — `compact` mode. Saves `brain-state.md` (plan/task/decision snapshot for resumption post-`/clear`).
-4. **Stop** — `stop` mode (safety net). Fires at the end of **every response turn** (not only on process exit). Walks session_dirs that have no `telemetry.json` **and** no inflight marker — i.e., sessions where cleanup already started (inflight markers removed by `/duo-act`/`/duo-abandon`/`/brain`) but `telemetry-summarize.sh` failed to write `telemetry.json`. Gate (updated 2026-05-06): skip if `.duo-inflight` or `.brain-inflight` is present (session still in-progress — removing the marker here would destroy the badge and cause `NO_SESSION` errors on the next refinement turn); then check for artefacts (`PLAN.md`, `RESEARCH.md`). Writes `.outcome=abandoned` before invoking the summariser (mtime bounds the T2 window), and resets `state.env` when finalising a /brain session so the badge clears. Inflight marker removal is the exclusive responsibility of `/duo-act`, `/duo-abandon`, and `/brain`/`/brain-abandon` cleanup.
-5. (No tool-call hooks; subagent tool dispatch is opaque by design.)
+**Replacement: `plugins/oconona.js`.** The publisher is an OpenCode v2 local plugin, deployed to `~/.config/opencode/plugins/oconona.js`. It has a default export `{id: "oconona", setup(ctx)}` and imports only `node:` builtins, so there is no npm install step. In `setup` it registers an `execute.after` tool hook. For each completed `shell` call, the hook:
+
+1. Finds the orchestra session dir under `~/.config/opencode/orchestra/sessions/*/` whose `.oc-session-id` equals the event's `sessionID`. No match means the hook is inert.
+2. Derives state from that dir: mode and title from `.brain-inflight` or `.duo-inflight`, outcome from `.outcome`, parser warnings from `telemetry.json`.
+3. If the state changed, or an active run's `updatedAt` is due, read-modify-writes `metadata.orchestra` on the harness session via `ctx.session.get` and `ctx.session.update`. Other metadata keys are preserved.
+
+The hook acts only on completed `shell` calls, so a state change reaches the badge at the next shell call. It never throws; failures are logged and swallowed.
+
+**Published contract** (ACKed with octmux 15.4.1, `fe6c7a5`). Key `metadata.orchestra` on the harness session:
+
+```
+{ version: 1,
+  mode: "brain" | "duo",
+  title: string,                       // badge text, truncated to 48 characters
+  active: boolean,
+  updatedAt: number,                   // epoch milliseconds
+  parserWarnings?: [{code, message}],
+  outcome?: "pass" | "fix-loop" | "block" | "abandoned" }
+```
+
+- `active: true` on the first publish after a marker appears; `updatedAt` is refreshed at most hourly while active.
+- Rewritten whenever `title`, `parserWarnings` or `active` changes.
+- Final write: `active: false`, `outcome`, final `parserWarnings`.
+- The key is never removed once set. Child sessions are never written.
+
+**v1.** The plugin is loaded only by the v2 server. On v1 the sidecars remain the only orchestra state, and there is no metadata badge (see §v1/v2 API and octmux co-location).
 
 ### Status line
 
@@ -161,7 +184,7 @@ The utilization denominator is looked up from `context-windows.yaml` per model I
 
 #### When it updates
 
-The status line script is called by OpenCode on each render tick — after every model turn and when tool calls are shown in the UI. **The active-subagent indicator (`▶ stage`) appears in real-time**: the `PreToolUse(Agent)` hook writes the `start` event to `invocations.log` *before* the Task tool executes, so the indicator is already present by the time the subagent begins running.
+The status line script is called by OpenCode on each render tick — after every model turn and when tool calls are shown in the UI. **The active-subagent indicator (`▶ stage`) appears in real-time**: the `PreToolUse(Agent)` hook writes the `start` event to `invocations.log` *before* the Task tool executes, so the indicator is already present by the time the subagent begins running. **Dead (v8.7.0 finding):** that hook never executes, so this indicator has never appeared (see §Session-state publisher).
 
 #### Data sources
 
@@ -170,7 +193,7 @@ The status line script is called by OpenCode on each render tick — after every
 | `/duo` title and inflight state | `${SESSION_DIR}/.duo-inflight` | `/duo-plan` command setup |
 | `/brain` title and mode | `~/.config/opencode/orchestra/state.env` (`ORCHESTRA_MODE=brain`, `ORCHESTRA_TITLE=…`) | `/brain` command setup |
 | `/brain` inflight marker (session-discovery for `/brain-abandon` and explicit CMD-classification by Stop-hook) | `${SESSION_DIR}/.brain-inflight` | `/brain` command setup |
-| Active subagent role | `~/.config/opencode/orchestra/invocations.log` (`subagent` field from last `start` event with no matching `end`) | `orchestra-hook.sh start` (PreToolUse) |
+| Active subagent role | **Never functional.** Intended source was `~/.config/opencode/orchestra/invocations.log` (`subagent` field from last `start` event with no matching `end`). Not repaired in v8.7.0; see §Session-state publisher. | `orchestra-hook.sh start` (PreToolUse) — never executed by OpenCode |
 | Live cost | OC SQLite `session.cost` (via `scripts/oc-db.py`, v7.1) | OpenCode runtime |
 
 #### Amendment 2026-05-29--07-54 — octmux status-line cost source (from octmux /brain session)
@@ -241,8 +264,10 @@ agents/
 commands/
   brain.md, brain-abandon.md
   duo-plan.md, duo-act.md, duo-abandon.md
+   plugins/
+     oconona.js  (v8.7.0+; OpenCode v2 session-metadata publisher)
    scripts/
-     orchestra-hook.sh, ctx-segment.sh, oc-db.py
+     ctx-segment.sh, oc-db.py
    orchestra/
      oconona-config.yaml, context-windows.yaml
   invocations.log (append-only)
@@ -275,7 +300,7 @@ brain-state.md     (pre-compact snapshot)
 
 Costs vary by tier:
 
-- **Brain** (Anthropic Opus 5.5): most expensive; receives every subagent's return. Per-token Anthropic pricing. Mitigated by prompt caching + `PreCompact` hook saving state. Cost dominates a typical session.
+- **Brain** (Anthropic Opus 5.5): most expensive; receives every subagent's return. Per-token Anthropic pricing. Mitigated by prompt caching. (A `PreCompact` state-save hook was described here until v8.7.0; it never ran, see §Session-state publisher.) Cost dominates a typical session.
 - **Planner** (sohoai/minimax-m3): called once per plan. $0 marginal cost (flat-rate SoHoAI).
 - **Actor** (sohoai/glm-5.3-flash or sohoai/glm-5.3 if heavy): called once per step. $0 marginal cost (flat-rate SoHoAI).
 - **Reviewer** (anthropic/claude-sonnet-5): called once per review (up to 3 per step). Per-token Anthropic pricing (enables per-tier cost tracking).
@@ -286,9 +311,9 @@ Rule of thumb: use `/brain` for tasks where the review loop actually earns the B
 
 ### Disabling and troubleshooting
 
-**Global disable**: `mv ~/.config/opencode/scripts/orchestra-hook.sh{,.bak}` (intentionally loud; next `opencode` invocation will fail visibly).
+**Global disable (publisher only)**: `mv ~/.config/opencode/plugins/oconona.js{,.bak}`, then restart the server (`systemctl --user restart opencode-v2-server.service` on Linux; restart the OpenCode desktop app on macOS). OpenCode loads only `plugins/*.js`, so the `.bak` copy is inert. Commands and agents keep working without the badge.
 
-**Full uninstall**: `rm -rf ~/.config/opencode/agent/{planner,actor,actor-heavy,reviewer}.md ~/.config/opencode/command/{brain,duo}.md ~/.config/opencode/scripts/orchestra-hook.sh ~/.config/opencode/orchestra/`, then edit `~/.config/opencode/settings.json` to remove hook entries.
+**Full uninstall**: `rm -rf ~/.config/opencode/agents/{planner,actor,actor-heavy,reviewer,researcher,researcher-deep}.md ~/.config/opencode/commands/{brain,brain-abandon,duo-plan,duo-act,duo-abandon}.md ~/.config/opencode/plugins/oconona.js ~/.config/opencode/orchestra/`. No `settings.json` edit is needed: v8.7.0+ deploys strip the old hook entries, and OpenCode never read them. (The previous paths used singular `agent/` and `command/`, which `deploy.sh` does not install to.)
 
 Quick-ref troubleshooting:
 
@@ -304,7 +329,7 @@ Quick-ref troubleshooting:
 
 Aligned with canonical:
 - Subagent definitions (`.opencode/agent/*.md` with frontmatter)
-- Hooks (`PreToolUse`, `SubagentStop`, `PreCompact`)
+- Local plugins (`plugins/*.js`, default export `{id, setup}`), loaded by OpenCode v2's local-plugin loader with no npm install step. (Until v8.7.0 this bullet listed `settings.json` hooks, which OpenCode never read.)
 - Slash commands (`.opencode/command/*.md`)
 
 Deliberate deviations:
@@ -315,7 +340,7 @@ Deliberate deviations:
 
 ### Live feed limitations
 
-Hooks fire at tool-call boundaries only. They capture *what the subagent is doing* (Edit/Write/Bash calls) but **not** *why* (thinking blocks) or *what it sees* (tool results). Full live feed would require a OpenCode streaming hook (not available in v1) or subagents running as separate `claude -p` processes (Option A, rejected in favor of simplicity).
+No live feed exists. The v1 design assumed tool-call hooks, which never executed (see §Session-state publisher). Even working hooks would capture only *what the subagent is doing* (Edit/Write/Bash calls), **not** *why* (thinking blocks) or *what it sees* (tool results). Full live feed would require a OpenCode streaming hook (not available in v1) or subagents running as separate `claude -p` processes (Option A, rejected in favor of simplicity).
 
 See design-history.md §13.3 for three potential approaches to close the gap.
 
@@ -508,6 +533,46 @@ This section documents OpenCode platform behaviours that have caused real regres
 **Mitigation.** The em-dash convention + H1 lint (see KP-1) make user-authored frontmatter robust regardless of which OC code path is taken. We do not try to patch around the divergence itself.
 
 ---
+
+## Agent permission model (v2)
+
+Subagents are declared with native v2 frontmatter keys in `agents/*.md`: `description`, `model`, `mode: subagent`, `permissions`. `name` and `tools:` are not native keys; the agent id comes from the filename. Source references below are to the OpenCode v2.0.28 tag (`026b106bc5`), paths under `packages/`.
+
+- **`mode: subagent` is required.** The `subagent` tool refuses any agent whose resolved mode is `primary` ("Agent X cannot run as a subagent", `core/src/tool/plugin/subagent.ts:136-137`). A file containing any non-native key is decoded by the legacy v1 path, which defaults `mode` to `primary` (`core/src/config/plugin/agent.ts:186`). Before v8.7.0 all six agents were in that state, so `/brain` could not dispatch a single subagent on v2. `deploy.sh` §0b lint rejects a missing `mode: subagent`, and the §12 post-restart check asserts it for every user agent.
+- **Rules are an array of `{action, resource, effect}`**, with `effect` one of `allow`, `deny` or `ask`. Evaluation is **last match wins**, after an implicit `*:* allow` baseline (`core/src/permission.ts:87-96`). A leading `"*"` deny closes everything, and later allow rules re-open specific actions. Quote `"*"` in YAML; a bare `*` is a YAML alias indicator.
+- **`external_directory`** gates reads and edits outside the project directory (`core/src/file-access.ts:93-123`). Session-dir files live under `~/.config/opencode/orchestra/`, outside the repo, so agents that read them need an explicit `external_directory` allow.
+- **`ask`** prompts the operator instead of denying outright.
+
+Per-agent rule sets (v8.7.0):
+
+| Agent | Allowed actions | Other rules |
+|---|---|---|
+| Planner | read, grep, glob, webfetch | deny `*`; `read` on `*.env` and `*.env.*` asks; `*.env.example` allowed; deny `subagent`; `external_directory` allow |
+| Reviewer | read, grep, glob, shell | deny `*`; `shell` on `git commit*` and `git push*` **asks**; env reads ask; deny `subagent`; `external_directory` allow |
+| Researcher, Researcher-deep | read, grep, glob, shell, webfetch, websearch | deny `*`; env reads ask; deny `subagent`; `external_directory` allow |
+| Actor, Actor-heavy | all (implicit allow) | deny `subagent` only (no recursion) |
+
+Notes:
+- The `shell` permission matches the parsed command text, so the `git commit*` and `git push*` globs match command strings.
+- **Unverified:** how an `ask` effect behaves in a non-interactive subagent dispatch. Low severity, since these agents rarely read `.env` files.
+
+**Behaviour change, stated plainly.** Before v8.7.0, Planner, Reviewer, Researcher and Researcher-deep were never read-only. Their `tools:` declarations used Claude-Code names (`Read`, `Edit`, `Bash`, ...). OpenCode does not case-fold permission names and matches them case-sensitively (`core/src/v1/config/permission.ts:11-17`, `util/wildcard.ts:13`). Those rules matched nothing, so effective access was the default `*:* allow`, on v1 and v2 alike. v8.7.0 enforces the rule sets above. Reviewer's git rules are the one intended restriction on a write-capable action, and they prompt rather than block.
+
+## Service unit and platforms
+
+- **Linux (this host).** User unit `opencode-v2-server.service` (`~/.config/systemd/user/`). ExecStart is `%h/.opencode/bin/opencode serve --port ${OPENCODE_PORT} --hostname 0.0.0.0`, with `OPENCODE_PORT` defaulting to 4096. `EnvironmentFile=-%h/.config/opencode/opencode-server.env` supplies `OPENCODE_SERVER_PASSWORD`. The former unit `opencode-server.service` is retired. `deploy.sh` reads the password and port from that env file for the §12 check, using `grep` and never `source`.
+- **macOS (desktop app).** There is no systemd or launchd unit; the server is the OpenCode desktop app. The password is in `~/.config/opencode/service.json` (key `password`). The port is not recorded there, so `deploy.sh` skips the live agent check on macOS and prints a loud notice to restart the app by hand. On macOS `~/.config/opencode` is a local directory, not NFS.
+- **Python venv, per platform.** Linux uses `~/Gin-AI/.Gin-AI-python-3.12`; macOS uses `~/.python-3.12`. Scripts and commands select the path with `uname -s`.
+- **Auth.** v2 always requires HTTP Basic auth (user `opencode`), with no localhost exemption. Credentials are never placed on argv: `deploy.sh` writes a `curl -K` config file (mode 0600), removed on exit.
+
+## v1/v2 API and octmux co-location
+
+- **Session id.** On v2 the `shell` tool exports `OPENCODE_SESSION_ID` (`core/src/tool/plugin/shell.ts:213-216`). Commands prefer it. The v1 `curl localhost:${OPENCODE_PORT}/session` lookup remains only as a fallback for when the variable is unset.
+- **Telemetry DB.** `scripts/oc-db.py` and `scripts/native-session-report.py` read table `session_v2`, falling back to legacy `session`. Model is parsed from v2's JSON shape `{id, providerID, variant}`. The `/brain` live-model advisory reads `session_v2.model` for the session id.
+- **Post-restart verification.** `deploy.sh` §12 calls authenticated `GET /api/agent`. The v1 unauthenticated `/agent` call was removed.
+- **v1 limitations.** v1 has no metadata badge, and the plugin is not loaded on v1. v1 keeps the sidecars and the legacy fallbacks above; otherwise v1 is unsupported.
+- **Dispatch wording.** `Task` tool and `subagent_type` references in this document describe v1. v2 uses `subagent` with `agent: <name>`.
+- **octmux co-location (closed).** octmux (API-only client since 15.4 `4962c17`, amended 15.4.1 `fe6c7a5`) reads no files under `~/.config/opencode`. On v2 it reads only `metadata.orchestra` on the harness session and ignores sessions with a `parentID` (octmux repo: `src/backend/v2-orchestra.ts:64-83`, `src/backend/v2.ts:699`). oconona writes only that key, only on the harness session, and never writes child sessions. The two therefore share one host with no write conflict. octmux code was not touched.
 
 ## See also
 

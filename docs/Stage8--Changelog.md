@@ -2,8 +2,8 @@
 title: "Stage 8 — Changelog"
 created_at: 2026-06-05--13-00
 created_by: Actor (Claude Haiku 4.5 — via oconona /brain Stage 8 dispatch)
-updated_by: Claude Code (Claude Sonnet 5.5)
-updated_at: 2026-10-09--21-49
+updated_by: Claude Code (Claude Opus 5.5)
+updated_at: 2026-10-14--14-20
 context: >
   Per-version changelog for Stage 8 of the oconona orchestra
   (Researcher tier + Brain Phase 0 hardening + telemetry counter).
@@ -13,6 +13,45 @@ context: >
 ---
 
 # Stage 8 — Changelog
+
+## v8.7.0 — OpenCode v2 API support (native agents, session_v2, metadata publisher)
+
+**Commits:** `c00d9b1` (code), this changelog (docs)
+
+### Change
+
+- **Agent dispatch on v2 (critical).** `agents/*.md` use native v2 frontmatter only
+  (`description`, `model`, `mode: subagent`, `permissions`). v2's `subagent` tool
+  refuses `mode: primary` agents (`packages/core/src/tool/plugin/subagent.ts:136`);
+  the legacy `name:`/`tools:` keys forced every oconona agent to `primary`.
+- **Permissions now enforced.** The old Claude-Code-style `tools:` entries (`Read`,
+  `Bash`, …) never matched OpenCode's lowercase tool ids, on v1 or v2, so Planner,
+  Reviewer and Researchers were never read-only. Each now starts with `* deny` and
+  re-allows only its tools; Reviewer `git commit*`/`git push*` are `ask`.
+- **Session id.** `commands/brain.md` and `commands/duo-plan.md` take the session id
+  from `$OPENCODE_SESSION_ID` (exported by v2's shell tool); the v1 `curl /session`
+  lookup is kept as a legacy fallback. Live model read from `session_v2.model`.
+- **Telemetry.** `scripts/oc-db.py` and `scripts/native-session-report.py` read the
+  `session_v2` table, falling back to the legacy `session` table.
+- **Dispatch wording.** Prompts name the `subagent` tool with `agent: <name>`.
+- **Badge publisher.** New `plugins/oconona.js` writes `metadata.orchestra` onto the
+  harness session, per the contract ACKed with octmux (octmux Stage 15.4.1 `fe6c7a5`).
+  No credentials; inert on v1 (no session metadata).
+- **Dead hook removed.** `scripts/orchestra-hook.sh` and `config/settings-hooks.json`
+  deleted: OpenCode never read `settings.json` hooks. `deploy.sh` strips the old
+  entries idempotently and removes the deployed orphan.
+- **deploy.sh.** Unit `opencode-v2-server.service` (single variable); authenticated
+  `GET /api/agent` check asserting `mode: subagent` (password from
+  `opencode-server.env` via a 0600 `curl -K` file, never argv); `plugins/` deployed;
+  macOS prints a "restart the desktop app" notice instead of restarting.
+- **Portability.** Per-platform Python venv (Linux `~/Gin-AI/.Gin-AI-python-3.12`,
+  macOS `~/.python-3.12`) and portable `stat` in `scripts/telemetry-report.sh`.
+
+### Why
+
+OpenCode v2 (2.0.28) is the API going forward; the local server is now v2. v1 is
+kept only where cheap. Details: `docs/design.md` (Agent permission model, Service
+unit and platforms, v1/v2 API) and `docs/Stage8.md` § v8.7.0.
 
 ## v8.6.0 — Researcher Haiku 4.5 → 5.5; Brain advisory Opus 5 → 5.5
 

@@ -2,8 +2,8 @@
 title: "Stage 8 — Prudent Brain: Researcher tier + Phase 0 hardening"
 created_at: 2026-06-05--12-57
 created_by: Actor (Claude Haiku 4.5 — via oconona /brain Stage 8 dispatch)
-updated_by: Claude Code (Claude Sonnet 5.5)
-updated_at: 2026-10-09--21-49
+updated_by: Claude Code (Claude Haiku 5.5)
+updated_at: 2026-10-14--13-36
 context: >
   Stage 8 of the oconona orchestra introduces a new subagent role —
   Researcher — with two tiers (researcher / researcher-deep) dispatched
@@ -90,6 +90,22 @@ The Phase 0 end gate now has 3 conditions (was 2). Phase 0 ends only when: (1) a
 `telemetry.json` gains a top-level field `researcher_dispatches: int`. Computed from the `subagents` list: `sum(1 for s in subagents if s.get("agent") in ("researcher","researcher-deep"))`. Present even in the fallback (no OC session ID) path with value 0. Surfaced in `telemetry-report.sh` default tabular view as `r=<N>` annotation when non-zero, in `--tier` mode as separate rows ordered after Reviewer, and in the aggregate block as a summed total across the report window.
 
 This enables, after rollout, a measurable answer to "is Stage 8 firing as intended?" — track the per-session counter across 5-10 sessions, then assess whether dispatch frequency correlates with reduced multi-iteration failures.
+
+## v8.7.0 — OpenCode v2 API migration
+
+Work tracked in the v8.7.0 session plan (session dir `20261013T210019Z-2745222`). Per-version entry and commit hashes: `docs/Stage8--Changelog.md` (pending code commit).
+
+- **Agent dispatch fix (behaviour change).** All six agents (`planner`, `actor`, `actor-heavy`, `reviewer`, `researcher`, `researcher-deep`) now use native v2 frontmatter with `mode: subagent`. Before, they resolved to `mode: primary` and could not be dispatched on v2. Their `permissions` rule sets are now enforced. Before v8.7.0 the Claude-Code `tools:` keys were inert, so Planner, Reviewer and Researchers were never read-only. Reviewer's `git commit*` and `git push*` shell calls prompt the operator. Details: `docs/design.md` §Agent permission model (v2).
+- **Service rename.** `opencode-server.service` is now `opencode-v2-server.service`. `deploy.sh` uses one variable, `OC_SERVICE`.
+- **Authenticated agent verification.** `deploy.sh` §12 calls `GET /api/agent` with the server password (via a 0600 `curl -K` file) and asserts `mode == subagent` for every user agent. The check is skipped loudly on macOS, where the desktop app's port is not discoverable.
+- **Platform portability.** The Python venv path is selected by `uname -s` in 11 files (Linux `~/Gin-AI/.Gin-AI-python-3.12`, macOS `~/.python-3.12`). `scripts/telemetry-report.sh` probes `stat` flags, so GNU and BSD `stat` both work.
+- **Dead hook removal.** `scripts/orchestra-hook.sh` and `config/settings-hooks.json` are deleted. OpenCode never read `settings.json` hooks, so these were dead code. `deploy.sh` strips orphaned entries from `settings.json` idempotently.
+- **Session-metadata publisher.** New `plugins/oconona.js` publishes `metadata.orchestra` on the harness session, per the octmux-ACKed contract. Details: `docs/design.md` §Session-state publisher.
+- **v2 session id and tables.** Commands prefer `$OPENCODE_SESSION_ID`. `scripts/oc-db.py` reads `session_v2`, falling back to `session`. The v1 `curl` lookup remains as a fallback only.
+- **Subagent wording.** Prompts and docs name the v2 tool `subagent` with `agent: <name>`. The v1 `task` tool with `subagent_type` is noted as legacy.
+- **Documented v1 limitation.** v1 has no metadata badge. Details: `docs/design.md` §v1/v2 API and octmux co-location.
+
+**Why.** v2 is the forward API. Agent dispatch was already broken on v2, and the permission gap predates v2. v1 is kept only where it is cheap.
 
 ## Open items deferred to future work
 
