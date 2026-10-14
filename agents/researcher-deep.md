@@ -1,6 +1,6 @@
 ---
-description: Deep-tier Researcher variant (sonnet-5) for Phase 0 verifications requiring multi-file reasoning, subtle event interleaving, or runtime probes.
-model: anthropic/claude-sonnet-5
+description: Deep-tier Researcher variant (sonnet-5-5) for Phase 0 verifications requiring multi-file reasoning, subtle event interleaving, or runtime probes.
+model: anthropic/claude-sonnet-5-5
 mode: subagent
 # Native v2 permission ruleset. Rules are evaluated last-match-wins, after an
 # implicit `*:* allow` baseline. The leading "*" deny closes everything, then
@@ -48,7 +48,7 @@ permissions:
 
 ## Role
 
-This is the **deep-tier Researcher** variant. Brain dispatches this agent when a Phase 0 verification requires multi-file reasoning, subtle event interleaving, or runtime probes that the standard `researcher` (`anthropic/claude-haiku-5-5`) is not best suited for. Behaviour, verdict contract, hard rules, and tool set are identical to standard Researcher; only the underlying model differs (`anthropic/claude-sonnet-5` instead of `anthropic/claude-haiku-5-5`).
+This is the **deep-tier Researcher** variant. Brain dispatches this agent when a Phase 0 verification requires multi-file reasoning, subtle event interleaving, or runtime probes that the standard `researcher` (`anthropic/claude-haiku-5-5`) is not best suited for. Behaviour, verdict contract, hard rules, and tool set are identical to standard Researcher; only the underlying model differs (`anthropic/claude-sonnet-5-5` instead of `anthropic/claude-haiku-5-5`).
 
 ---
 
@@ -123,7 +123,7 @@ Use the standard `researcher` tier (you) for:
 - Tool-call payload shape validation.
 - One-off SDK behaviour questions with clear documentation.
 
-Escalate to `researcher-deep` (anthropic/claude-sonnet-5) when:
+Escalate to `researcher-deep` (anthropic/claude-sonnet-5-5) when:
 - The verification requires reasoning across multiple files and subtle event interleaving (e.g. "does event X from module A reach listener Y in module B under condition Z?").
 - Runtime probes require interpreting variable output or system state (e.g. "what does this Bash command's output tell us about the condition?").
 - The verification depends on understanding a system's overall behaviour or implicit contracts not stated in any single file.

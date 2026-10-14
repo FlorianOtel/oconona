@@ -74,8 +74,18 @@
 default_cache_ttl: "5m"
 
 provider_models:
-  # Opus 5.5: $4/$20 per MTok, cache read 0.05x input, write-5m $5 —
-  # verified against the live pricing page 2026-10-09
+  # Opus 5.5 (ID claude-opus-5-5, matches live ~/.config/opencode/opencode.json):
+  # $4/$20 per MTok, cache read $0.20, write-5m $5 — verified on the live
+  # pricing page https://claude.com/pricing on 2026-10-14 (per operator).
+  "anthropic/claude-opus-5-5":
+    input: 4.00
+    output: 20.00
+    cache_read: 0.20
+    cache_write:
+      "5m": 5.00
+      # "1h": 8.00
+
+  # legacy — superseded by claude-opus-5-5; kept for historical telemetry lookups
   "anthropic/claude-opus-5.5":
     input: 4.00
     output: 20.00
@@ -93,6 +103,18 @@ provider_models:
       "5m": 6.25
       # "1h": 10.00
 
+  # Sonnet 5.5 (ID claude-sonnet-5-5, matches live ~/.config/opencode/opencode.json):
+  # $2/$10 per MTok, cache read $0.10, write-5m $2.50 — verified on the live
+  # pricing page https://claude.com/pricing on 2026-10-14 (per operator).
+  "anthropic/claude-sonnet-5-5":
+    input: 2.00
+    output: 10.00
+    cache_read: 0.10
+    cache_write:
+      "5m": 2.50
+      # "1h": 4.00
+
+  # legacy — superseded by claude-sonnet-5-5; kept for historical telemetry lookups
   # $2/$10 per MTok, cache read 10% of input — verified against Anthropic
   # pricing docs 2026-09-18 (was 3.00/15.00, which is Sonnet 4.6's rate)
   "anthropic/claude-sonnet-5":

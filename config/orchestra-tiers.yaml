@@ -20,10 +20,10 @@ tiers:
   planner:     { model: sohoai/minimax-m3 }
   actor:       { model: sohoai/glm-5.3-flash }
   actor-heavy: { model: sohoai/glm-5.3 }
-  reviewer:    { model: anthropic/claude-sonnet-5 }
+  reviewer:    { model: anthropic/claude-sonnet-5-5 }
   researcher:      { model: anthropic/claude-haiku-5-5 }
-  researcher-deep: { model: anthropic/claude-sonnet-5 }
+  researcher-deep: { model: anthropic/claude-sonnet-5-5 }
 
 recommendations:
-  brain: { model: anthropic/claude-opus-5.5, enforcement: advisory }
-  duo:   { model: anthropic/claude-sonnet-5, enforcement: advisory }
+  brain: { model: anthropic/claude-opus-5-5, enforcement: advisory }
+  duo:   { model: anthropic/claude-sonnet-5-5, enforcement: advisory }

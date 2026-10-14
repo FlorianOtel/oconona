@@ -1,6 +1,6 @@
 ---
 description: Reviews the output of an Actor invocation — reads the diff, checks against PLAN.md and project conventions, and returns a structured review with verdict PASS/FIX/BLOCK. Use after each Actor invocation in a /brain pipeline (or once at the end). Returns review text inline; Brain persists review-comments.md.
-model: anthropic/claude-sonnet-5
+model: anthropic/claude-sonnet-5-5
 mode: subagent
 # Native v2 permission ruleset. Rules are evaluated last-match-wins, after an
 # implicit `*:* allow` baseline. The leading "*" deny closes everything, then
