@@ -440,7 +440,13 @@ fi
 # (override with --no-restart for the rare case of file-only deploys).
 echo "OC server:"
 if $DRY_RUN; then
-    info "would restart: systemctl --user restart $OC_SERVICE"
+    if command -v systemctl >/dev/null 2>&1; then
+        info "would restart: systemctl --user restart $OC_SERVICE"
+    elif [ "$OS_NAME" = "Darwin" ]; then
+        info "macOS: no systemd; would warn to restart the OpenCode desktop app manually"
+    else
+        info "systemctl not found; would warn to restart OC manually"
+    fi
 elif $NO_RESTART; then
     warn "skipping restart (--no-restart) — deployed changes will NOT take effect until:"
     warn "    systemctl --user restart $OC_SERVICE"
@@ -465,7 +471,13 @@ fi
 
 # ── 12. Post-restart agent verification ─────────────────────────────────────────
 if $DRY_RUN; then
-    info "would verify: authenticated GET /api/agent post-restart"
+    if command -v systemctl >/dev/null 2>&1; then
+        info "would verify: authenticated GET /api/agent post-restart"
+    elif [ "$OS_NAME" = "Darwin" ]; then
+        info "macOS: would skip agent verification (desktop app; live check not run)"
+    else
+        info "systemctl not found; would skip agent verification"
+    fi
 elif $NO_RESTART; then
     warn "skipping agent verification (--no-restart) — restart required before verification"
 elif ! command -v systemctl >/dev/null 2>&1; then
