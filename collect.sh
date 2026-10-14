@@ -64,9 +64,19 @@ collect_file "$OC_HOME/command/duo-act.md"       "$REPO/commands/duo-act.md"
 collect_file "$OC_HOME/command/duo-abandon.md"   "$REPO/commands/duo-abandon.md"
 
 echo "Scripts:"
-collect_file "$OC_HOME/scripts/orchestra-hook.sh" "$REPO/scripts/orchestra-hook.sh"
 collect_file "$OC_HOME/scripts/ctx-segment.sh" "$REPO/scripts/ctx-segment.sh"
 collect_file "$OC_HOME/scripts/oc-db.py" "$REPO/scripts/oc-db.py"
+
+# Plugins — mirror of deploy.sh's Plugins section: live $OC_HOME/plugins/*.js
+# back into $REPO/plugins/. The glob is guarded so an empty live directory
+# (literal pattern) is skipped. The repo directory is created on first real
+# collect (not in dry-run) so cp has a destination.
+echo "Plugins:"
+for f in "$OC_HOME"/plugins/*.js; do
+    [ -f "$f" ] || continue
+    $DRY_RUN || mkdir -p "$REPO/plugins"
+    collect_file "$f" "$REPO/plugins/$(basename "$f")"
+done
 
 echo "Config:"
 collect_file "$OC_HOME/orchestra/oconona-config.yaml"    "$REPO/config/oconona-config.yaml"

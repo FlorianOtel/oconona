@@ -37,10 +37,17 @@ if [ -z "$normalised_id" ]; then
     normalised_id="$model_id"
 fi
 
+# Python venv location differs per platform: Linux keeps it under ~/Gin-AI,
+# macOS under ~/.python-3.12. Keep this block identical across all files that use it.
+case "$(uname -s)" in
+    Darwin) PYVENV="$HOME/.python-3.12" ;;
+    *)      PYVENV="$HOME/Gin-AI/.Gin-AI-python-3.12" ;;
+esac
+
 # Lookup in YAML (fallback to OC size if missing/not found)
 yaml_file="$HOME/.config/opencode/orchestra/context-windows.yaml"
 if [ -f "$yaml_file" ]; then
-    advertised_size=$("${HOME}/Gin-AI/.Gin-AI-python-3.12/bin/python3" -c "
+    advertised_size=$("$PYVENV/bin/python3" -c "
 import sys, yaml
 model = '$normalised_id'.lower()
 yaml_path = '$yaml_file'

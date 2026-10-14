@@ -2,14 +2,20 @@
 # telemetry-summarize.sh — wrapper that activates the project venv and runs the Python parser.
 # Usage: telemetry-summarize.sh <session_dir> <command> <outcome> [transcript_session_id]
 #
-# Designed to be invoked from /duo-act and /duo-abandon cleanup, /brain Phase 3
-# cleanup, and orchestra-hook.sh stop mode.
+# Designed to be invoked from /duo-act and /duo-abandon cleanup and /brain Phase 3
+# cleanup.
 #
 # chmod +x me after deploy
 
 set -uo pipefail
 
-VENV="${HOME}/Gin-AI/.Gin-AI-python-3.12"
+# Python venv location differs per platform: Linux keeps it under ~/Gin-AI,
+# macOS under ~/.python-3.12. Keep this block identical across all files that use it.
+case "$(uname -s)" in
+    Darwin) PYVENV="$HOME/.python-3.12" ;;
+    *)      PYVENV="$HOME/Gin-AI/.Gin-AI-python-3.12" ;;
+esac
+VENV="$PYVENV"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PY_SCRIPT="${SCRIPT_DIR}/telemetry-summarize.py"
 

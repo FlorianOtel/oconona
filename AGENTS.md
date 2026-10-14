@@ -19,12 +19,12 @@
 
 `commands/` and `agents/` are two distinct OpenCode artefacts — easy to conflate, important to keep separate:
 - **`commands/*.md`** → operator-facing slash commands (deployed to `~/.config/opencode/commands/`). Invoked by the operator typing `/name`. The body becomes Brain's prompt.
-- **`agents/*.md`** → dispatchable subagents (deployed to `~/.config/opencode/agents/`). Invoked by Brain via the `Task` tool with `subagent_type: name`. Each has frontmatter declaring its model and tool permissions.
+- **`agents/*.md`** → dispatchable subagents (deployed to `~/.config/opencode/agents/`). Invoked by Brain via the `subagent` tool with `agent: name` (v1 legacy: `task` tool with `subagent_type`). Each has frontmatter declaring its model and tool permissions.
 
 - `agents/` — planner (sohoai/minimax-m3, read-only), actor (sohoai/glm-5.3-flash), actor-heavy (sohoai/glm-5.3), reviewer (anthropic/claude-sonnet-5 as of v8.4.4, read-only), researcher (anthropic/claude-haiku-5-5, Phase 0 verifier, read-only + Bash), researcher-deep (anthropic/claude-sonnet-5, escalation verifier, read-only + Bash)
 - `config/orchestra-tiers.yaml` — SSOT for tier→model assignment; verified at deploy time by `scripts/check-tiers.py`
 - `commands/` — /brain (full pipeline: Phase 0 inline + 3 subagents) + /brain-abandon (explicit cancel); /duo-plan, /duo-act, /duo-abandon (lightweight session-bracketed pipeline: Brain plans interactively across multiple turns, Actor acts after /duo-act)
-- `scripts/orchestra-hook.sh` — PreToolUse / SubagentStop / PreCompact / Stop dispatcher
+- `plugins/oconona.js` — OpenCode v2 plugin; publishes orchestra session metadata through the v2 API (deployed to `~/.config/opencode/plugins/`)
 - `scripts/ctx-segment.sh` — status-line context-window bar renderer
 - `scripts/oc-db.py` — read-only OC SQLite helper (new in v7.1)
 - `scripts/session-report.{sh,py}` — unified cost report (orchestra sessions)

@@ -10,7 +10,13 @@ set -euo pipefail
 
 OPENCODE_PROJECT_DIR="${OPENCODE_PROJECT_DIR:-$(pwd)}"
 SESSIONS_ROOT="${HOME}/.config/opencode/orchestra/sessions"
-PYTHON3="${HOME}/Gin-AI/.Gin-AI-python-3.12/bin/python3"
+# Python venv location differs per platform: Linux keeps it under ~/Gin-AI,
+# macOS under ~/.python-3.12. Keep this block identical across all files that use it.
+case "$(uname -s)" in
+    Darwin) PYVENV="$HOME/.python-3.12" ;;
+    *)      PYVENV="$HOME/Gin-AI/.Gin-AI-python-3.12" ;;
+esac
+PYTHON3="$PYVENV/bin/python3"
 
 if [ -n "${1:-}" ]; then
     SESSION_DIR="$1"

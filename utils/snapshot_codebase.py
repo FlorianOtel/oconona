@@ -51,9 +51,7 @@ _SNAPSHOT_FILES_FALLBACK: list[str] = [
     "config/oconona-config.yaml",
     "config/context-windows.yaml",
     "config/pricing.yaml",
-    "config/settings-hooks.json",
     # Scripts
-    "scripts/orchestra-hook.sh",
     "scripts/bash-session-init.sh",
     "scripts/otel-headers-helper.sh",
     "scripts/ctx-segment.sh",

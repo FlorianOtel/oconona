@@ -22,7 +22,7 @@ Use `/duo` when the task is simple enough that a plan + execute is sufficient, a
 
 ## Prerequisites
 
-1. **Permission mode.** octmux's permission mode (Shift-TAB cycles `ask` / `allow` / `deny`) is the operator's tool-approval posture for Actor's execution phase after `/duo-act`. `ask` (yellow, default) is recommended for supervised review; `allow` (green) for trusted plans. `deny` (red) is incompatible with `/duo-act` (would reject Actor's `Task` dispatch). No prerequisite to check or enforce — set the mode you want, then proceed.
+1. **Permission mode.** octmux's permission mode (Shift-TAB cycles `ask` / `allow` / `deny`) is the operator's tool-approval posture for Actor's execution phase after `/duo-act`. `ask` (yellow, default) is recommended for supervised review; `allow` (green) for trusted plans. `deny` (red) is incompatible with `/duo-act` (would reject Actor's `subagent` dispatch). No prerequisite to check or enforce — set the mode you want, then proceed.
 2. **Bypass-flattens-down caveat.** If the operator is on permission mode `allow` (green), Actor's tool calls run uninterrupted. Document but do not refuse — this is the operator's choice. Subagent frontmatter `tools:` denies still take precedence: a tool absent from an agent's frontmatter cannot be authorised by any permission mode.
 
 ## Refusal — one active /duo session per project
@@ -117,24 +117,41 @@ if [ "$(realpath "${OPENCODE_PROJECT_DIR:-$(pwd)}")" = "$(realpath "$HOME")" ] &
     echo "WARN: resolve against \$HOME, not octmux's launch directory. Use absolute paths,"
     echo "WARN: or restart OC from a project root (systemctl --user restart opencode-server)."
 fi
-# Resolve the current OC session ID via OC's HTTP API. OC 1.15.11 does not export
-# OC_SESSION_ID into bash subprocesses; the env var is unreliable. The HTTP API
-# is the authoritative source. Pick the most-recently-updated top-level
-# (parentID null) session in this directory — that's the one running our setup.
-_OC_PORT="${OPENCODE_PORT:-4096}"
-_OC_DIR="$(realpath "${OPENCODE_PROJECT_DIR:-$(pwd)}" 2>/dev/null || pwd)"
-_OC_SESSION_ID=$(curl -sS -H "x-opencode-directory: ${_OC_DIR}" "http://localhost:${_OC_PORT}/session" 2>/dev/null \
-    | jq -r --arg dir "$_OC_DIR" '
-        [.[] | select(.parentID == null and .directory == $dir)]
-        | sort_by(.time.updated) | last | .id // ""' 2>/dev/null)
+# Resolve the current OC session ID.
+#
+# v2 (primary): OpenCode v2's `shell` tool exports OPENCODE_SESSION_ID into bash
+# subprocesses, so the session ID is read straight from the environment.
+#
+# v1 legacy (fallback when OPENCODE_SESSION_ID is unset): OC 1.15.11 did not export
+# a session ID into bash subprocesses, so the HTTP API is queried instead. It picks
+# the most-recently-updated top-level (parentID null) session in this directory,
+# which is the one running our setup.
+if [ -n "${OPENCODE_SESSION_ID:-}" ]; then
+    # v2 primary branch.
+    _OC_SESSION_ID="${OPENCODE_SESSION_ID}"
+else
+    # v1 legacy branch: HTTP lookup, unchanged from the pre-v2 pipeline.
+    _OC_PORT="${OPENCODE_PORT:-4096}"
+    _OC_DIR="$(realpath "${OPENCODE_PROJECT_DIR:-$(pwd)}" 2>/dev/null || pwd)"
+    _OC_SESSION_ID=$(curl -sS -H "x-opencode-directory: ${_OC_DIR}" "http://localhost:${_OC_PORT}/session" 2>/dev/null \
+        | jq -r --arg dir "$_OC_DIR" '
+            [.[] | select(.parentID == null and .directory == $dir)]
+            | sort_by(.time.updated) | last | .id // ""' 2>/dev/null)
+fi
 printf '%s\n' "${_OC_SESSION_ID:-}" > "${SESSION_DIR}/.oc-session-id"
 [ -z "$_OC_SESSION_ID" ] && echo "WARN: telemetry-summarize: .oc-session-id will be empty — check /session endpoint or header" >&2
 # Snapshot OC parent cost+tokens at session start (A1 attribution).
 # Written AFTER .oc-session-id so the ID is available.
 # Fallback: if snapshot fails (DB miss, session not yet in DB),
 # write an empty sentinel so cleanup knows setup ran but snapshot failed.
+# Python venv location differs per platform: Linux keeps it under ~/Gin-AI,
+# macOS under ~/.python-3.12. Keep this block identical across all files that use it.
+case "$(uname -s)" in
+    Darwin) PYVENV="$HOME/.python-3.12" ;;
+    *)      PYVENV="$HOME/Gin-AI/.Gin-AI-python-3.12" ;;
+esac
 if [ -n "${_OC_SESSION_ID:-}" ]; then
-    _SNAP_JSON=$(OC_SID="$_OC_SESSION_ID" "${HOME}/Gin-AI/.Gin-AI-python-3.12/bin/python3" \
+    _SNAP_JSON=$(OC_SID="$_OC_SESSION_ID" "$PYVENV/bin/python3" \
         "${HOME}/.config/opencode/scripts/oc-snapshot.py" 2>/dev/null)
     if [ -n "${_SNAP_JSON:-}" ]; then
         printf '%s\n' "$_SNAP_JSON" > "${SESSION_DIR}/.parent-snapshot-start.tmp"

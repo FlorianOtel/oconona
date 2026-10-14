@@ -16,6 +16,12 @@ DRY_RUN=false
 SHOW_DIFF=false
 NO_RESTART=false
 
+# v2 user unit name for the OpenCode server. Single source of truth for §11/§12.
+OC_SERVICE="opencode-v2-server.service"
+# Platform. Linux runs the server as a systemd user unit; macOS runs the
+# OpenCode desktop app, which has no systemd unit (restart it by hand).
+OS_NAME="$(uname -s)"
+
 info()  { printf "\033[36m  •\033[0m %s\n" "$*"; }
 ok()    { printf "\033[32m  ✓\033[0m %s\n" "$*"; }
 warn()  { printf "\033[33m  !\033[0m %s\n" "$*"; }
@@ -34,7 +40,13 @@ done
 # Hard-fail blocks deploy on agent/model-rates/context-windows drift.
 # Soft-warn lines are advisory only; deploy continues.
 echo "Tier audit:"
-PYTHON_BIN="${HOME}/Gin-AI/.Gin-AI-python-3.12/bin/python"
+# Python venv location differs per platform: Linux keeps it under ~/Gin-AI,
+# macOS under ~/.python-3.12. Keep this block identical across all files that use it.
+case "$(uname -s)" in
+    Darwin) PYVENV="$HOME/.python-3.12" ;;
+    *)      PYVENV="$HOME/Gin-AI/.Gin-AI-python-3.12" ;;
+esac
+PYTHON_BIN="$PYVENV/bin/python"
 if $DRY_RUN; then
     info "would run: $PYTHON_BIN scripts/check-tiers.py --repo-root $REPO"
 else
@@ -53,9 +65,11 @@ parts = text.split('---', 2)
 if len(parts) < 3:
     sys.exit('no frontmatter found')
 fm = yaml.safe_load(parts[1])
-missing = [k for k in ('name','description','model','tools') if fm is None or fm.get(k) is None]
+missing = [k for k in ('description','model','mode','permissions') if fm is None or fm.get(k) is None]
 if missing:
     sys.exit('null fields: ' + ', '.join(missing))
+if fm.get('mode') != 'subagent':
+    sys.exit('mode must be subagent (got ' + repr(fm.get('mode')) + ')')
 " "$f" || { rc=$?; die "Agent YAML lint failed for $(basename "$f") (exit $rc)"; }
     if $DRY_RUN; then
         info "valid: $(basename "$f")"
@@ -99,7 +113,7 @@ command -v jq >/dev/null 2>&1 || die "jq is required (sudo apt install jq)"
 [ -d "$OC_HOME" ] || die "~/.config/opencode does not exist — is OpenCode installed?"
 
 # ── 2. Create target directories ─────────────────────────────────────────────
-for dir in agents commands scripts orchestra; do
+for dir in agents commands scripts orchestra plugins; do
     $DRY_RUN || mkdir -p "$OC_HOME/$dir"
 done
 $DRY_RUN || mkdir -p "$OC_HOME/orchestra/logs"
@@ -131,7 +145,6 @@ done
 # ── 5. Hook scripts + telemetry tools ────────────────────────────────────────
 # Convention: shell wrappers (.sh) are +x and invoke the Python implementation
 # via the venv; Python files (.py) are NOT +x — they're called through the wrapper.
-#   orchestra-hook.sh         — PreToolUse/SubagentStop/PreCompact/Stop dispatcher
 #   telemetry-summarize.sh    — telemetry.json writer wrapper (calls .py)
 #   telemetry-report.sh       — orchestra session cost report (shell-only)
 #   session-report.sh         — orchestra session unified report wrapper (calls .py)
@@ -141,7 +154,7 @@ done
 #   orchestra-cleanup.sh      — end-of-session cleanup: .outcome + snapshot + inflight removal + telemetry
 echo "Scripts:"
 for s in \
-    orchestra-hook.sh telemetry-summarize.sh telemetry-report.sh \
+    telemetry-summarize.sh telemetry-report.sh \
     session-report.sh native-session-report.sh smoke-test.sh \
     ctx-segment.sh orchestra-cleanup.sh; do
     if [ -f "$REPO/scripts/$s" ]; then
@@ -162,6 +175,15 @@ for d in model-rates.yaml; do
     if [ -f "$REPO/scripts/$d" ]; then
         copy_file "$REPO/scripts/$d" "$OC_HOME/scripts/$d"
     fi
+done
+
+# Plugins — OpenCode server-side plugin modules (JS) deployed to $OC_HOME/plugins/.
+# The glob is guarded: if no plugins/*.js exists in the repo the literal pattern
+# would otherwise be passed to copy_file, so skip non-files explicitly.
+echo "Plugins:"
+for f in "$REPO"/plugins/*.js; do
+    [ -f "$f" ] || continue
+    copy_file "$f" "$OC_HOME/plugins/$(basename "$f")"
 done
 
 # Clean up artifacts deleted in the headless→subagents revert (idempotent).
@@ -207,9 +229,12 @@ if ! $DRY_RUN; then
     # hotfix #7 (commit 7fabdaa) as OC-SQLite-sourced replacements. Do NOT
     # add them to this orphan list — doing so deletes them on every deploy
     # immediately after the Scripts: loop has just copied them.
+    # orchestra-hook.sh (v8.7.0): the settings.json hook mechanism it served was
+    # dead code (OpenCode never reads settings.json hooks), so the script is removed.
+    # Listed here so a stale copy from before this release is deleted on re-deploy.
     for orphan in bash-session-init.sh native-session-finalize.py \
                   native-subagent-cost.sh sohoai-live-cost.sh \
-                  otel-headers-helper.sh; do
+                  otel-headers-helper.sh orchestra-hook.sh; do
         if [ -f "$OC_HOME/scripts/$orphan" ]; then
             rm -f "$OC_HOME/scripts/$orphan"
             ok "cleaned orphan: $OC_HOME/scripts/$orphan"
@@ -226,45 +251,57 @@ echo "Config:"
 copy_file "$REPO/config/oconona-config.yaml" "$OC_HOME/orchestra/oconona-config.yaml"
 copy_file "$REPO/config/context-windows.yaml" "$OC_HOME/orchestra/context-windows.yaml"
 
-# ── 7. Merge orchestra hooks into settings.json ───────────────────────────────
+# ── 7. Strip dead orchestra hooks from settings.json ─────────────────────────
+# History: earlier deploys merged config/settings-hooks.json into settings.json.
+# OpenCode never reads settings.json hooks (v1 or v2), so those entries were dead
+# code, and the fragment file was removed in v8.7.0. This step removes ONLY the
+# entries whose command contains "orchestra-hook.sh" (left by earlier deploys).
+# Every other key in settings.json is left untouched. Idempotent: a second run
+# finds no orchestra entries and changes nothing.
+#
+# Filter (jq): drop hook objects whose .command contains "orchestra-hook.sh";
+# drop matcher-groups emptied by that removal; drop event keys emptied by that
+# removal; drop .hooks only if it ends up empty after a real removal.
+ORCH_STRIP_FILTER='
+def is_orch: ((.command // "") | type == "string" and contains("orchestra-hook.sh"));
+def group_has_orch: ((.hooks // []) | any(is_orch));
+def strip_group:
+    if group_has_orch
+    then (.hooks |= map(select(is_orch | not))
+          | if (.hooks | length) == 0 then empty else . end)
+    else . end;
+if (((.hooks // {}) | [.. | objects | .command? | strings | select(contains("orchestra-hook.sh"))] | length) == 0)
+then .
+else
+    .hooks |= with_entries(
+        if (.value | map(group_has_orch) | any)
+        then (.value |= map(strip_group)) | select(.value | length > 0)
+        else . end
+    )
+    | if (.hooks | length) == 0 then del(.hooks) else . end
+end
+'
+
 echo "Settings:"
 SETTINGS="$OC_HOME/settings.json"
 if [ ! -f "$SETTINGS" ]; then
-    warn "settings.json not found; creating minimal one"
-    $DRY_RUN || echo '{}' > "$SETTINGS"
-fi
-
-# Check idempotency: all orchestra PreToolUse matchers from the fragment present?
-FRAGMENT="$REPO/config/settings-hooks.json"
-EXPECTED_MATCHERS="$(jq -r '[.hooks.PreToolUse[].matcher] | sort | join(",")' "$FRAGMENT")"
-CURRENT_MATCHERS="$(jq -r '([.hooks.PreToolUse // [] | .[]] | map(select(.hooks[].command | contains("orchestra-hook.sh"))) | map(.matcher) | sort | join(","))' "$SETTINGS" 2>/dev/null || echo "")"
-
-if [ "$CURRENT_MATCHERS" = "$EXPECTED_MATCHERS" ] && jq -e '.hooks.SubagentStop' "$SETTINGS" >/dev/null 2>&1 && jq -e '.hooks.Stop' "$SETTINGS" >/dev/null 2>&1; then
-    ok "unchanged: settings.json (hooks already present)"
+    info "settings.json absent; nothing to strip"
 else
-    if $DRY_RUN; then
-        info "would merge orchestra hooks into settings.json"
+    # Count orchestra-origin command strings first. Also fails loudly on invalid JSON.
+    ORCH_COUNT="$(jq -r '((.hooks // {}) | [.. | objects | .command? | strings | select(contains("orchestra-hook.sh"))] | length)' "$SETTINGS")" \
+        || die "settings.json is not valid JSON: $SETTINGS"
+    if [ "$ORCH_COUNT" = "0" ]; then
+        ok "unchanged: settings.json (no orchestra-hook.sh entries)"
+    elif $DRY_RUN; then
+        info "would strip $ORCH_COUNT orchestra-hook.sh entr(y/ies) from settings.json"
     else
         TMPFILE="$SETTINGS.orchestra-deploy.tmp"
-
-        # Keep non-orchestra PreToolUse entries; replace all orchestra-hook.sh entries
-        jq -s '
-            .[0] as $existing |
-            .[1].hooks as $new_hooks |
-            ($existing.hooks.PreToolUse // []) as $existing_ptu |
-            ($new_hooks.PreToolUse // []) as $new_ptu |
-            ($existing_ptu | map(select(
-                (.hooks // []) | map(.command // "") | map(contains("orchestra-hook.sh")) | any | not
-            ))) as $non_orchestra_ptu |
-            $existing
-            | .hooks.PreToolUse  = ($non_orchestra_ptu + $new_ptu)
-            | .hooks.SubagentStop = ($new_hooks.SubagentStop // [])
-            | .hooks.PreCompact  = ($new_hooks.PreCompact // [])
-            | .hooks.Stop = ($new_hooks.Stop // [])
-        ' "$SETTINGS" "$FRAGMENT" > "$TMPFILE"
-
+        if ! jq "$ORCH_STRIP_FILTER" "$SETTINGS" > "$TMPFILE"; then
+            rm -f "$TMPFILE"
+            die "failed to strip orchestra hooks from settings.json (file left unchanged)"
+        fi
         mv -f "$TMPFILE" "$SETTINGS"
-        ok "merged: settings.json (orchestra hooks updated)"
+        ok "stripped: $ORCH_COUNT orchestra-hook.sh entr(y/ies) from settings.json"
     fi
 fi
 
@@ -403,73 +440,123 @@ fi
 # (override with --no-restart for the rare case of file-only deploys).
 echo "OC server:"
 if $DRY_RUN; then
-    info "would restart: systemctl --user restart opencode-server.service"
+    info "would restart: systemctl --user restart $OC_SERVICE"
 elif $NO_RESTART; then
     warn "skipping restart (--no-restart) — deployed changes will NOT take effect until:"
-    warn "    systemctl --user restart opencode-server.service"
+    warn "    systemctl --user restart $OC_SERVICE"
 elif ! command -v systemctl >/dev/null 2>&1; then
-    warn "systemctl not found; restart OC manually for deployed changes to take effect"
-elif ! systemctl --user list-unit-files opencode-server.service >/dev/null 2>&1; then
-    warn "opencode-server.service not installed; restart OC manually for deployed changes to take effect"
-else
-    if systemctl --user restart opencode-server.service 2>&1; then
-        ok "restarted: opencode-server.service"
+    if [ "$OS_NAME" = "Darwin" ]; then
+        # macOS has no systemd. The server is the OpenCode desktop app, which
+        # must be restarted by hand; nothing here can do it for the operator.
+        warn "macOS detected: there is no systemd unit to restart."
+        warn "RESTART THE OPENCODE DESKTOP APP MANUALLY — deployed changes will NOT take effect until you do."
     else
-        warn "restart failed — run manually: systemctl --user restart opencode-server.service"
+        warn "systemctl not found; restart OC manually for deployed changes to take effect"
+    fi
+elif ! systemctl --user list-unit-files "$OC_SERVICE" >/dev/null 2>&1; then
+    warn "$OC_SERVICE not installed; restart OC manually for deployed changes to take effect"
+else
+    if systemctl --user restart "$OC_SERVICE" 2>&1; then
+        ok "restarted: $OC_SERVICE"
+    else
+        warn "restart failed — run manually: systemctl --user restart $OC_SERVICE"
     fi
 fi
 
 # ── 12. Post-restart agent verification ─────────────────────────────────────────
 if $DRY_RUN; then
-    info "would verify: /agent endpoint post-restart"
+    info "would verify: authenticated GET /api/agent post-restart"
 elif $NO_RESTART; then
     warn "skipping agent verification (--no-restart) — restart required before verification"
 elif ! command -v systemctl >/dev/null 2>&1; then
-    warn "skipping agent verification (systemctl not found) — verify manually"
-elif ! systemctl --user list-unit-files opencode-server.service >/dev/null 2>&1; then
-    warn "skipping agent verification (opencode-server.service not installed) — verify manually"
+    if [ "$OS_NAME" = "Darwin" ]; then
+        # The desktop app does not record its port in service.json, so the live
+        # check cannot be run reliably here. Skip loudly rather than guess a port.
+        warn "skipping agent verification (macOS desktop app: live check not run) — restart the OpenCode desktop app, then verify the agents in it manually"
+    else
+        warn "skipping agent verification (systemctl not found) — verify manually"
+    fi
+elif ! systemctl --user list-unit-files "$OC_SERVICE" >/dev/null 2>&1; then
+    warn "skipping agent verification ($OC_SERVICE not installed) — verify manually"
 else
-    # systemctl found and service installed; attempt verification.
-    # Filter to user-defined agents (derived from agents/*.md) — OC built-ins
-    # (build, compaction, summary, title, explore, general, plan) intentionally
-    # have model=null and must not trigger a false warn.
-    echo "Agent verification:"
-    _EXPECTED_NAMES=""
-    for _f in "$REPO"/agents/*.md; do
-        _EXPECTED_NAMES="$_EXPECTED_NAMES $(basename "$_f" .md)"
-    done
-    _EXPECTED_NAMES="${_EXPECTED_NAMES# }"
+    # Credentials for the v2 server (HTTP Basic auth, user "opencode").
+    # Read ONLY the two keys we need from the env file — never `source` it,
+    # because it may hold other variables. Missing password => warn and skip.
+    OC_ENV_FILE="$OC_HOME/opencode-server.env"
+    OC_PASSWORD=""
+    OC_PORT="4096"
+    if [ -r "$OC_ENV_FILE" ]; then
+        # Values may be wrapped in one pair of surrounding "..." or '...'; strip that pair.
+        OC_PASSWORD="$(grep -m1 '^OPENCODE_SERVER_PASSWORD=' "$OC_ENV_FILE" | cut -d= -f2- | sed -e 's/^"\(.*\)"$/\1/' -e "s/^'\(.*\)'$/\1/" || true)"
+        _port="$(grep -m1 '^OPENCODE_PORT=' "$OC_ENV_FILE" | cut -d= -f2- | sed -e 's/^"\(.*\)"$/\1/' -e "s/^'\(.*\)'$/\1/" || true)"
+        if [ -n "$_port" ]; then
+            OC_PORT="$_port"
+        fi
+    fi
 
-    verified=false
-    for attempt in {1..10}; do
-        if curl --max-time 2 -s http://localhost:4096/agent 2>/dev/null \
-            | "$PYTHON_BIN" -c "
+    if [ -z "$OC_PASSWORD" ]; then
+        warn "skipping agent verification (OPENCODE_SERVER_PASSWORD not found in $OC_ENV_FILE) — verify manually"
+    else
+        # The password goes into a curl config file (-K), NOT onto curl's argv,
+        # so it never appears in `ps`. The file is 0600 and removed on exit.
+        # Escape backslash and double quote for the curl config quoted-string syntax.
+        _pw_escaped="${OC_PASSWORD//\\/\\\\}"
+        _pw_escaped="${_pw_escaped//\"/\\\"}"
+        OC_CURL_CFG="$(mktemp)"
+        trap 'rm -f "$OC_CURL_CFG"' EXIT
+        chmod 0600 "$OC_CURL_CFG"
+        printf 'user = "opencode:%s"\n' "$_pw_escaped" > "$OC_CURL_CFG"
+
+        # systemctl found and service installed; attempt verification.
+        # Filter to user-defined agents (derived from agents/*.md) — OC built-ins
+        # (build, compaction, summary, title, explore, general, plan) intentionally
+        # have model=null and must not trigger a false warn.
+        echo "Agent verification:"
+        _EXPECTED_NAMES=""
+        for _f in "$REPO"/agents/*.md; do
+            _EXPECTED_NAMES="$_EXPECTED_NAMES $(basename "$_f" .md)"
+        done
+        _EXPECTED_NAMES="${_EXPECTED_NAMES# }"
+
+        verified=false
+        for attempt in {1..10}; do
+            # /api/agent returns {location, data: [Agent.Info...]} (v2 protocol).
+            if curl --max-time 2 -s -K "$OC_CURL_CFG" "http://localhost:${OC_PORT}/api/agent" 2>/dev/null \
+                | "$PYTHON_BIN" -c "
 import sys, json
 expected = set(sys.argv[1].split())
-agents_by_name = {a.get('name'): a for a in json.load(sys.stdin)}
+payload = json.load(sys.stdin)
+agents = payload.get('data') if isinstance(payload, dict) else None
+if not isinstance(agents, list):
+    sys.exit('unexpected /api/agent payload shape')
+agents_by_name = {a.get('name'): a for a in agents}
 missing = expected - set(agents_by_name)
 if missing:
-    sys.exit('user agents missing from /agent: ' + ', '.join(sorted(missing)))
+    sys.exit('user agents missing from /api/agent: ' + ', '.join(sorted(missing)))
 problems = []
 for name in expected:
     a = agents_by_name[name]
-    # model is a {modelID, providerID} dict — check truthy, not isinstance str
+    # model is an {id, providerID, variant} dict (v2 shape) — check truthy, not isinstance str
     if not a.get('model'):
         problems.append(name + ': null model')
     desc = a.get('description')
     if not desc or not str(desc).strip():
         problems.append(name + ': null/empty description')
+    if a.get('mode') != 'subagent':
+        problems.append(name + ': mode=' + repr(a.get('mode')) + ' (expected subagent)')
 if problems:
     sys.exit('; '.join(problems))
 " "$_EXPECTED_NAMES" >/dev/null 2>&1; then
-            ok "verified: all user agents report model + description via /agent"
-            verified=true
-            break
+                ok "verified: all user agents report model, description and mode=subagent via /api/agent"
+                verified=true
+                break
+            fi
+            [ "$attempt" -lt 10 ] && sleep 1
+        done
+        rm -f "$OC_CURL_CFG"
+        if [ "$verified" = "false" ]; then
+            warn "agent verification failed after 10 retries — user agent may have null model, a missing description, or mode != subagent; check: curl -s -u opencode http://localhost:${OC_PORT}/api/agent | jq   (prompts for the password)"
         fi
-        [ "$attempt" -lt 10 ] && sleep 1
-    done
-    if [ "$verified" = "false" ]; then
-        warn "agent verification failed after 10 retries — user agent may have null model; check: curl http://localhost:4096/agent | jq"
     fi
 fi
 

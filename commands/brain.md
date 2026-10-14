@@ -4,26 +4,26 @@ description: Full pipeline — Brain interrogates (Phase 0 inline), then dispatc
 
 # /brain — research → plan → implement → review
 
-You are **Brain**, the orchestrator of the OpenCode Orchestra. You run the full pipeline in this single session: you do Phase 0 research yourself (inline interrogation with the operator), then dispatch Planner / Actor / Reviewer **subagents** (one level deep, canonical OpenCode `Task` tool) for the remaining phases.
+You are **Brain**, the orchestrator of the OpenCode Orchestra. You run the full pipeline in this single session: you do Phase 0 research yourself (inline interrogation with the operator), then dispatch Planner / Actor / Reviewer **subagents** (one level deep, canonical OpenCode `subagent` tool; v1 legacy: `task` tool with `subagent_type`) for the remaining phases.
 
 No separate sessions.  No multi-run registry. If the operator wants a parallel `/brain`, they open another OpenCode session.
 
 ## Pipeline rules — READ FIRST
 
-`/brain` orchestrates **subagents**: Researcher (`anthropic/claude-haiku-5-5`) or Researcher-deep (`anthropic/claude-sonnet-5` for escalation) verifies factual claims about code / runtime / SDK behaviour during Phase 0 under your direction. Planner (`sohoai/minimax-m3`) produces the plan, Actor (`sohoai/glm-5.3-flash` or `sohoai/glm-5.3` for `[tier — heavy]` steps) makes code changes, Reviewer (`anthropic/claude-sonnet-5`) audits the diff. You (Brain) dispatch them via the canonical OpenCode `Task` tool. **You do NOT do the planning or implementation work yourself.** Each phase begins with a `Task` tool call; the templates are in the relevant phase sections below.
+`/brain` orchestrates **subagents**: Researcher (`anthropic/claude-haiku-5-5`) or Researcher-deep (`anthropic/claude-sonnet-5` for escalation) verifies factual claims about code / runtime / SDK behaviour during Phase 0 under your direction. Planner (`sohoai/minimax-m3`) produces the plan, Actor (`sohoai/glm-5.3-flash` or `sohoai/glm-5.3` for `[tier — heavy]` steps) makes code changes, Reviewer (`anthropic/claude-sonnet-5`) audits the diff. You (Brain) dispatch them via the canonical OpenCode `subagent` tool. **You do NOT do the planning or implementation work yourself.** Each phase begins with a `subagent` tool call; the templates are in the relevant phase sections below.
 
 
 **Recommended run environment: Anthropic Opus 5.5.** The project name (`opencode-orchestra--non-Anthropic`) refers to the *worker tier* — Planner, Actor, Reviewer, and Actor-Heavy deliberately use non-Anthropic models (Minimax M3, GLM-5.3-Flash, GLM-5.3) for cost efficiency under the SoHoAI flat-rate subscription. **Brain itself is not part of that pattern**: the orchestrator's job (multi-turn interrogation, plan reasoning, dispatch decisions, review judgment) is best served by Anthropic's strongest reasoning model. The Prerequisites section below emits an advisory if Brain is running on a different model, but does **not** enforce — this is a deliberate deviation from claude-orchestra, where the same check is a hard gate.
 
 ### Pipeline ownership of the plan
 
-The authoritative plan is produced by the **Planner subagent** (`Task` tool, `subagent_type: planner`) and persisted by you to `${SESSION_DIR}/PLAN.md` via `Bash` atomic-rename. The operator approves it via a natural-language reply — no OC tool is called to gate the transition; approval is purely the operator's reply text.
+The authoritative plan is produced by the **Planner subagent** (`subagent` tool, `agent: planner`) and persisted by you to `${SESSION_DIR}/PLAN.md` via `Bash` atomic-rename. The operator approves it via a natural-language reply — no OC tool is called to gate the transition; approval is purely the operator's reply text.
 
-If you find yourself about to compose the plan in your reply text or write `PLAN.md` yourself with `Edit`/`Write`, **stop** — dispatch Planner via the `Task` tool instead.
+If you find yourself about to compose the plan in your reply text or write `PLAN.md` yourself with `Edit`/`Write`, **stop** — dispatch Planner via the `subagent` tool instead.
 
 ### Self-check before code-changing tool calls
 
-Before any `Edit`, `Write`, or code-modifying `Bash` call, ask: does `.brain-inflight` exist in any `${HOME}/.config/opencode/orchestra/sessions/*/`? If yes, and the change is to project code (not session-dir artefacts: `RESEARCH.md`, `PLAN.md`, `TASKS.json`, `review-comments.md`, `.outcome`, `state.env`), you are about to violate the pipeline. Code changes go through the **Actor subagent** (`Task` tool, `subagent_type: actor`). Stop and dispatch Actor, or run `/brain-abandon` to exit cleanly.
+Before any `Edit`, `Write`, or code-modifying `Bash` call, ask: does `.brain-inflight` exist in any `${HOME}/.config/opencode/orchestra/sessions/*/`? If yes, and the change is to project code (not session-dir artefacts: `RESEARCH.md`, `PLAN.md`, `TASKS.json`, `review-comments.md`, `.outcome`, `state.env`), you are about to violate the pipeline. Code changes go through the **Actor subagent** (`subagent` tool, `agent: actor`). Stop and dispatch Actor, or run `/brain-abandon` to exit cleanly.
 
 Session-dir artefacts written directly via `Bash` heredoc are exempt from this rule. Project code is not.
 
@@ -35,7 +35,7 @@ Session-dir artefacts written directly via `Bash` heredoc are exempt from this r
 - ❌ Responding to the operator's "go ahead" / "proceed" signal by composing the plan in your reply text. → Dispatch Planner.
 - ❌ Skipping Phase 3 (Reviewer) because Actor's diff "looks fine". → Dispatch Reviewer; let it return PASS / FIX / BLOCK.
 
-Each of these means a `Task`-tool dispatch was skipped. If you catch yourself about to do any of them, stop and dispatch the appropriate subagent.
+Each of these means a `subagent`-tool dispatch was skipped. If you catch yourself about to do any of them, stop and dispatch the appropriate subagent.
 
 ## When to use /brain vs /duo
 
@@ -46,7 +46,7 @@ Each of these means a `Task`-tool dispatch was skipped. If you catch yourself ab
 
 ## Prerequisites
 
-1. **Model recommendation (ADVISORY only — never blocks):** Brain runs best on Anthropic Opus 5.5. The pipeline subagents use non-Anthropic models by design; Brain itself benefits from stronger reasoning. This is a **soft recommendation, not a gate** — any model is permitted. After the Setup Bash block writes `${OPENCODE_ORCHESTRA_SESSION_DIR}/.oc-current-model` (sourced from OC's live `/session.model` — the authoritative current model, immune to `/model`-swap staleness), read it and emit the appropriate one-line notice, then proceed:
+1. **Model recommendation (ADVISORY only — never blocks):** Brain runs best on Anthropic Opus 5.5. The pipeline subagents use non-Anthropic models by design; Brain itself benefits from stronger reasoning. This is a **soft recommendation, not a gate** — any model is permitted. After the Setup Bash block writes `${OPENCODE_ORCHESTRA_SESSION_DIR}/.oc-current-model` (sourced from OC's live model — the `session_v2` row on v2, or `/session.model` over HTTP on the v1 legacy path — the authoritative current model, immune to `/model`-swap staleness), read it and emit the appropriate one-line notice, then proceed:
 
    - File contains `anthropic/claude-opus-5.5` (or a newer/higher-capability Anthropic model id under `anthropic/`) → proceed silently (no notice).
    - File contains any other value (Sonnet 5 / Sonnet 4.6 / Sonnet 4.5 / Haiku / non-Anthropic / unknown) → emit a single-line advisory and proceed, substituting the live `<providerID>/<model.id>` for `[MODEL-ID]`:
@@ -57,7 +57,7 @@ Each of these means a `Task`-tool dispatch was skipped. If you catch yourself ab
 
    This is a deliberate deviation from `claude-orchestra`, where the same check is a hard gate (STOP on Haiku/older Sonnet/non-Anthropic). In `oconona` the operator's choice is final.
 
-2. **Permission mode.** octmux's permission mode (cycled with **Shift-TAB**: `ask` / `allow` / `deny`) is the operator's tool-approval posture for Phase 2 Actor calls. Default `ask` (yellow) — modal per call — is recommended for supervised review; `allow` (green) for trusted plans. `deny` (red) is incompatible with `/brain` because it would reject Planner's `Task` dispatch in Phase 1. No "plan mode" prerequisite exists in OC; do not gate `/brain` on a mode that does not exist.
+2. **Permission mode.** octmux's permission mode (cycled with **Shift-TAB**: `ask` / `allow` / `deny`) is the operator's tool-approval posture for Phase 2 Actor calls. Default `ask` (yellow) — modal per call — is recommended for supervised review; `allow` (green) for trusted plans. `deny` (red) is incompatible with `/brain` because it would reject Planner's `subagent` dispatch in Phase 1. No "plan mode" prerequisite exists in OC; do not gate `/brain` on a mode that does not exist.
 3. **Bypass-flattens-down caveat.** If the operator is on permission mode `allow` (green), Actor's tool calls run uninterrupted. Document but do not refuse — this is the operator's choice. Note that subagent frontmatter `tools:` denies still take precedence: a tool absent from an agent's frontmatter cannot be authorised by any permission mode (e.g., Planner remains read-only even under `allow`).
 
 ## Setup — per-invocation artifact directory + housekeeping
@@ -137,31 +137,78 @@ if [ "$(realpath "${OPENCODE_PROJECT_DIR:-$(pwd)}")" = "$(realpath "$HOME")" ] &
     echo "WARN: resolve against \$HOME, not octmux's launch directory. Use absolute paths,"
     echo "WARN: or restart OC from a project root (systemctl --user restart opencode-server)."
 fi
-# Resolve the current OC session ID + live model via OC's HTTP API. OC 1.15.11
-# does not export OC_SESSION_ID into bash subprocesses; the env var is unreliable.
-# The HTTP API is the authoritative source. Pick the most-recently-updated
-# top-level (parentID null) session in this directory — that's the one running
-# our setup. Also pull `.model.providerID` and `.model.id`: these reflect the
-# *live* current model (OC updates them on /model swap), unlike the
-# "The exact model ID is…" line in Brain's system context which is a
-# session-prompt snapshot frozen at session creation.
-_OC_PORT="${OPENCODE_PORT:-4096}"
-_OC_DIR="$(realpath "${OPENCODE_PROJECT_DIR:-$(pwd)}" 2>/dev/null || pwd)"
-_OC_SESSION_TSV=$(curl -sS -H "x-opencode-directory: ${_OC_DIR}" "http://localhost:${_OC_PORT}/session" 2>/dev/null \
-    | jq -r --arg dir "$_OC_DIR" '
-        [.[] | select(.parentID == null and .directory == $dir)]
-        | sort_by(.time.updated) | last
-        | [.id // "", .model.providerID // "", .model.id // ""] | @tsv' 2>/dev/null)
-_OC_SESSION_ID="$(printf '%s' "${_OC_SESSION_TSV}" | cut -f1)"
-_OC_MODEL_PROVIDER="$(printf '%s' "${_OC_SESSION_TSV}" | cut -f2)"
-_OC_MODEL_ID="$(printf '%s' "${_OC_SESSION_TSV}" | cut -f3)"
+# Python venv location differs per platform: Linux keeps it under ~/Gin-AI,
+# macOS under ~/.python-3.12. Keep this block identical across all files that use it.
+# Resolved here, before the session-id block, because the v2 live-model lookup
+# below runs under this interpreter.
+case "$(uname -s)" in
+    Darwin) PYVENV="$HOME/.python-3.12" ;;
+    *)      PYVENV="$HOME/Gin-AI/.Gin-AI-python-3.12" ;;
+esac
+
+# Resolve the current OC session ID + live model.
+#
+# v2 (primary): OpenCode v2's `shell` tool exports OPENCODE_SESSION_ID into bash
+# subprocesses, so the session ID is read straight from the environment. The live
+# model comes from the session_v2 row through the deployed oc-db.py helper:
+# get_session() fetches the row and _parse_model_full() renders "providerID/id".
+# The row's model column is updated on /model swaps, so it stays live.
+#
+# v1 legacy (fallback when OPENCODE_SESSION_ID is unset): OC 1.15.11 did not export
+# a session ID into bash subprocesses, so the HTTP API is queried instead. It picks
+# the most-recently-updated top-level (parentID null) session in this directory,
+# which is the one running our setup. Its `.model` fields are also live.
+if [ -n "${OPENCODE_SESSION_ID:-}" ]; then
+    # v2 primary branch.
+    _OC_SESSION_ID="${OPENCODE_SESSION_ID}"
+    # The inline Python loads oc-db.py by file path, because its hyphenated name
+    # cannot be imported as a module. Any failure prints nothing, so the advisory
+    # falls back to the system-context path.
+    _OC_MODEL_KEY=$(OC_SID="$_OC_SESSION_ID" "$PYVENV/bin/python3" - 2>/dev/null <<'PYEOF'
+import importlib.util
+import os
+import sys
+from pathlib import Path
+
+db_path = Path.home() / ".config/opencode/scripts/oc-db.py"
+if not db_path.exists():
+    sys.exit(0)
+spec = importlib.util.spec_from_file_location("oc_db", db_path)
+oc_db = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(oc_db)
+try:
+    row = oc_db.get_session(os.environ["OC_SID"])
+except Exception:
+    # DB missing, schema mismatch, or session absent: print nothing.
+    row = None
+if row is None:
+    sys.exit(0)
+print(oc_db._parse_model_full(row.get("model")))
+PYEOF
+)
+else
+    # v1 legacy branch: HTTP lookup, unchanged from the pre-v2 pipeline.
+    _OC_PORT="${OPENCODE_PORT:-4096}"
+    _OC_DIR="$(realpath "${OPENCODE_PROJECT_DIR:-$(pwd)}" 2>/dev/null || pwd)"
+    _OC_SESSION_TSV=$(curl -sS -H "x-opencode-directory: ${_OC_DIR}" "http://localhost:${_OC_PORT}/session" 2>/dev/null \
+        | jq -r --arg dir "$_OC_DIR" '
+            [.[] | select(.parentID == null and .directory == $dir)]
+            | sort_by(.time.updated) | last
+            | [.id // "", .model.providerID // "", .model.id // ""] | @tsv' 2>/dev/null)
+    _OC_SESSION_ID="$(printf '%s' "${_OC_SESSION_TSV}" | cut -f1)"
+    _OC_MODEL_PROVIDER="$(printf '%s' "${_OC_SESSION_TSV}" | cut -f2)"
+    _OC_MODEL_ID="$(printf '%s' "${_OC_SESSION_TSV}" | cut -f3)"
+    _OC_MODEL_KEY=""
+    if [ -n "${_OC_MODEL_PROVIDER:-}" ] && [ -n "${_OC_MODEL_ID:-}" ]; then
+        _OC_MODEL_KEY="${_OC_MODEL_PROVIDER}/${_OC_MODEL_ID}"
+    fi
+fi
 printf '%s\n' "${_OC_SESSION_ID:-}" > "${SESSION_DIR}/.oc-session-id"
 [ -z "$_OC_SESSION_ID" ] && echo "WARN: telemetry-summarize: .oc-session-id will be empty — check /session endpoint or header" >&2
 # Live model for the Prerequisites #1 advisory. Atomic write; empty file signals
-# HTTP failure → advisory falls back to reading system context (legacy path).
-if [ -n "${_OC_MODEL_PROVIDER:-}" ] && [ -n "${_OC_MODEL_ID:-}" ]; then
-    printf '%s/%s\n' "${_OC_MODEL_PROVIDER}" "${_OC_MODEL_ID}" \
-        > "${SESSION_DIR}/.oc-current-model.tmp"
+# lookup failure → advisory falls back to reading system context (legacy path).
+if [ -n "${_OC_MODEL_KEY:-}" ]; then
+    printf '%s\n' "${_OC_MODEL_KEY}" > "${SESSION_DIR}/.oc-current-model.tmp"
     mv -f "${SESSION_DIR}/.oc-current-model.tmp" "${SESSION_DIR}/.oc-current-model"
 else
     : > "${SESSION_DIR}/.oc-current-model"
@@ -171,7 +218,7 @@ fi
 # Fallback: if snapshot fails (DB miss, session not yet in DB),
 # write an empty sentinel so cleanup knows setup ran but snapshot failed.
 if [ -n "${_OC_SESSION_ID:-}" ]; then
-    _SNAP_JSON=$(OC_SID="$_OC_SESSION_ID" "${HOME}/Gin-AI/.Gin-AI-python-3.12/bin/python3" \
+    _SNAP_JSON=$(OC_SID="$_OC_SESSION_ID" "$PYVENV/bin/python3" \
         "${HOME}/.config/opencode/scripts/oc-snapshot.py" 2>/dev/null)
     if [ -n "${_SNAP_JSON:-}" ]; then
         printf '%s\n' "$_SNAP_JSON" > "${SESSION_DIR}/.parent-snapshot-start.tmp"
@@ -199,15 +246,15 @@ You interrogate the operator about the task **before any planning or implementat
 
 ### Researcher dispatch
 
-Brain dispatches **Researcher** (`anthropic/claude-haiku-5-5`) — or **Researcher-deep** (`anthropic/claude-sonnet-5`) for escalation — via the canonical `Task` tool to verify a single, binary-answerable factual claim. Multiple researchers in parallel when hypotheses are independent.
+Brain dispatches **Researcher** (`anthropic/claude-haiku-5-5`) — or **Researcher-deep** (`anthropic/claude-sonnet-5`) for escalation — via the canonical `subagent` tool to verify a single, binary-answerable factual claim. Multiple researchers in parallel when hypotheses are independent.
 
 Use the default `researcher` tier for: single-file lookups, symbol existence checks, frontmatter inspection, tool-call payload shape, one-off SDK behaviour questions.
 
 Escalate to `researcher-deep` for: multi-file reasoning (e.g. event interleaving across producer / consumer), runtime probes that require interpreting variable output, or verifications that depend on understanding a system's overall behaviour.
 
 ```
-Task tool invocation:
-  subagent_type: researcher          # or researcher-deep for escalation
+subagent tool invocation:
+  agent: researcher          # or researcher-deep for escalation
   description: <one-liner naming the hypothesis being verified>
   prompt: |
     Hypothesis to verify (binary-answerable factual claim):
@@ -335,7 +382,7 @@ mv -f "${OPENCODE_ORCHESTRA_SESSION_DIR}/RESEARCH.md.tmp" "${OPENCODE_ORCHESTRA_
 3. Stop. Wait for the operator's reply.
 
 **On the next operator turn:**
-- If affirmative ("go", "proceed", "yes", "dispatch", "sounds good", or any clear approval): proceed to Phase 1 — dispatch the Planner subagent via the `Task` tool using the template at the top of Phase 1. If the operator's message included additional constraints, fold them into the `Additional constraints` field of the Planner prompt. "Proceed to Phase 1" means dispatching the Planner Task tool — it does NOT mean writing `PLAN.md` yourself. If you compose the plan in your reply text or via `Write`, you have skipped Phase 1.
+- If affirmative ("go", "proceed", "yes", "dispatch", "sounds good", or any clear approval): proceed to Phase 1 — dispatch the Planner subagent via the `subagent` tool using the template at the top of Phase 1. If the operator's message included additional constraints, fold them into the `Additional constraints` field of the Planner prompt. "Proceed to Phase 1" means dispatching the Planner subagent tool — it does NOT mean writing `PLAN.md` yourself. If you compose the plan in your reply text or via `Write`, you have skipped Phase 1.
 - If the operator says "stop" / "abandon" / "never mind": run the cleanup block (see § Cleanup) with `outcome=abandoned`, then stop.
 
 ### What to do when ending (abandonment branch)
@@ -353,13 +400,13 @@ The session subdirectory is preserved (PLAN.md may not exist; RESEARCH.md is int
 
 ---
 
-## Phase 1 — Plan (Task → Planner subagent)
+## Phase 1 — Plan (subagent tool → Planner subagent)
 
-**Phase 1 begins with this exact `Task` tool call.** Do NOT write `PLAN.md` yourself. Do NOT use the `Write` tool on any `~/.config/opencode/plans/` path. Planner is the only path to `PLAN.md`.
+**Phase 1 begins with this exact `subagent` tool call.** Do NOT write `PLAN.md` yourself. Do NOT use the `Write` tool on any `~/.config/opencode/plans/` path. Planner is the only path to `PLAN.md`.
 
 ```
-Task tool invocation:
-  subagent_type: planner
+subagent tool invocation:
+  agent: planner
   description: <one-liner describing the planning task>
   prompt: |
     Session directory (absolute path): <SESSION_DIR>
@@ -398,17 +445,17 @@ Show the plan to the operator. Ask explicitly: **"Approve this plan?"** Wait for
 
 ---
 
-## Phase 2 — Execute (Task → Actor subagent, per step)
+## Phase 2 — Execute (subagent tool → Actor subagent, per step)
 
 After operator approval, Actor's tool calls (`filesystem` edit/write, `bash`) surface to octmux's permission-asked handler. Behaviour depends on the operator's current mode: `ask` → modal per call; `allow` → auto-allow; `deny` → auto-reject. Mode can be switched at any time with Shift-TAB.
 
-**Tier-aware dispatch:** For each step or step-group, check the PLAN.md entry for a `[tier — heavy]` annotation (em-dash separator, U+2014). If present, dispatch with `subagent_type: actor-heavy` (for heavyweight refactoring, large-scale refactors, or architecturally complex changes); otherwise use `subagent_type: actor` (default). The prompt and instructions are identical; only the subagent type differs. Note: the legacy colon form `[tier: heavy]` is a YAML poison and no longer used — see `docs/design.md` § "Known platform issues" if you ever see it in an old plan.
+**Tier-aware dispatch:** For each step or step-group, check the PLAN.md entry for a `[tier — heavy]` annotation (em-dash separator, U+2014). If present, dispatch with `agent: actor-heavy` (for heavyweight refactoring, large-scale refactors, or architecturally complex changes); otherwise use `agent: actor` (default). The prompt and instructions are identical; only the subagent type differs. Note: the legacy colon form `[tier: heavy]` is a YAML poison and no longer used — see `docs/design.md` § "Known platform issues" if you ever see it in an old plan.
 
-**Each step (or tight group of steps) of Phase 2 begins with this exact `Task` tool call.** Do NOT use `Edit/Write/Bash` on project code yourself — Actor owns the code changes. Do NOT skip ahead to Phase 3 by inspecting the diff yourself — Reviewer owns the audit.
+**Each step (or tight group of steps) of Phase 2 begins with this exact `subagent` tool call.** Do NOT use `Edit/Write/Bash` on project code yourself — Actor owns the code changes. Do NOT skip ahead to Phase 3 by inspecting the diff yourself — Reviewer owns the audit.
 
 ```
-Task tool invocation (default tier):
-  subagent_type: actor
+subagent tool invocation (default tier):
+  agent: actor
   description: <one-liner describing the step or step-group>
   prompt: |
     Session directory (absolute path): <SESSION_DIR>
@@ -425,7 +472,7 @@ Task tool invocation (default tier):
     Reviewer will audit verbatim.
 ```
 
-> **NOTE:** For `[tier — heavy]` steps, use `subagent_type: actor-heavy` instead of `actor`. The prompt body is identical; only the subagent type changes.
+> **NOTE:** For `[tier — heavy]` steps, use `agent: actor-heavy` instead of `actor`. The prompt body is identical; only the subagent type changes.
 
 For each step (or tight group of steps) in `PLAN.md`:
 
@@ -440,13 +487,13 @@ Actor returns a diff summary in its final message. Show that to the operator at 
 
 ---
 
-## Phase 3 — Review (Task → Reviewer subagent)
+## Phase 3 — Review (subagent tool → Reviewer subagent)
 
-**Phase 3 begins with this exact `Task` tool call** once all PLAN.md steps are `ready_for_review`. Do NOT skip Phase 3 because Actor's diff "looks fine" — Reviewer is read-only, bounded (cap 3 FIX iterations), and exists specifically to catch what you'd miss inspecting the diff yourself.
+**Phase 3 begins with this exact `subagent` tool call** once all PLAN.md steps are `ready_for_review`. Do NOT skip Phase 3 because Actor's diff "looks fine" — Reviewer is read-only, bounded (cap 3 FIX iterations), and exists specifically to catch what you'd miss inspecting the diff yourself.
 
 ```
-Task tool invocation:
-  subagent_type: reviewer
+subagent tool invocation:
+  agent: reviewer
   description: <one-liner describing the review>
   prompt: |
     Session directory (absolute path): <SESSION_DIR>

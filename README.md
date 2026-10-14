@@ -65,7 +65,7 @@ Use for: simple, well-scoped tasks (≤ 10 steps) where the plan is clear enough
 ## Prerequisites
 
 - [OpenCode](https://docs.anthropic.com/en/docs/claude-code) installed and configured
-- `jq` (for the deploy script and hook JSON parsing)
+- `jq` (for the deploy script's `settings.json` cleanup)
 - `tmux` (optional — for per-stage windows; falls back to logfile-only without it)
 - `bash` 5+
 
@@ -85,9 +85,9 @@ cd opencode-orchestra--non-Anthropic
 ./deploy.sh --diff     # show unified diff of every file that would change
 ```
 
-It copies `agents/`, `commands/`, `scripts/`, and `config/` to `~/.config/opencode/`, then:
+It copies `agents/`, `commands/`, `scripts/`, `plugins/`, and `config/` to `~/.config/opencode/`, then:
 
-1. Merges orchestra hooks (`PreToolUse → Agent`, `SubagentStop`, `PreCompact`) into `~/.config/opencode/settings.json` without touching existing entries
+1. Installs the session-metadata plugin `plugins/oconona.js` to `~/.config/opencode/plugins/`. It also removes orchestra hook entries that earlier deploys merged into `~/.config/opencode/settings.json`; OpenCode never read those hooks. Other `settings.json` entries are untouched. See [docs/design.md](docs/design.md) §Session-state publisher.
 2. Patches `~/.config/opencode/scripts/status-line.sh` to add orchestra state indicators (if you have one; skipped otherwise)
 3. (v7.5beta) Sessions are stored globally at `~/.config/opencode/orchestra/`; no project-local gitignore entry is needed.
 
@@ -102,7 +102,7 @@ opencode-orchestra--non-Anthropic/ (agents/, commands/, scripts/, config/)   ←
         │
         │  ./deploy.sh   (explicit step — nothing deploys automatically)
         ▼
-~/.config/opencode/  (agents, commands, hook, config — shared NFS, all machines)
+~/.config/opencode/  (agents, commands, plugins, config — shared NFS, all machines)
 ```
 
 ```bash
@@ -190,14 +190,16 @@ opencode-orchestra--non-Anthropic/
 │   ├── duo-plan.md       /duo-plan slash command       — open a /duo planning session (multi-turn refinement)
 │   ├── duo-act.md        /duo-act slash command        — commit plan, dispatch Actor, cleanup
 │   └── duo-abandon.md     /duo-abandon slash command     — cancel the active /duo session, run cleanup + telemetry
+├── plugins/
+│   └── oconona.js             OpenCode v2 plugin: publishes orchestra session metadata
 ├── scripts/
-│   └── orchestra-hook.sh      PreToolUse / SubagentStop / PreCompact hook dispatcher
+│   ├── ctx-segment.sh         Status-line context-window bar renderer
+│   └── oc-db.py               Read-only OpenCode SQLite helper (session_v2 / session)
 ├── status-line/
 │   └── orchestra-block.sh     Orchestra additions for status-line.sh
 ├── config/
 │   ├── oconona-config.yaml            Global orchestra configuration
-│   ├── context-windows.yaml   Model context window sizes (denominator for status-line ctx bar)
-│   └── settings-hooks.json    Hook entries to merge into settings.json
+│   └── context-windows.yaml   Model context window sizes (denominator for status-line ctx bar)
 ├── docs/
 │   ├── design.md              Full design reference (architecture, decisions, TO DOs)
 │   ├── design-history.md      Design session notes and change log

@@ -64,8 +64,9 @@ def load_native_sessions() -> List[Dict[str, Any]]:
     orchestra_ids = load_orchestra_session_ids()
     conn = oc_db.open_db()
     try:
+        # Table name (session_v2 or legacy session) is detected by oc_db.open_db().
         rows = conn.execute(
-            "SELECT * FROM session WHERE parent_id IS NULL ORDER BY time_created DESC"
+            f"SELECT * FROM {oc_db.session_table()} WHERE parent_id IS NULL ORDER BY time_created DESC"
         ).fetchall()
         return [dict(r) for r in rows if r["id"] not in orchestra_ids]
     finally:

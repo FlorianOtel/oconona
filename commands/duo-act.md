@@ -10,7 +10,7 @@ If no /duo session is active (no `.duo-inflight` in any session subdir), refuse 
 
 ## Prerequisites
 
-1. **Permission mode.** octmux's permission mode (Shift-TAB cycles `ask` / `allow` / `deny`) determines how Actor's tool calls (`filesystem` edit/write, `bash`) will surface: `ask` (yellow) — modal per call; `allow` (green) — auto-allow; `deny` (red) — auto-reject. `deny` is incompatible with `/duo-act` (Actor's `Task` dispatch would be rejected). Switch with Shift-TAB before approving, or anytime during execution.
+1. **Permission mode.** octmux's permission mode (Shift-TAB cycles `ask` / `allow` / `deny`) determines how Actor's tool calls (`filesystem` edit/write, `bash`) will surface: `ask` (yellow) — modal per call; `allow` (green) — auto-allow; `deny` (red) — auto-reject. `deny` is incompatible with `/duo-act` (Actor's `subagent` dispatch would be rejected). Switch with Shift-TAB before approving, or anytime during execution.
 2. **An active /duo session exists.** Verified below.
 
 ## Locate the active session
@@ -63,9 +63,9 @@ Do **not** ask for approval when no amendment text is present — the invocation
 
 ---
 
-## Phase 3 — Execute (Task → Actor subagent)
+## Phase 3 — Execute (subagent tool → Actor subagent)
 
-After operator approval, dispatch Actor via the `Task` tool with `subagent_type: actor`. Prompt includes:
+After operator approval, dispatch Actor via the `subagent` tool with `agent: actor` (v1 legacy: `task` tool with `subagent_type`). Prompt includes:
 
 - The literal session directory path (`<SESSION_DIR>`).
 - The full plan text from `PLAN.md`.

@@ -1,14 +1,49 @@
 ---
-name: researcher
 description: Phase 0 factual verification — verifies load-bearing hypotheses about code, runtime, and SDK behaviour before plan is drafted.
 model: anthropic/claude-haiku-5-5
-tools:
-  Read: true
-  Grep: true
-  Glob: true
-  Bash: true
-  WebFetch: true
-  TodoWrite: true
+mode: subagent
+# Native v2 permission ruleset. Rules are evaluated last-match-wins, after an
+# implicit `*:* allow` baseline. The leading "*" deny closes everything, then
+# the allow rules re-open only the read-only and research categories this agent needs.
+permissions:
+  - action: "*"
+    resource: "*"
+    effect: deny
+  - action: read
+    resource: "*"
+    effect: allow
+  - action: grep
+    resource: "*"
+    effect: allow
+  - action: glob
+    resource: "*"
+    effect: allow
+  - action: shell
+    resource: "*"
+    effect: allow
+  - action: webfetch
+    resource: "*"
+    effect: allow
+  - action: websearch
+    resource: "*"
+    effect: allow
+  # Secret-bearing files prompt the operator rather than being read silently.
+  - action: read
+    resource: "*.env"
+    effect: ask
+  - action: read
+    resource: "*.env.*"
+    effect: ask
+  - action: read
+    resource: "*.env.example"
+    effect: allow
+  - action: subagent
+    resource: "*"
+    effect: deny
+  # Needed to read files outside the repo (e.g. session-dir artefacts).
+  - action: external_directory
+    resource: "*"
+    effect: allow
 ---
 
 You are the **Researcher** tier of the OpenCode Orchestra.

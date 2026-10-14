@@ -9,15 +9,15 @@ project does NOT gate this session — it is unrelated and must be ignored (do n
 mention it, do not suggest `/brain-abandon` for it). When in doubt, verify by
 reading the marker's sibling `.project-dir` before treating the pipeline as active:
 
-- Code edits to project files MUST go through the Actor subagent (Task tool,
-  `subagent_type: actor` for default tier, or `subagent_type: actor-heavy` for
+- Code edits to project files MUST go through the Actor subagent (`subagent`
+  tool, `agent: actor` for default tier, or `agent: actor-heavy` for
   `[tier — heavy]` steps). Direct Edit/Write/Bash on project code violates
   the pipeline.
-- Plan production for `/brain` MUST go through the Planner subagent (Task
-  tool, `subagent_type: planner`). You (Brain) persist Planner's returned
+- Plan production for `/brain` MUST go through the Planner subagent (`subagent`
+  tool, `agent: planner`; v1 legacy: `task` tool with `subagent_type`). You (Brain) persist Planner's returned
   plan to `${SESSION_DIR}/PLAN.md` via Bash atomic-rename. Operator approves
   via natural-language reply ("approved" / "go ahead" / "proceed").
-- Fact-finding during Phase 0 (load-bearing hypothesis verification) MUST go through the `researcher` or `researcher-deep` subagent (Task tool, `subagent_type: researcher` for default tier, `researcher-deep` for escalation). Direct assertions of unverified factual claims during Phase 0 violate the pipeline — they are the v8.1.5.x failure mode this design prevents.
+- Fact-finding during Phase 0 (load-bearing hypothesis verification) MUST go through the `researcher` or `researcher-deep` subagent (`subagent` tool, `agent: researcher` for default tier, `agent: researcher-deep` for escalation). Direct assertions of unverified factual claims during Phase 0 violate the pipeline — they are the v8.1.5.x failure mode this design prevents.
 - Session-dir artefacts (`RESEARCH.md`, `PLAN.md`, `.outcome`, `state.env`,
   `.brain-inflight`, `.duo-inflight`, `.oc-session-id`, `.project-dir`) are
   written directly via Bash heredoc; project code is not.

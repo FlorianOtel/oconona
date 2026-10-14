@@ -39,16 +39,21 @@ _REQUIRED_COLUMNS = {
 _schema_checked = False
 _model_rates = None  # Cached rates dict
 
+# OC's session table name, in preference order. OC v2 writes `session_v2`; the
+# legacy `session` table is kept only as a fallback for pre-v2 databases.
+_SESSION_TABLE_CANDIDATES = ("session_v2", "session")
+_session_table = None  # Cached table name, set once per process by _detect_session_table()
+
 
 def open_db() -> sqlite3.Connection:
     """
-    Open OC's SQLite DB in read-only mode with schema self-check.
+    Open OC's SQLite DB in read-only mode with table detection and schema self-check.
 
     Returns sqlite3.Connection with row_factory = Row.
-    Raises RuntimeError if DB not found or schema mismatch.
-    Schema check runs once per process (guarded by _schema_checked flag).
+    Raises RuntimeError if DB not found, no session table exists, or schema mismatch.
+    Table detection and schema check each run once per process (cached in module globals).
     """
-    global _schema_checked
+    global _schema_checked, _session_table
 
     if not _DB_PATH.exists():
         raise RuntimeError(f"OC database not found at {_DB_PATH}")
@@ -60,6 +65,10 @@ def open_db() -> sqlite3.Connection:
     except sqlite3.OperationalError as e:
         raise RuntimeError(f"Failed to open OC database: {e}") from e
 
+    # Detect the session table before the schema check, because the check reads its columns.
+    if _session_table is None:
+        _session_table = _detect_session_table(conn)
+
     if not _schema_checked:
         _check_schema(conn)
         _schema_checked = True
@@ -67,13 +76,48 @@ def open_db() -> sqlite3.Connection:
     return conn
 
 
+def _detect_session_table(conn: sqlite3.Connection) -> str:
+    """
+    Return the name of the session table this DB uses: `session_v2` if present,
+    else `session`. One sqlite_master lookup; the caller caches the result.
+    Raises RuntimeError if neither table exists.
+    """
+    try:
+        cursor = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN (?, ?)",
+            _SESSION_TABLE_CANDIDATES,
+        )
+        existing = {row[0] for row in cursor.fetchall()}
+    except sqlite3.OperationalError as e:
+        raise RuntimeError(f"OC table detection failed: {e}") from e
+
+    for candidate in _SESSION_TABLE_CANDIDATES:
+        if candidate in existing:
+            return candidate
+
+    raise RuntimeError(
+        f"OC schema mismatch: neither {' nor '.join(_SESSION_TABLE_CANDIDATES)} table found"
+    )
+
+
+def session_table() -> str:
+    """
+    Return the detected session table name for use in SQL FROM clauses.
+    Must be called after open_db() in the same process (open_db performs detection).
+    Only ever returns one of _SESSION_TABLE_CANDIDATES, so interpolating it into SQL is safe.
+    """
+    if _session_table is None:
+        raise RuntimeError("OC session table not detected yet; call open_db() first")
+    return _session_table
+
+
 def _check_schema(conn: sqlite3.Connection) -> None:
     """
-    Verify that the 'session' table has all required columns.
+    Verify that the detected session table has all required columns.
     Raises RuntimeError with explicit missing-column name on mismatch.
     """
     try:
-        cursor = conn.execute("PRAGMA table_info(session)")
+        cursor = conn.execute(f"PRAGMA table_info({session_table()})")
         columns = {row[1] for row in cursor.fetchall()}
     except sqlite3.OperationalError as e:
         raise RuntimeError(f"OC schema check failed: {e}") from e
@@ -253,7 +297,9 @@ def get_session(session_id: str) -> Optional[dict]:
     """
     conn = open_db()
     try:
-        row = conn.execute("SELECT * FROM session WHERE id = ?", (session_id,)).fetchone()
+        row = conn.execute(
+            f"SELECT * FROM {session_table()} WHERE id = ?", (session_id,)
+        ).fetchone()
         return dict(row) if row else None
     finally:
         conn.close()
@@ -267,7 +313,7 @@ def get_child_sessions(parent_id: str) -> list:
     conn = open_db()
     try:
         rows = conn.execute(
-            "SELECT * FROM session WHERE parent_id = ? ORDER BY time_created",
+            f"SELECT * FROM {session_table()} WHERE parent_id = ? ORDER BY time_created",
             (parent_id,)
         ).fetchall()
         return [dict(r) for r in rows]
@@ -287,7 +333,9 @@ def get_session_snapshot(session_id: str) -> Optional[dict]:
     """
     conn = open_db()
     try:
-        row = conn.execute("SELECT * FROM session WHERE id = ?", (session_id,)).fetchone()
+        row = conn.execute(
+            f"SELECT * FROM {session_table()} WHERE id = ?", (session_id,)
+        ).fetchone()
         if row is None:
             return None
 
@@ -311,7 +359,7 @@ def get_child_sessions_in_window(
     """
     Fetch child sessions within a time window.
 
-    Queries SELECT * FROM session WHERE parent_id = ? AND time_created >= ? AND time_created <= ?
+    Queries SELECT * FROM <detected session table> WHERE parent_id = ? AND time_created >= ? AND time_created <= ?
     ordered by time_created. Applies a -1000 ms tolerance to started_at_ms (lower bound).
 
     Args:
@@ -326,7 +374,7 @@ def get_child_sessions_in_window(
         # Apply -1000 ms tolerance to lower bound for s/ms precision skew
         lower_bound = started_at_ms - 1000
         rows = conn.execute(
-            "SELECT * FROM session WHERE parent_id = ? AND time_created >= ? AND time_created <= ? ORDER BY time_created",
+            f"SELECT * FROM {session_table()} WHERE parent_id = ? AND time_created >= ? AND time_created <= ? ORDER BY time_created",
             (parent_id, lower_bound, ended_at_ms)
         ).fetchall()
         return [dict(r) for r in rows]

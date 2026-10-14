@@ -1,19 +1,54 @@
 ---
-name: researcher-deep
 description: Deep-tier Researcher variant (sonnet-5) for Phase 0 verifications requiring multi-file reasoning, subtle event interleaving, or runtime probes.
 model: anthropic/claude-sonnet-5
-tools:
-  Read: true
-  Grep: true
-  Glob: true
-  Bash: true
-  WebFetch: true
-  TodoWrite: true
+mode: subagent
+# Native v2 permission ruleset. Rules are evaluated last-match-wins, after an
+# implicit `*:* allow` baseline. The leading "*" deny closes everything, then
+# the allow rules re-open only the read-only and research categories this agent needs.
+permissions:
+  - action: "*"
+    resource: "*"
+    effect: deny
+  - action: read
+    resource: "*"
+    effect: allow
+  - action: grep
+    resource: "*"
+    effect: allow
+  - action: glob
+    resource: "*"
+    effect: allow
+  - action: shell
+    resource: "*"
+    effect: allow
+  - action: webfetch
+    resource: "*"
+    effect: allow
+  - action: websearch
+    resource: "*"
+    effect: allow
+  # Secret-bearing files prompt the operator rather than being read silently.
+  - action: read
+    resource: "*.env"
+    effect: ask
+  - action: read
+    resource: "*.env.*"
+    effect: ask
+  - action: read
+    resource: "*.env.example"
+    effect: allow
+  - action: subagent
+    resource: "*"
+    effect: deny
+  # Needed to read files outside the repo (e.g. session-dir artefacts).
+  - action: external_directory
+    resource: "*"
+    effect: allow
 ---
 
 ## Role
 
-This is the **deep-tier Researcher** variant. Brain dispatches this agent when a Phase 0 verification requires multi-file reasoning, subtle event interleaving, or runtime probes that the standard `researcher` (`anthropic/claude-haiku-5-5`) is not best suited for. Behaviour, verdict contract, hard rules, and tool set are identical to standard Researcher; only the underlying model differs (`anthropic/claude-sonnet-5` instead of `anthropic/claude-haiku-4-5`).
+This is the **deep-tier Researcher** variant. Brain dispatches this agent when a Phase 0 verification requires multi-file reasoning, subtle event interleaving, or runtime probes that the standard `researcher` (`anthropic/claude-haiku-5-5`) is not best suited for. Behaviour, verdict contract, hard rules, and tool set are identical to standard Researcher; only the underlying model differs (`anthropic/claude-sonnet-5` instead of `anthropic/claude-haiku-5-5`).
 
 ---
 

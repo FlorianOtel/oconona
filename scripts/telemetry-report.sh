@@ -25,7 +25,21 @@ while [[ $# -gt 0 ]]; do
 done
 
 SESSIONS_ROOT="${HOME}/.config/opencode/orchestra/sessions"
-PYTHON3="${HOME}/Gin-AI/.Gin-AI-python-3.12/bin/python3"
+# Python venv location differs per platform: Linux keeps it under ~/Gin-AI,
+# macOS under ~/.python-3.12. Keep this block identical across all files that use it.
+case "$(uname -s)" in
+    Darwin) PYVENV="$HOME/.python-3.12" ;;
+    *)      PYVENV="$HOME/Gin-AI/.Gin-AI-python-3.12" ;;
+esac
+PYTHON3="$PYVENV/bin/python3"
+
+# stat output format differs: GNU coreutils takes -c '%Y %n' (mtime epoch, name);
+# BSD/macOS stat takes -f '%m %N'. Probe once and use the matching form.
+if stat --version >/dev/null 2>&1; then
+    STAT_FMT=(-c '%Y %n')
+else
+    STAT_FMT=(-f '%m %N')
+fi
 
 if [ ! -d "$SESSIONS_ROOT" ] || [ -z "$(find "$SESSIONS_ROOT" -maxdepth 2 -name "telemetry.json" 2>/dev/null | head -1)" ]; then
     echo "(no telemetry yet — run /duo-plan (then /duo-act) or /brain first)"
@@ -153,7 +167,7 @@ PYEOF
             VALID_TFS+=("$TF")
             "${PYTHON3}" "$TIER_PY" "$TF"
         fi
-    done < <(find "$SESSIONS_ROOT" -maxdepth 2 -name "telemetry.json" -type f -exec stat -c "%Y %n" {} \; 2>/dev/null | sort -rn | head -n "$LAST_N" | awk '{print $NF}')
+    done < <(find "$SESSIONS_ROOT" -maxdepth 2 -name "telemetry.json" -type f -exec stat "${STAT_FMT[@]}" {} \; 2>/dev/null | sort -rn | head -n "$LAST_N" | awk '{print $NF}')
 
     # Cumulative summary across all sessions
     if [ ${#VALID_TFS[@]} -gt 0 ]; then
@@ -166,7 +180,7 @@ PYEOF
 else
     {
         printf "Date\tCommand\tOutcome\tCost\tSource\tTokens\tDuration\tNote\n"
-        find "$SESSIONS_ROOT" -maxdepth 2 -name "telemetry.json" -type f -exec stat -c "%Y %n" {} \; 2>/dev/null | sort -rn | head -n "$LAST_N" | awk '{print $NF}' | while read TF; do
+        find "$SESSIONS_ROOT" -maxdepth 2 -name "telemetry.json" -type f -exec stat "${STAT_FMT[@]}" {} \; 2>/dev/null | sort -rn | head -n "$LAST_N" | awk '{print $NF}' | while read TF; do
             [ -f "$TF" ] && cat "$TF"
         done | "${PYTHON3}" - <<'PYEOF'
 import json, sys
@@ -194,7 +208,7 @@ fi
 # =============================================================================
 echo ""
 echo "--- Aggregates (last $LAST_N sessions) ---"
-find "$SESSIONS_ROOT" -maxdepth 2 -name "telemetry.json" -type f -exec stat -c "%Y %n" {} \; 2>/dev/null | sort -rn | head -n "$LAST_N" | awk '{print $NF}' | while read TF; do
+find "$SESSIONS_ROOT" -maxdepth 2 -name "telemetry.json" -type f -exec stat "${STAT_FMT[@]}" {} \; 2>/dev/null | sort -rn | head -n "$LAST_N" | awk '{print $NF}' | while read TF; do
     [ -f "$TF" ] && cat "$TF"
 done | "${PYTHON3}" - <<'PYEOF'
 import json, sys

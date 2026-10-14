@@ -113,11 +113,18 @@ if [ -n "$cwd" ] && [ -f "$HOME/.config/opencode/orchestra/oconona-config.yaml" 
 
     ctx_seg=$(~/.config/opencode/scripts/ctx-segment.sh "${used_percentage:-0}" "${tokens_used:-0}" "${context_window_size:-200000}" "${model_id:-}" 2>/dev/null || true)
 
+    # Python venv location differs per platform: Linux keeps it under ~/Gin-AI,
+    # macOS under ~/.python-3.12. Keep this block identical across all files that use it.
+    case "$(uname -s)" in
+        Darwin) PYVENV="$HOME/.python-3.12" ;;
+        *)      PYVENV="$HOME/Gin-AI/.Gin-AI-python-3.12" ;;
+    esac
+
     # --- live cost (v7.3: OC SQLite direct via oc-db.py) ---
     live_cost=""
     _json_sid=$(echo "$input" | jq -r '.session_id // ""' 2>/dev/null)
     if [ -n "$_json_sid" ]; then
-        _cost=$(OC_SID="$_json_sid" "${HOME}/Gin-AI/.Gin-AI-python-3.12/bin/python3" - <<'PYEOF' 2>/dev/null || echo ""
+        _cost=$(OC_SID="$_json_sid" "$PYVENV/bin/python3" - <<'PYEOF' 2>/dev/null || echo ""
 import os, sys
 from pathlib import Path
 sys.path.insert(0, str(Path.home() / ".config/opencode/scripts"))
